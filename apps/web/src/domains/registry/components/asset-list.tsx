@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Asset, AssetKind } from "@opspilot/shared-types";
+import { EmptyState, ErrorNotice, Loading } from "../../../lib/ui";
 import { useAssets } from "../use-registry";
 
 interface Props {
@@ -37,11 +38,27 @@ export function AssetList({ projectId, selectedId, onSelect }: Props) {
     }));
   }, [assets, q]);
 
-  if (projectId === null) return <p style={{ color: "#888" }}>프로젝트를 선택하세요.</p>;
-  if (isPending) return <p>불러오는 중…</p>;
-  if (isError) return <p style={{ color: "crimson" }}>{error.message}</p>;
+  if (projectId === null)
+    return (
+      <EmptyState
+        title="프로젝트를 먼저 선택하세요"
+        hint="위의 프로젝트 바에서 git URL로 등록하거나 목록에서 고르면 자산이 여기 표시됩니다."
+      />
+    );
+  if (isPending)
+    return (
+      <p style={{ color: "#57606a" }}>
+        <Loading label="자산 불러오는 중…" />
+      </p>
+    );
+  if (isError) return <ErrorNotice error={error} />;
   if (assets.length === 0)
-    return <p style={{ color: "#888" }}>스캔된 자산 없음. 스캔하세요.</p>;
+    return (
+      <EmptyState
+        title="아직 자산이 없어요"
+        hint="상단 ‘스캔’으로 이 프로젝트의 .claude를 적재하거나, 오른쪽 ‘새 자산 작성’으로 첫 에이전트/스킬/커맨드를 만드세요. .claude가 없는 프로젝트는 작성부터 하면 OpsPilot이 자동으로 만들고 버전을 생성합니다."
+      />
+    );
 
   return (
     <div>

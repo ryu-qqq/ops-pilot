@@ -1,3 +1,4 @@
+import { EmptyState, ErrorNotice, Loading } from "../../../lib/ui";
 import { useAssetVersions } from "../use-registry";
 
 interface Props {
@@ -10,10 +11,22 @@ interface Props {
 export function VersionTimeline({ assetId, selectedVersionId, onSelectVersion }: Props) {
   const { data: versions, isPending, isError, error } = useAssetVersions(assetId);
 
-  if (assetId === null) return <p style={{ color: "#888" }}>자산을 선택하세요.</p>;
-  if (isPending) return <p>불러오는 중…</p>;
-  if (isError) return <p style={{ color: "crimson" }}>{error.message}</p>;
-  if (versions.length === 0) return <p style={{ color: "#888" }}>버전 없음.</p>;
+  if (assetId === null)
+    return (
+      <EmptyState
+        title="자산을 선택하세요"
+        hint="왼쪽 목록에서 자산을 고르면 git 커밋 기반 버전 타임라인이 여기 표시됩니다."
+      />
+    );
+  if (isPending)
+    return (
+      <p style={{ color: "#57606a" }}>
+        <Loading label="버전 불러오는 중…" />
+      </p>
+    );
+  if (isError) return <ErrorNotice error={error} />;
+  if (versions.length === 0)
+    return <EmptyState title="버전이 없어요" hint="이 자산을 수정·저장하면 첫 버전이 생성됩니다." />;
 
   return (
     <ol style={{ listStyle: "none", padding: 0, margin: 0 }}>

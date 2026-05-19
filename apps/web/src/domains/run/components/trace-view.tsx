@@ -1,3 +1,4 @@
+import { EmptyState, ErrorNotice, Loading } from "../../../lib/ui";
 import { useRun, useRunTrace } from "../use-run";
 import type { TraceEventView } from "../api";
 
@@ -61,9 +62,20 @@ export function TraceView({ runId }: { runId: string | null }) {
   const running = run?.status === "running";
   const { data: trace, isPending, isError, error } = useRunTrace(runId, running);
 
-  if (runId === null) return <p style={{ color: "#888" }}>왼쪽에서 실행(run)을 선택하세요.</p>;
-  if (isPending) return <p>불러오는 중…</p>;
-  if (isError) return <p style={{ color: "crimson" }}>{error.message}</p>;
+  if (runId === null)
+    return (
+      <EmptyState
+        title="실행을 선택하세요"
+        hint="왼쪽 목록에서 실행(run)을 고르면 단계별 트레이스가 여기 표시됩니다."
+      />
+    );
+  if (isPending)
+    return (
+      <p style={{ color: "#57606a" }}>
+        <Loading label="트레이스 불러오는 중…" />
+      </p>
+    );
+  if (isError) return <ErrorNotice error={error} />;
 
   return (
     <>
@@ -79,7 +91,13 @@ export function TraceView({ runId }: { runId: string | null }) {
         </div>
       )}
       {trace.length === 0 ? (
-        <p style={{ color: "#888" }}>{running ? "트레이스 생성 중…" : "트레이스 없음."}</p>
+        running ? (
+          <p style={{ color: "#9a6700" }}>
+            <Loading label="트레이스 생성 중…" />
+          </p>
+        ) : (
+          <EmptyState title="트레이스가 없어요" hint="이 실행에서 기록된 단계가 없습니다." />
+        )
       ) : (
         <ol style={{ listStyle: "none", padding: 0, margin: 0 }}>
           {trace.map((e) => (

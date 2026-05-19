@@ -1,0 +1,6 @@
+/* OPSP-25: 스피너 회전만. 전반 디자인 패스는 OPSP-28. */
+@keyframes opspilot-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
