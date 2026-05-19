@@ -121,6 +121,21 @@ export function assetVersionExists(id: string): boolean {
   return getDb().prepare("SELECT 1 FROM asset_version WHERE id = ?").get(id) !== undefined;
 }
 
+// 실행 격리용: asset_version → asset → project 의 클론경로·커밋.
+export function versionExecContext(
+  assetVersionId: string,
+): { clonePath: string; gitCommit: string } | undefined {
+  return getDb()
+    .prepare(
+      `SELECT p.clone_path AS clonePath, av.git_commit AS gitCommit
+       FROM asset_version av
+       JOIN asset a ON a.id = av.asset_id
+       JOIN project p ON p.id = a.project_id
+       WHERE av.id = ?`,
+    )
+    .get(assetVersionId) as { clonePath: string; gitCommit: string } | undefined;
+}
+
 export function listVersions(assetId: string): AssetVersionSummary[] {
   return getDb()
     .prepare(

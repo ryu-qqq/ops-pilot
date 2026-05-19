@@ -1,15 +1,21 @@
 import type { Run } from "@opspilot/shared-types";
-import { assetVersionExists } from "../registry/repository.js";
+import { assetVersionExists, versionExecContext } from "../registry/repository.js";
 import { getScenario } from "../scenario/repository.js";
-import { extractUsage, normalizeEvent, type RunUsage } from "./normalizer.js";
+import { extractUsage, normalizeEvent, type NormalizedEvent, type RunUsage } from "./normalizer.js";
 import { appendTrace, createRun, finishRun, getRun } from "./repository.js";
 import type { RunnerSource } from "./source.js";
+import { createWorktree, removeWorktree } from "./worktree.js";
 
 export class RunInputError extends Error {}
 
+function sysEvent(name: string, output: unknown): NormalizedEvent {
+  return { type: "system", name, input: null, output, raw: { type: "opspilot", name, output } };
+}
+
 /**
  * (asset_version × scenario) 1회 실행.
- * 소스 이벤트 → 정규화 → trace_event 적재, 종료 시 run 마감(상태/토큰).
+ * local-claude 는 프로젝트 클론에서 해당 버전 커밋으로 worktree를 떠 *격리 실행*,
+ * 종료 시 worktree 폐기. fixture 는 격리 불필요(실행 없음).
  */
 export async function executeRun(params: {
   assetVersionId: string;
@@ -31,8 +37,27 @@ export async function executeRun(params: {
 
   let seq = 0;
   let usage: RunUsage | null = null;
+  let cwd = params.cwd;
+  let cleanup: (() => void) | null = null;
+
   try {
-    for await (const raw of params.source.run({ prompt: scenario.input, cwd: params.cwd })) {
+    if (params.source.kind === "local-claude") {
+      const ctx = versionExecContext(params.assetVersionId);
+      if (!ctx) throw new RunInputError("실행 컨텍스트(clonePath/commit) 조회 실패");
+      const wt = createWorktree(ctx.clonePath, ctx.gitCommit, runId);
+      cwd = wt;
+      cleanup = () => {
+        removeWorktree(ctx.clonePath, wt);
+      };
+      appendTrace(
+        runId,
+        seq,
+        sysEvent("worktree", { ref: ctx.gitCommit, path: wt, clone: ctx.clonePath }),
+      );
+      seq += 1;
+    }
+
+    for await (const raw of params.source.run({ prompt: scenario.input, cwd })) {
       for (const ev of normalizeEvent(raw)) {
         appendTrace(runId, seq, ev);
         seq += 1;
@@ -43,6 +68,8 @@ export async function executeRun(params: {
     finishRun(runId, "succeeded", { usage });
   } catch (e) {
     finishRun(runId, "failed", { error: (e as Error).message, usage });
+  } finally {
+    cleanup?.();
   }
 
   const run = getRun(runId);
