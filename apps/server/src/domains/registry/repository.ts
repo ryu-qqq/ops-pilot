@@ -106,6 +106,17 @@ export function assetExists(id: string): boolean {
   return getDb().prepare("SELECT 1 FROM asset WHERE id = ?").get(id) !== undefined;
 }
 
+// 수정 prefill 용 — 가장 최근 커밋 버전의 본문.
+export function latestContent(assetId: string): string | undefined {
+  const row = getDb()
+    .prepare(
+      `SELECT content FROM asset_version WHERE asset_id = ?
+       ORDER BY committed_at DESC LIMIT 1`,
+    )
+    .get(assetId) as { content: string } | undefined;
+  return row?.content;
+}
+
 export function assetVersionExists(id: string): boolean {
   return getDb().prepare("SELECT 1 FROM asset_version WHERE id = ?").get(id) !== undefined;
 }

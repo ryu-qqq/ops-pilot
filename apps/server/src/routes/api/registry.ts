@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { assetVersionSchema } from "@opspilot/shared-types";
-import { assetExists, listVersions } from "../../domains/registry/repository.js";
+import { assetExists, latestContent, listVersions } from "../../domains/registry/repository.js";
 
 const versionSummarySchema = assetVersionSchema.omit({ content: true });
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
@@ -21,6 +21,24 @@ const registry: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ error: "NotFound", detail: "asset not found" });
       }
       return { versions: listVersions(req.params.id) };
+    },
+  );
+
+  // 수정 prefill — 최신 버전 본문
+  fastify.get(
+    "/registry/assets/:id/content",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: { 200: z.object({ content: z.string() }), 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      const content = latestContent(req.params.id);
+      if (content === undefined) {
+        return reply.status(404).send({ error: "NotFound", detail: "content not found" });
+      }
+      return { content };
     },
   );
 };
