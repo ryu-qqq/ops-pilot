@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { runSchema, scoreSchema, scorerSchema } from "@opspilot/shared-types";
-import { executeRun, RunInputError } from "../../domains/run/service.js";
+import { RunInputError, startRun } from "../../domains/run/service.js";
 import { DEMO_FIXTURE, fixtureSource, localClaudeSource } from "../../domains/run/source.js";
 import { getRun, listRuns, listTrace } from "../../domains/run/repository.js";
 import { createScore, listScores } from "../../domains/score/repository.js";
@@ -54,7 +54,8 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
           ? fixtureSource(fixtureEvents ?? DEMO_FIXTURE)
           : localClaudeSource();
       try {
-        return await executeRun({ assetVersionId, scenarioId, cwd, source: runnerSource });
+        // 즉시 반환(status=running). 실제 실행은 백그라운드 → 클라가 폴링.
+        return startRun({ assetVersionId, scenarioId, cwd, source: runnerSource });
       } catch (e) {
         if (e instanceof RunInputError) {
           return reply.status(400).send({ error: "BadRequest", detail: e.message });

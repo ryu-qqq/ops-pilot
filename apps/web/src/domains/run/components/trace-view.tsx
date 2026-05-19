@@ -1,4 +1,4 @@
-import { useRunTrace } from "../use-run";
+import { useRun, useRunTrace } from "../use-run";
 import type { TraceEventView } from "../api";
 
 // 타입별 색/라벨 — "무엇이 일어났는지"가 한눈에 (가독성).
@@ -57,18 +57,36 @@ function TraceRow({ e }: { e: TraceEventView }) {
 }
 
 export function TraceView({ runId }: { runId: string | null }) {
-  const { data: trace, isPending, isError, error } = useRunTrace(runId);
+  const { data: run } = useRun(runId);
+  const running = run?.status === "running";
+  const { data: trace, isPending, isError, error } = useRunTrace(runId, running);
 
   if (runId === null) return <p style={{ color: "#888" }}>왼쪽에서 실행(run)을 선택하세요.</p>;
   if (isPending) return <p>불러오는 중…</p>;
   if (isError) return <p style={{ color: "crimson" }}>{error.message}</p>;
-  if (trace.length === 0) return <p style={{ color: "#888" }}>트레이스 없음.</p>;
 
   return (
-    <ol style={{ listStyle: "none", padding: 0, margin: 0 }}>
-      {trace.map((e) => (
-        <TraceRow key={e.seq} e={e} />
-      ))}
-    </ol>
+    <>
+      {run && (
+        <div style={{ fontSize: 13, marginBottom: 6 }}>
+          {running ? (
+            <span style={{ color: "#9a6700" }}>● 실행 중… (실시간 갱신)</span>
+          ) : (
+            <span style={{ color: run.status === "succeeded" ? "#1a7f37" : "crimson" }}>
+              ● {run.status}
+            </span>
+          )}
+        </div>
+      )}
+      {trace.length === 0 ? (
+        <p style={{ color: "#888" }}>{running ? "트레이스 생성 중…" : "트레이스 없음."}</p>
+      ) : (
+        <ol style={{ listStyle: "none", padding: 0, margin: 0 }}>
+          {trace.map((e) => (
+            <TraceRow key={e.seq} e={e} />
+          ))}
+        </ol>
+      )}
+    </>
   );
 }
