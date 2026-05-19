@@ -1,8 +1,32 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getRuns, getRunTrace, launchRun, runKeys } from "./api";
+import {
+  getRun,
+  getRuns,
+  getRunTrace,
+  getScenario,
+  launchRun,
+  runKeys,
+  scenarioKeys,
+} from "./api";
 
 export function useRuns() {
   return useQuery({ queryKey: runKeys.list(), queryFn: getRuns });
+}
+
+export function useRun(runId: string | null) {
+  return useQuery({
+    queryKey: runKeys.detail(runId ?? "none"),
+    queryFn: () => getRun(runId ?? ""),
+    enabled: runId !== null,
+  });
+}
+
+export function useScenario(scenarioId: string | null | undefined) {
+  return useQuery({
+    queryKey: scenarioKeys.detail(scenarioId ?? "none"),
+    queryFn: () => getScenario(scenarioId ?? ""),
+    enabled: scenarioId != null,
+  });
 }
 
 export function useRunTrace(runId: string | null) {

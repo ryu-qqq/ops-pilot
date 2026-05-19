@@ -2,7 +2,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { assetSchema, expectationSchema, scenarioSchema } from "@opspilot/shared-types";
 import { assetExists } from "../../domains/registry/repository.js";
-import { createScenario } from "../../domains/scenario/repository.js";
+import { createScenario, getScenario } from "../../domains/scenario/repository.js";
 
 const createBody = z.object({
   assetId: assetSchema.shape.id,
@@ -22,6 +22,21 @@ const scenarios: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(400).send({ error: "BadRequest", detail: "asset not found" });
       }
       return createScenario(req.body);
+    },
+  );
+
+  fastify.get(
+    "/scenarios/:id",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: { 200: scenarioSchema, 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      const sc = getScenario(req.params.id);
+      if (!sc) return reply.status(404).send({ error: "NotFound", detail: "scenario not found" });
+      return sc;
     },
   );
 };

@@ -23,6 +23,7 @@ const runListItem = z.object({
   promptTokens: z.number().nullable(),
   completionTokens: z.number().nullable(),
   costUsd: z.number().nullable(),
+  scenarioId: z.string().uuid(),
   scenarioName: z.string(),
   assetName: z.string(),
   assetKind: z.string(),

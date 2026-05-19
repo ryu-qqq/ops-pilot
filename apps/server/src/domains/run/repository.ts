@@ -80,6 +80,7 @@ export interface RunListItem {
   promptTokens: number | null;
   completionTokens: number | null;
   costUsd: number | null;
+  scenarioId: string;
   scenarioName: string;
   assetName: string;
   assetKind: string;
@@ -92,7 +93,7 @@ export function listRuns(): RunListItem[] {
       `SELECT r.id, r.status, r.runner, r.created_at AS createdAt,
               r.prompt_tokens AS promptTokens, r.completion_tokens AS completionTokens,
               r.cost_usd AS costUsd,
-              s.name AS scenarioName, a.name AS assetName, a.kind AS assetKind,
+              s.id AS scenarioId, s.name AS scenarioName, a.name AS assetName, a.kind AS assetKind,
               av.git_commit AS gitCommit
        FROM run r
        JOIN scenario s ON s.id = r.scenario_id
