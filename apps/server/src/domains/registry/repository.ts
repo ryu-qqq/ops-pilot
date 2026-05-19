@@ -100,6 +100,10 @@ export function assetExists(id: string): boolean {
   return getDb().prepare("SELECT 1 FROM asset WHERE id = ?").get(id) !== undefined;
 }
 
+export function assetVersionExists(id: string): boolean {
+  return getDb().prepare("SELECT 1 FROM asset_version WHERE id = ?").get(id) !== undefined;
+}
+
 export function listVersions(assetId: string): AssetVersionSummary[] {
   return getDb()
     .prepare(
