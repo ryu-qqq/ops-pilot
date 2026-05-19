@@ -25,14 +25,42 @@ git 커밋 = 버전의 단일 원천.
 | 프론트 | Vite + React + TypeScript |
 | 백엔드 | Node.js + TypeScript + Fastify |
 | 저장소 | better-sqlite3 |
-| 러너 | @anthropic-ai/claude-agent-sdk (TS, 헤드리스) |
+| 러너 | 로컬 `claude` CLI 헤드리스 직접 spawn (기존 로컬 인증 직결, 별도 키 불필요) |
 | 모노레포 | pnpm workspace (`apps/web` + `apps/server` + `packages/*`) |
 
 코드 컨벤션은 [`CONVENTIONS.md`](./CONVENTIONS.md) (토스 4원칙 기반). 작업 추적은 지라 `OPSP`.
 
 ## 상태
 
-MVP Phase 1 = 레지스트리 + 트레이스 뷰어 (지라 OPSP-2~8). 백로그 = OPSP-9~12.
+MVP Phase 1 **완료** (지라 OPSP-2~8): 레지스트리·스캐너·러너·대시보드·트레이스 뷰어.
+백로그 = OPSP-9~12 (회귀 점수판 / A·B diff / 버전 활성화 / 토큰 패널).
+
+## 데모 (Phase 1) — 클린 환경 재현
+
+전제: Node ≥ 20, `corepack`(pnpm), 평가 대상 레포(예: 어떤 `.claude/`를 가진 git 레포).
+
+```bash
+# 1) 설치
+corepack pnpm install
+
+# 2) 백엔드 (터미널 A) — DB 자동 생성 + 기동
+cd apps/server && corepack pnpm db:migrate && corepack pnpm dev   # :3001
+
+# 3) 프론트 (터미널 B)
+cd apps/web && corepack pnpm dev                                  # :5173
+```
+
+브라우저 `http://localhost:5173`:
+
+1. **레지스트리** 탭 → 스캔할 레포 경로 입력 → **스캔** → 자산(에이전트/스킬/커맨드) 목록
+2. 자산 선택 → 우측 **git 버전 타임라인** (커밋 = 버전)
+3. 버전 선택 → **이 버전으로 실행** 폼 → 시나리오 입력 → `fixture`(토큰0·결정론) 또는 `local-claude`(실제) → **▶ 실행**
+4. 자동으로 **실행 / 트레이스** 탭 이동 → run 선택 → 단계별 트레이스(툴 호출·판단·토큰) 펼쳐보기
+
+> 한 줄 기동: 루트 `corepack pnpm dev` (= web+server 동시). 단 격리 테스트 시엔
+> 워크스페이스별로 따로 띄우고 `OPS_DB_PATH`로 DB를 분리한다.
+
+스크린샷: [`docs/screenshots/`](./docs/screenshots/) (레지스트리 대시보드, 트레이스 뷰어, E2E 흐름).
 
 ---
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { traceEventTypeSchema } from "@opspilot/shared-types";
-import { apiGet } from "../../lib/api-client";
+import { runSchema, scenarioSchema, traceEventTypeSchema } from "@opspilot/shared-types";
+import { apiGet, apiPost } from "../../lib/api-client";
 
 export const runListItemSchema = z.object({
   id: z.string().uuid(),
@@ -42,4 +42,27 @@ export async function getRuns() {
 
 export async function getRunTrace(runId: string) {
   return (await apiGet(`/api/runs/${runId}/trace`, traceResponse)).trace;
+}
+
+export interface LaunchInput {
+  assetId: string;
+  assetVersionId: string;
+  name: string;
+  input: string;
+  cwd: string;
+  source: "fixture" | "local-claude";
+}
+
+// 시나리오 생성 → 그 시나리오로 run 실행 (E2E 한 흐름).
+export async function launchRun(v: LaunchInput) {
+  const scenario = await apiPost(
+    "/api/scenarios",
+    { assetId: v.assetId, name: v.name, description: null, input: v.input, expectation: {} },
+    scenarioSchema,
+  );
+  return apiPost(
+    "/api/runs",
+    { assetVersionId: v.assetVersionId, scenarioId: scenario.id, cwd: v.cwd, source: v.source },
+    runSchema,
+  );
 }

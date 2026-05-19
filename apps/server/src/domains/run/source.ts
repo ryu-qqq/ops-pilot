@@ -14,6 +14,62 @@ export interface RunnerSource {
   run(input: RunInput): AsyncIterable<unknown>;
 }
 
+// UI "실행"에서 source=fixture & 이벤트 미지정 시 쓰는 내장 데모 트레이스
+// (토큰 0·결정론 — 클린 환경 데모 재현용). 멀티 에이전트 핸드오프 형태를 모사.
+export const DEMO_FIXTURE: unknown[] = [
+  { type: "system", subtype: "init", tools: ["Agent", "Read", "Grep"] },
+  {
+    type: "assistant",
+    message: {
+      role: "assistant",
+      content: [{ type: "thinking", thinking: "orchestrator 절차서 로드 → Phase0 wiki-lookup 선행" }],
+    },
+  },
+  {
+    type: "assistant",
+    message: {
+      role: "assistant",
+      content: [
+        { type: "tool_use", id: "d1", name: "Agent", input: { subagent_type: "wiki-lookup", prompt: "도메인 컨벤션 조회" } },
+      ],
+    },
+  },
+  {
+    type: "user",
+    message: {
+      role: "user",
+      content: [{ type: "tool_result", tool_use_id: "d1", content: "vaultContext 수집 완료" }],
+    },
+  },
+  {
+    type: "assistant",
+    message: {
+      role: "assistant",
+      content: [
+        { type: "tool_use", id: "d2", name: "Agent", input: { subagent_type: "product-owner", prompt: "수용기준 도출" } },
+      ],
+    },
+  },
+  {
+    type: "user",
+    message: {
+      role: "user",
+      content: [{ type: "tool_result", tool_use_id: "d2", content: "수용기준 3건 + CLARIFY 1건" }],
+    },
+  },
+  {
+    type: "assistant",
+    message: { role: "assistant", content: [{ type: "text", text: "ESCALATION 없음 → 다음 Phase 진행" }] },
+  },
+  {
+    type: "result",
+    subtype: "success",
+    result: "데모 흐름 완료",
+    usage: { input_tokens: 12840, output_tokens: 920 },
+    total_cost_usd: 0.041,
+  },
+];
+
 /** 결정론 픽스처: 미리 정해둔 이벤트 배열을 그대로 재생 (테스트·CI, 토큰 0). */
 export function fixtureSource(events: unknown[]): RunnerSource {
   return {

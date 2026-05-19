@@ -2,7 +2,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { runSchema } from "@opspilot/shared-types";
 import { executeRun, RunInputError } from "../../domains/run/service.js";
-import { fixtureSource, localClaudeSource } from "../../domains/run/source.js";
+import { DEMO_FIXTURE, fixtureSource, localClaudeSource } from "../../domains/run/source.js";
 import { getRun, listRuns, listTrace } from "../../domains/run/repository.js";
 
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
@@ -48,7 +48,9 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
     async (req, reply) => {
       const { assetVersionId, scenarioId, cwd, source, fixtureEvents } = req.body;
       const runnerSource =
-        source === "fixture" ? fixtureSource(fixtureEvents ?? []) : localClaudeSource();
+        source === "fixture"
+          ? fixtureSource(fixtureEvents ?? DEMO_FIXTURE)
+          : localClaudeSource();
       try {
         return await executeRun({ assetVersionId, scenarioId, cwd, source: runnerSource });
       } catch (e) {
