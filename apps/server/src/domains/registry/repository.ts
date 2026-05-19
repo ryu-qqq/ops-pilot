@@ -17,21 +17,25 @@ export interface AssetVersionSummary {
 
 const nowIso = () => new Date().toISOString();
 
-// 멱등 적재: asset UNIQUE(kind,name,scope), asset_version UNIQUE(asset_id,git_commit).
-export function saveScan(scanned: ScannedAsset[]): { assets: number; versions: number } {
+// 멱등 적재 (프로젝트 스코프): asset UNIQUE(project_id,kind,name,scope).
+export function saveScan(
+  projectId: string,
+  scanned: ScannedAsset[],
+): { assets: number; versions: number } {
   const db = getDb();
 
   const upsertAsset = db.prepare<{
     id: string;
+    projectId: string;
     kind: string;
     name: string;
     scope: string;
     sourcePath: string;
     createdAt: string;
   }>(
-    `INSERT INTO asset (id, kind, name, scope, source_path, created_at)
-     VALUES (@id, @kind, @name, @scope, @sourcePath, @createdAt)
-     ON CONFLICT(kind, name, scope) DO UPDATE SET source_path = excluded.source_path
+    `INSERT INTO asset (id, project_id, kind, name, scope, source_path, created_at)
+     VALUES (@id, @projectId, @kind, @name, @scope, @sourcePath, @createdAt)
+     ON CONFLICT(project_id, kind, name, scope) DO UPDATE SET source_path = excluded.source_path
      RETURNING id`,
   );
 
@@ -59,6 +63,7 @@ export function saveScan(scanned: ScannedAsset[]): { assets: number; versions: n
     for (const a of items) {
       const row = upsertAsset.get({
         id: randomUUID(),
+        projectId,
         kind: a.kind,
         name: a.name,
         scope: a.scope,
@@ -87,21 +92,48 @@ export function saveScan(scanned: ScannedAsset[]): { assets: number; versions: n
   return tx(scanned);
 }
 
-export function listAssets(): Asset[] {
+export function listAssets(projectId: string): Asset[] {
   return getDb()
     .prepare(
-      `SELECT id, kind, name, scope, source_path AS sourcePath, created_at AS createdAt
-       FROM asset ORDER BY kind, name`,
+      `SELECT id, project_id AS projectId, kind, name, scope,
+              source_path AS sourcePath, created_at AS createdAt
+       FROM asset WHERE project_id = ? ORDER BY kind, name`,
     )
-    .all() as Asset[];
+    .all(projectId) as Asset[];
 }
 
 export function assetExists(id: string): boolean {
   return getDb().prepare("SELECT 1 FROM asset WHERE id = ?").get(id) !== undefined;
 }
 
+// 수정 prefill 용 — 가장 최근 커밋 버전의 본문.
+export function latestContent(assetId: string): string | undefined {
+  const row = getDb()
+    .prepare(
+      `SELECT content FROM asset_version WHERE asset_id = ?
+       ORDER BY committed_at DESC LIMIT 1`,
+    )
+    .get(assetId) as { content: string } | undefined;
+  return row?.content;
+}
+
 export function assetVersionExists(id: string): boolean {
   return getDb().prepare("SELECT 1 FROM asset_version WHERE id = ?").get(id) !== undefined;
+}
+
+// 실행 격리용: asset_version → asset → project 의 클론경로·커밋.
+export function versionExecContext(
+  assetVersionId: string,
+): { clonePath: string; gitCommit: string } | undefined {
+  return getDb()
+    .prepare(
+      `SELECT p.clone_path AS clonePath, av.git_commit AS gitCommit
+       FROM asset_version av
+       JOIN asset a ON a.id = av.asset_id
+       JOIN project p ON p.id = a.project_id
+       WHERE av.id = ?`,
+    )
+    .get(assetVersionId) as { clonePath: string; gitCommit: string } | undefined;
 }
 
 export function listVersions(assetId: string): AssetVersionSummary[] {

@@ -4,14 +4,24 @@
 PRAGMA foreign_keys = ON;
 PRAGMA journal_mode = WAL;
 
+CREATE TABLE IF NOT EXISTS project (
+  id             TEXT PRIMARY KEY,
+  name           TEXT NOT NULL,
+  git_url        TEXT NOT NULL UNIQUE,
+  clone_path     TEXT NOT NULL,
+  default_branch TEXT,
+  created_at     TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS asset (
   id          TEXT PRIMARY KEY,
+  project_id  TEXT NOT NULL REFERENCES project (id) ON DELETE CASCADE,
   kind        TEXT NOT NULL CHECK (kind IN ('agent', 'skill', 'command')),
   name        TEXT NOT NULL,
   scope       TEXT NOT NULL CHECK (scope IN ('project', 'user', 'plugin')),
   source_path TEXT NOT NULL,
   created_at  TEXT NOT NULL,
-  UNIQUE (kind, name, scope)
+  UNIQUE (project_id, kind, name, scope)
 );
 
 CREATE TABLE IF NOT EXISTS asset_version (

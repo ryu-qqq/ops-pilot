@@ -3,6 +3,7 @@ import type { Asset, AssetKind } from "@opspilot/shared-types";
 import { useAssets } from "../use-registry";
 
 interface Props {
+  projectId: string | null;
   selectedId: string | null;
   onSelect: (id: string) => void;
 }
@@ -14,8 +15,8 @@ const KIND_LABEL: Record<AssetKind, string> = {
   agent: "에이전트",
 };
 
-export function AssetList({ selectedId, onSelect }: Props) {
-  const { data: assets, isPending, isError, error } = useAssets();
+export function AssetList({ projectId, selectedId, onSelect }: Props) {
+  const { data: assets, isPending, isError, error } = useAssets(projectId);
   const [q, setQ] = useState("");
 
   // 검색·그룹은 파생값 — useMemo (서버데이터는 Query, UI필터는 로컬).
@@ -36,10 +37,11 @@ export function AssetList({ selectedId, onSelect }: Props) {
     }));
   }, [assets, q]);
 
+  if (projectId === null) return <p style={{ color: "#888" }}>프로젝트를 선택하세요.</p>;
   if (isPending) return <p>불러오는 중…</p>;
   if (isError) return <p style={{ color: "crimson" }}>{error.message}</p>;
   if (assets.length === 0)
-    return <p style={{ color: "#888" }}>스캔된 자산 없음. 위에서 스캔하세요.</p>;
+    return <p style={{ color: "#888" }}>스캔된 자산 없음. 스캔하세요.</p>;
 
   return (
     <div>

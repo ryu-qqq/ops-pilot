@@ -1,48 +1,13 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { assetSchema, assetVersionSchema } from "@opspilot/shared-types";
-import { scanRepo } from "../../domains/registry/scanner.js";
-import { assetExists, listAssets, listVersions, saveScan } from "../../domains/registry/repository.js";
+import { assetVersionSchema } from "@opspilot/shared-types";
+import { assetExists, latestContent, listVersions } from "../../domains/registry/repository.js";
 
 const versionSummarySchema = assetVersionSchema.omit({ content: true });
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
 
-const scanBodySchema = z.object({ repoPath: z.string().min(1) });
-const scanResponseSchema = z.object({
-  repoPath: z.string(),
-  scannedAssets: z.number().int(),
-  scannedVersions: z.number().int(),
-  saved: z.object({ assets: z.number().int(), versions: z.number().int() }),
-});
-
+// 자산 버전 조회만 유지 (등록·스캔·목록은 프로젝트 스코프로 projects.ts 로 이동).
 const registry: FastifyPluginAsyncZod = async (fastify) => {
-  // 레포의 .claude/ 스캔 → 멱등 적재
-  fastify.post(
-    "/registry/scan",
-    { schema: { body: scanBodySchema, response: { 200: scanResponseSchema, 400: errorSchema } } },
-    async (req, reply) => {
-      let scanned;
-      try {
-        scanned = scanRepo(req.body.repoPath);
-      } catch (e) {
-        return reply.status(400).send({ error: "ScanError", detail: (e as Error).message });
-      }
-      const saved = saveScan(scanned);
-      return {
-        repoPath: req.body.repoPath,
-        scannedAssets: scanned.length,
-        scannedVersions: scanned.reduce((n, a) => n + a.versions.length, 0),
-        saved,
-      };
-    },
-  );
-
-  fastify.get(
-    "/registry/assets",
-    { schema: { response: { 200: z.object({ assets: z.array(assetSchema) }) } } },
-    async () => ({ assets: listAssets() }),
-  );
-
   fastify.get(
     "/registry/assets/:id/versions",
     {
@@ -56,6 +21,24 @@ const registry: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ error: "NotFound", detail: "asset not found" });
       }
       return { versions: listVersions(req.params.id) };
+    },
+  );
+
+  // 수정 prefill — 최신 버전 본문
+  fastify.get(
+    "/registry/assets/:id/content",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: { 200: z.object({ content: z.string() }), 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      const content = latestContent(req.params.id);
+      if (content === undefined) {
+        return reply.status(404).send({ error: "NotFound", detail: "content not found" });
+      }
+      return { content };
     },
   );
 };

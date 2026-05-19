@@ -29,8 +29,19 @@ export type Scorer = z.infer<typeof scorerSchema>;
 const id = z.string().uuid();
 const ts = z.string().datetime();
 
+export const projectSchema = z.object({
+  id,
+  name: z.string().min(1),
+  gitUrl: z.string().min(1),
+  clonePath: z.string().min(1),
+  defaultBranch: z.string().nullable(),
+  createdAt: ts,
+});
+export type Project = z.infer<typeof projectSchema>;
+
 export const assetSchema = z.object({
   id,
+  projectId: id,
   kind: assetKindSchema,
   name: z.string().min(1),
   scope: assetScopeSchema,

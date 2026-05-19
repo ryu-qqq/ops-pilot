@@ -12,7 +12,13 @@ import {
 } from "./api";
 
 export function useRuns() {
-  return useQuery({ queryKey: runKeys.list(), queryFn: getRuns });
+  return useQuery({
+    queryKey: runKeys.list(),
+    queryFn: getRuns,
+    // 실행 중인 run 이 있으면 목록도 폴링(상태 갱신), 없으면 멈춤
+    refetchInterval: (q) =>
+      (q.state.data ?? []).some((r) => r.status === "running") ? 2000 : false,
+  });
 }
 
 export function useRun(runId: string | null) {
@@ -20,6 +26,8 @@ export function useRun(runId: string | null) {
     queryKey: runKeys.detail(runId ?? "none"),
     queryFn: () => getRun(runId ?? ""),
     enabled: runId !== null,
+    // OPSP-29: 실행 중이면 폴링(실시간), 종료되면 멈춤
+    refetchInterval: (q) => (q.state.data?.status === "running" ? 1200 : false),
   });
 }
 
@@ -31,11 +39,12 @@ export function useScenario(scenarioId: string | null | undefined) {
   });
 }
 
-export function useRunTrace(runId: string | null) {
+export function useRunTrace(runId: string | null, isRunning: boolean) {
   return useQuery({
     queryKey: runKeys.trace(runId ?? "none"),
     queryFn: () => getRunTrace(runId ?? ""),
     enabled: runId !== null,
+    refetchInterval: isRunning ? 1200 : false,
   });
 }
 
