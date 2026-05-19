@@ -23,7 +23,7 @@ export const traceEventTypeSchema = z.enum([
 ]);
 export type TraceEventType = z.infer<typeof traceEventTypeSchema>;
 
-export const scorerSchema = z.enum(["schema", "assertion", "llm_judge"]);
+export const scorerSchema = z.enum(["schema", "assertion", "llm_judge", "human"]);
 export type Scorer = z.infer<typeof scorerSchema>;
 
 const id = z.string().uuid();

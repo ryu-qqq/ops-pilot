@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  createHumanScore,
   getRun,
   getRuns,
   getRunTrace,
   getScenario,
+  getScores,
   launchRun,
   runKeys,
   scenarioKeys,
@@ -42,5 +44,21 @@ export function useLaunchRun() {
   return useMutation({
     mutationFn: launchRun,
     onSuccess: () => qc.invalidateQueries({ queryKey: runKeys.all }),
+  });
+}
+
+export function useScores(runId: string | null) {
+  return useQuery({
+    queryKey: runKeys.scores(runId ?? "none"),
+    queryFn: () => getScores(runId ?? ""),
+    enabled: runId !== null,
+  });
+}
+
+export function useCreateHumanScore(runId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: createHumanScore,
+    onSuccess: () => qc.invalidateQueries({ queryKey: runKeys.scores(runId) }),
   });
 }

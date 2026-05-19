@@ -1,6 +1,7 @@
 import { RunList } from "./run-list";
 import { TraceView } from "./trace-view";
 import { ScenarioPanel } from "./scenario-panel";
+import { HumanScore } from "./human-score";
 
 interface Props {
   selectedRunId: string | null;
@@ -17,6 +18,7 @@ export function RunsView({ selectedRunId, onSelectRun }: Props) {
       <section>
         <h2 style={{ fontSize: 14, color: "#555" }}>트레이스 — 왜 그렇게 행동했나</h2>
         <ScenarioPanel runId={selectedRunId} />
+        <HumanScore runId={selectedRunId} />
         <TraceView runId={selectedRunId} />
       </section>
     </div>

@@ -1,9 +1,10 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { runSchema } from "@opspilot/shared-types";
+import { runSchema, scoreSchema, scorerSchema } from "@opspilot/shared-types";
 import { executeRun, RunInputError } from "../../domains/run/service.js";
 import { DEMO_FIXTURE, fixtureSource, localClaudeSource } from "../../domains/run/source.js";
 import { getRun, listRuns, listTrace } from "../../domains/run/repository.js";
+import { createScore, listScores } from "../../domains/score/repository.js";
 
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
 
@@ -93,6 +94,42 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
       },
     },
     async (req) => ({ trace: listTrace(req.params.id) }),
+  );
+
+  // 사람(또는 기타) 스코어링 (OPSP-17). 한 run 에 여러 score 가능.
+  const scoreBody = z.object({
+    scorer: scorerSchema.default("human"),
+    passed: z.boolean(),
+    score: z.number().min(0).max(1).nullable().default(null),
+    reason: z.string().nullable().default(null),
+  });
+
+  fastify.get(
+    "/runs/:id/scores",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: { 200: z.object({ scores: z.array(scoreSchema) }) },
+      },
+    },
+    async (req) => ({ scores: listScores(req.params.id) }),
+  );
+
+  fastify.post(
+    "/runs/:id/scores",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        body: scoreBody,
+        response: { 200: scoreSchema, 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      if (!getRun(req.params.id)) {
+        return reply.status(404).send({ error: "NotFound", detail: "run not found" });
+      }
+      return createScore({ runId: req.params.id, ...req.body });
+    },
   );
 };
 

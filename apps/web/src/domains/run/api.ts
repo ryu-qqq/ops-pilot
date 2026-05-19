@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { runSchema, scenarioSchema, traceEventTypeSchema } from "@opspilot/shared-types";
+import { runSchema, scenarioSchema, scoreSchema, traceEventTypeSchema } from "@opspilot/shared-types";
 import { apiGet, apiPost } from "../../lib/api-client";
 
 export const runListItemSchema = z.object({
@@ -36,6 +36,7 @@ export const runKeys = {
   list: () => [...runKeys.all, "list"] as const,
   detail: (runId: string) => [...runKeys.all, "detail", runId] as const,
   trace: (runId: string) => [...runKeys.all, "trace", runId] as const,
+  scores: (runId: string) => [...runKeys.all, "scores", runId] as const,
 };
 
 export const scenarioKeys = {
@@ -57,6 +58,27 @@ export async function getRunTrace(runId: string) {
 
 export async function getScenario(id: string) {
   return apiGet(`/api/scenarios/${id}`, scenarioSchema);
+}
+
+const scoresResponse = z.object({ scores: z.array(scoreSchema) });
+
+export async function getScores(runId: string) {
+  return (await apiGet(`/api/runs/${runId}/scores`, scoresResponse)).scores;
+}
+
+export interface NewHumanScore {
+  runId: string;
+  passed: boolean;
+  score: number | null;
+  reason: string | null;
+}
+
+export async function createHumanScore(v: NewHumanScore) {
+  return apiPost(
+    `/api/runs/${v.runId}/scores`,
+    { scorer: "human", passed: v.passed, score: v.score, reason: v.reason },
+    scoreSchema,
+  );
 }
 
 // 시나리오 구체화: 목적/입력/기대 동작/성공조건 → description + expectation 매핑.
