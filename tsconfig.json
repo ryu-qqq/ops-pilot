@@ -1,0 +1,5 @@
+{
+  // 루트는 에디터 기본값만. 타입체크는 워크스페이스별 tsconfig + `pnpm -r typecheck`.
+  "files": [],
+  "include": []
+}

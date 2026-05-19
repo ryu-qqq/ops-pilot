@@ -1,0 +1,20 @@
+{
+  "name": "@opspilot/shared-types",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "프론트·백엔드 공통 Zod 스키마 + 추론 타입 (CONVENTIONS.md 1. 공통).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@opspilot/config": "workspace:*",
+    "typescript": "^5.7.2"
+  }
+}
