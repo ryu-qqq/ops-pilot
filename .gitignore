@@ -6,6 +6,8 @@ build/
 .env.local
 *.sqlite
 *.sqlite3
+*.sqlite-wal
+*.sqlite-shm
 .DS_Store
 coverage/
 .vite/
