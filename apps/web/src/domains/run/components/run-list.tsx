@@ -1,3 +1,4 @@
+import { EmptyState, ErrorNotice, Loading } from "../../../lib/ui";
 import { useRuns } from "../use-run";
 
 interface Props {
@@ -15,9 +16,20 @@ const statusColor: Record<string, string> = {
 export function RunList({ selectedId, onSelect }: Props) {
   const { data: runs, isPending, isError, error } = useRuns();
 
-  if (isPending) return <p>불러오는 중…</p>;
-  if (isError) return <p style={{ color: "crimson" }}>{error.message}</p>;
-  if (runs.length === 0) return <p style={{ color: "#888" }}>실행(run) 없음.</p>;
+  if (isPending)
+    return (
+      <p style={{ color: "#57606a" }}>
+        <Loading label="실행 목록 불러오는 중…" />
+      </p>
+    );
+  if (isError) return <ErrorNotice error={error} />;
+  if (runs.length === 0)
+    return (
+      <EmptyState
+        title="아직 실행한 적이 없어요"
+        hint="레지스트리 탭에서 자산·버전을 고르고 시나리오를 실행하면 여기에 트레이스가 쌓입니다."
+      />
+    );
 
   return (
     <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>

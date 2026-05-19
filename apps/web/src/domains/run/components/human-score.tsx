@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { InlineError, Loading } from "../../../lib/ui";
 import { useCreateHumanScore, useScores } from "../use-run";
 
 // 사람이 트레이스를 시나리오 성공조건과 대조해 직접 점수·이유를 남긴다 (OPSP-17).
@@ -71,9 +72,9 @@ export function HumanScore({ runId }: { runId: string | null }) {
           style={{ flex: 1, minWidth: 200, padding: 6 }}
         />
         <button type="submit" disabled={create.isPending}>
-          {create.isPending ? "저장 중…" : "평가 저장"}
+          {create.isPending ? <Loading label="저장 중…" /> : "평가 저장"}
         </button>
-        {create.isError && <span style={{ color: "crimson" }}>{create.error.message}</span>}
+        {create.isError && <InlineError error={create.error} />}
       </form>
     </div>
   );

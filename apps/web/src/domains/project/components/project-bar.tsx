@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { registryKeys } from "../../registry/api";
+import { ErrorNotice, InlineError, Loading } from "../../../lib/ui";
 import { useCreateProject, useInstallHooks, useProjects, useScanProject } from "../use-project";
 
 interface Props {
@@ -38,11 +39,13 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
             })
           }
         >
-          {create.isPending ? "클론 중…" : "프로젝트 등록"}
+          {create.isPending ? <Loading label="클론 중…" /> : "프로젝트 등록"}
         </button>
       </div>
       {create.isError && (
-        <p style={{ color: "crimson", fontSize: 12 }}>{create.error.message}</p>
+        <div style={{ marginBottom: 8 }}>
+          <InlineError error={create.error} />
+        </div>
       )}
 
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -71,7 +74,7 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
             });
           }}
         >
-          {scan.isPending ? "스캔 중…" : "스캔"}
+          {scan.isPending ? <Loading label="스캔 중…" /> : "스캔"}
         </button>
         <button
           type="button"
@@ -81,15 +84,12 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
           }}
           title="Claude Code PostToolUse + git post-commit 훅 설치 (자동 버전 강제)"
         >
-          {hooks.isPending ? "설치 중…" : "버전 강제 훅 설치"}
+          {hooks.isPending ? <Loading label="설치 중…" /> : "버전 강제 훅 설치"}
         </button>
         {scan.isSuccess && (
           <span style={{ color: "green", fontSize: 13 }}>
             자산 {scan.data.scannedAssets} · 신규버전 {scan.data.saved.versions}
           </span>
-        )}
-        {scan.isError && (
-          <span style={{ color: "crimson", fontSize: 12 }}>{scan.error.message}</span>
         )}
         {hooks.isSuccess && (
           <span style={{ color: "green", fontSize: 13 }}>
@@ -97,9 +97,16 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
           </span>
         )}
         {hooks.isError && (
-          <span style={{ color: "crimson", fontSize: 12 }}>{hooks.error.message}</span>
+          <span style={{ color: "crimson", fontSize: 12 }}>
+            <InlineError error={hooks.error} />
+          </span>
         )}
       </div>
+      {scan.isError && (
+        <div style={{ marginTop: 8 }}>
+          <ErrorNotice error={scan.error} />
+        </div>
+      )}
     </div>
   );
 }

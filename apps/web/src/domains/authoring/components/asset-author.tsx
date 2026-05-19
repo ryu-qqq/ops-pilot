@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { AssetKind } from "@opspilot/shared-types";
 import { useAssets } from "../../registry/use-registry";
+import { InlineError, Loading } from "../../../lib/ui";
 import { useAssetContent, useAuthorAsset } from "../use-authoring";
 
 interface Props {
@@ -105,16 +106,20 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
       />
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <button type="submit" disabled={author.isPending || !canSubmit}>
-          {author.isPending ? "커밋 중…" : isEdit ? "수정 저장 → 새 버전" : "작성 → 버전 생성"}
+          {author.isPending ? (
+            <Loading label="커밋 중…" />
+          ) : isEdit ? (
+            "수정 저장 → 새 버전"
+          ) : (
+            "작성 → 버전 생성"
+          )}
         </button>
         {author.isSuccess && (
           <span style={{ color: "green", fontSize: 12 }}>
             커밋 {author.data.committed.slice(0, 8)} · 버전 +{author.data.scanned.versions}
           </span>
         )}
-        {author.isError && (
-          <span style={{ color: "crimson", fontSize: 12 }}>{author.error.message}</span>
-        )}
+        {author.isError && <InlineError error={author.error} />}
       </div>
     </form>
   );

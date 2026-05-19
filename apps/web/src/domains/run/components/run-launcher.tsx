@@ -1,4 +1,5 @@
 import { useState, type CSSProperties } from "react";
+import { InlineError, Loading } from "../../../lib/ui";
 import { useLaunchRun } from "../use-run";
 
 interface Props {
@@ -95,10 +96,14 @@ export function RunLauncher({ assetId, assetVersionId, defaultCwd, onLaunched }:
           <input type="radio" name="src" checked={source === "local-claude"} onChange={() => setSource("local-claude")} /> local-claude
         </label>
         <button type="submit" disabled={launch.isPending || !canSubmit} style={{ marginLeft: "auto" }}>
-          {launch.isPending ? "실행 중…" : "▶ 실행"}
+          {launch.isPending ? <Loading label="실행 중…" /> : "▶ 실행"}
         </button>
       </div>
-      {launch.isError && <p style={{ color: "crimson", fontSize: 12 }}>{launch.error.message}</p>}
+      {launch.isError && (
+        <p style={{ margin: "6px 0 0" }}>
+          <InlineError error={launch.error} />
+        </p>
+      )}
     </form>
   );
 }

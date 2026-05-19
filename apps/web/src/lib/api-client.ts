@@ -1,18 +1,44 @@
 import type { ZodType } from "zod";
 
+// 백엔드는 에러를 일관되게 { error, detail } 로 응답한다(app.ts·routes/*).
+// 프론트엔 raw JSON 을 보이지 말고 code/detail 로 분해해 친화 메시지로 변환(OPSP-25).
 export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    readonly code: string | null = null,
+    readonly detail: string | null = null,
   ) {
     super(message);
   }
 }
 
+function toApiError(status: number, statusText: string, text: string): ApiError {
+  try {
+    const body: unknown = JSON.parse(text);
+    if (
+      body !== null &&
+      typeof body === "object" &&
+      "error" in body &&
+      typeof (body as { error: unknown }).error === "string"
+    ) {
+      const code = (body as { error: string }).error;
+      const detail =
+        "detail" in body && typeof (body as { detail: unknown }).detail === "string"
+          ? (body as { detail: string }).detail
+          : null;
+      return new ApiError(status, detail ?? code, code, detail);
+    }
+  } catch {
+    // JSON 아님 — 아래 폴백
+  }
+  return new ApiError(status, text || statusText);
+}
+
 async function parseOrThrow<T>(res: Response, schema: ZodType<T>): Promise<T> {
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new ApiError(res.status, text || res.statusText);
+    throw toApiError(res.status, res.statusText, text);
   }
   return schema.parse(await res.json());
 }
