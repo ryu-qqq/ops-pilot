@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createProject, getProjects, projectKeys, scanProject } from "./api";
+import { createProject, getProjects, installHooks, projectKeys, scanProject } from "./api";
 
 export function useProjects() {
   return useQuery({ queryKey: projectKeys.list(), queryFn: getProjects });
@@ -15,4 +15,8 @@ export function useCreateProject() {
 
 export function useScanProject() {
   return useMutation({ mutationFn: scanProject });
+}
+
+export function useInstallHooks() {
+  return useMutation({ mutationFn: installHooks });
 }

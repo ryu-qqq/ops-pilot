@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { registryKeys } from "../../registry/api";
-import { useCreateProject, useProjects, useScanProject } from "../use-project";
+import { useCreateProject, useInstallHooks, useProjects, useScanProject } from "../use-project";
 
 interface Props {
   selectedProjectId: string | null;
@@ -13,6 +13,7 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
   const { data: projects } = useProjects();
   const create = useCreateProject();
   const scan = useScanProject();
+  const hooks = useInstallHooks();
   const qc = useQueryClient();
   const [gitUrl, setGitUrl] = useState("");
 
@@ -72,6 +73,16 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
         >
           {scan.isPending ? "스캔 중…" : "스캔"}
         </button>
+        <button
+          type="button"
+          disabled={selectedProjectId === null || hooks.isPending}
+          onClick={() => {
+            if (selectedProjectId !== null) hooks.mutate(selectedProjectId);
+          }}
+          title="Claude Code PostToolUse + git post-commit 훅 설치 (자동 버전 강제)"
+        >
+          {hooks.isPending ? "설치 중…" : "버전 강제 훅 설치"}
+        </button>
         {scan.isSuccess && (
           <span style={{ color: "green", fontSize: 13 }}>
             자산 {scan.data.scannedAssets} · 신규버전 {scan.data.saved.versions}
@@ -79,6 +90,14 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
         )}
         {scan.isError && (
           <span style={{ color: "crimson", fontSize: 12 }}>{scan.error.message}</span>
+        )}
+        {hooks.isSuccess && (
+          <span style={{ color: "green", fontSize: 13 }}>
+            훅 설치됨 {hooks.data.committed ? `(커밋 ${hooks.data.committed.slice(0, 8)})` : "(이미 설치됨)"}
+          </span>
+        )}
+        {hooks.isError && (
+          <span style={{ color: "crimson", fontSize: 12 }}>{hooks.error.message}</span>
         )}
       </div>
     </div>

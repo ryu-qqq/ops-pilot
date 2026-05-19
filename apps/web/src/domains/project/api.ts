@@ -26,3 +26,14 @@ export async function createProject(gitUrl: string) {
 export async function scanProject(projectId: string) {
   return apiPost(`/api/projects/${projectId}/scan`, {}, scanResponse);
 }
+
+const installHooksResponse = z.object({
+  settingsMerged: z.boolean(),
+  scriptPath: z.string(),
+  gitHookPath: z.string(),
+  committed: z.string().nullable(),
+});
+
+export async function installHooks(projectId: string) {
+  return apiPost(`/api/projects/${projectId}/install-hooks`, {}, installHooksResponse);
+}

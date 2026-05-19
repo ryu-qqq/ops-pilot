@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { assetKindSchema, assetSchema, projectSchema } from "@opspilot/shared-types";
 import { AuthoringError, writeAsset } from "../../domains/authoring/service.js";
+import { installHooks } from "../../domains/authoring/hooks.js";
 import {
   createProject,
   getProject,
@@ -122,6 +123,30 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
         }
         throw e;
       }
+    },
+  );
+
+  // OPSP-19 잔여: 자동 버전 강제 훅 설치 (Claude Code PostToolUse + git post-commit)
+  fastify.post(
+    "/projects/:id/install-hooks",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: {
+          200: z.object({
+            settingsMerged: z.boolean(),
+            scriptPath: z.string(),
+            gitHookPath: z.string(),
+            committed: z.string().nullable(),
+          }),
+          404: errorSchema,
+        },
+      },
+    },
+    async (req, reply) => {
+      const project = getProject(req.params.id);
+      if (!project) return reply.status(404).send({ error: "NotFound", detail: "project not found" });
+      return installHooks(project);
     },
   );
 
