@@ -3,7 +3,7 @@ import { z } from "zod";
 import { runSchema } from "@opspilot/shared-types";
 import { executeRun, RunInputError } from "../../domains/run/service.js";
 import { fixtureSource, localClaudeSource } from "../../domains/run/source.js";
-import { getRun, listTrace } from "../../domains/run/repository.js";
+import { getRun, listRuns, listTrace } from "../../domains/run/repository.js";
 
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
 
@@ -13,6 +13,20 @@ const runBody = z.object({
   cwd: z.string().min(1),
   source: z.enum(["fixture", "local-claude"]).default("local-claude"),
   fixtureEvents: z.array(z.unknown()).optional(), // source=fixture 일 때 재생할 이벤트
+});
+
+const runListItem = z.object({
+  id: z.string().uuid(),
+  status: z.string(),
+  runner: z.string(),
+  createdAt: z.string(),
+  promptTokens: z.number().nullable(),
+  completionTokens: z.number().nullable(),
+  costUsd: z.number().nullable(),
+  scenarioName: z.string(),
+  assetName: z.string(),
+  assetKind: z.string(),
+  gitCommit: z.string(),
 });
 
 const traceResponse = z.object({
@@ -44,6 +58,12 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
         throw e;
       }
     },
+  );
+
+  fastify.get(
+    "/runs",
+    { schema: { response: { 200: z.object({ runs: z.array(runListItem) }) } } },
+    async () => ({ runs: listRuns() }),
   );
 
   fastify.get(
