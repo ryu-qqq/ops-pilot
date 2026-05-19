@@ -17,21 +17,25 @@ export interface AssetVersionSummary {
 
 const nowIso = () => new Date().toISOString();
 
-// 멱등 적재: asset UNIQUE(kind,name,scope), asset_version UNIQUE(asset_id,git_commit).
-export function saveScan(scanned: ScannedAsset[]): { assets: number; versions: number } {
+// 멱등 적재 (프로젝트 스코프): asset UNIQUE(project_id,kind,name,scope).
+export function saveScan(
+  projectId: string,
+  scanned: ScannedAsset[],
+): { assets: number; versions: number } {
   const db = getDb();
 
   const upsertAsset = db.prepare<{
     id: string;
+    projectId: string;
     kind: string;
     name: string;
     scope: string;
     sourcePath: string;
     createdAt: string;
   }>(
-    `INSERT INTO asset (id, kind, name, scope, source_path, created_at)
-     VALUES (@id, @kind, @name, @scope, @sourcePath, @createdAt)
-     ON CONFLICT(kind, name, scope) DO UPDATE SET source_path = excluded.source_path
+    `INSERT INTO asset (id, project_id, kind, name, scope, source_path, created_at)
+     VALUES (@id, @projectId, @kind, @name, @scope, @sourcePath, @createdAt)
+     ON CONFLICT(project_id, kind, name, scope) DO UPDATE SET source_path = excluded.source_path
      RETURNING id`,
   );
 
@@ -59,6 +63,7 @@ export function saveScan(scanned: ScannedAsset[]): { assets: number; versions: n
     for (const a of items) {
       const row = upsertAsset.get({
         id: randomUUID(),
+        projectId,
         kind: a.kind,
         name: a.name,
         scope: a.scope,
@@ -87,13 +92,14 @@ export function saveScan(scanned: ScannedAsset[]): { assets: number; versions: n
   return tx(scanned);
 }
 
-export function listAssets(): Asset[] {
+export function listAssets(projectId: string): Asset[] {
   return getDb()
     .prepare(
-      `SELECT id, kind, name, scope, source_path AS sourcePath, created_at AS createdAt
-       FROM asset ORDER BY kind, name`,
+      `SELECT id, project_id AS projectId, kind, name, scope,
+              source_path AS sourcePath, created_at AS createdAt
+       FROM asset WHERE project_id = ? ORDER BY kind, name`,
     )
-    .all() as Asset[];
+    .all(projectId) as Asset[];
 }
 
 export function assetExists(id: string): boolean {
