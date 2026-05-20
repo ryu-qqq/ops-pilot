@@ -16,7 +16,7 @@ import {
 import { Textarea } from "../../../components/ui/textarea";
 import { useAssets } from "../../registry/use-registry";
 import { InfoMark, InlineError, Loading } from "../../../lib/ui";
-import { useAssetContent, useAuthorAsset, useReviewAuthoring } from "../use-authoring";
+import { useAssetContent, useAuthorAsset, useDraftAsset, useReviewAuthoring } from "../use-authoring";
 import {
   DOCS_URL,
   KEY_META,
@@ -41,6 +41,8 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
   const { data: loadedContent } = useAssetContent(editing ? selectedAssetId : null);
   const author = useAuthorAsset(projectId);
   const review = useReviewAuthoring();
+  const draft = useDraftAsset();
+  const [concept, setConcept] = useState("");
 
   const [kind, setKind] = useState<AssetKind>("agent");
   const [fm, setFm] = useState<Record<string, string>>({});
@@ -142,6 +144,67 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
         </CardHeader>
 
         <CardContent className="space-y-3 pt-4">
+          {/* OPSP-27 follow-up: 컨셉 한 줄 → 폼 전체 자동 채움. 새 작성 모드에만 노출. */}
+          {!isEdit && (
+            <Alert variant="info">
+              <Sparkles className="h-4 w-4" />
+              <AlertTitle className="flex items-center gap-1">
+                컨셉으로 초안 자동 생성
+                <InfoMark
+                  label="컨셉 초안"
+                  help="‘CTO 에이전트’ 같이 한 줄 컨셉만 적으면 Claude 가 공식 frontmatter 스펙에 맞춰 name·description·tools·model·본문까지 자동 채워줍니다. 실 토큰 ~10-30초."
+                />
+              </AlertTitle>
+              <AlertDescription className="space-y-2 pt-2">
+                <Input
+                  value={concept}
+                  onChange={(e) => setConcept(e.target.value)}
+                  placeholder="예: CTO 에이전트 — 사업·기술 결정에서 트레이드오프 검토"
+                />
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={draft.isPending || concept.trim() === ""}
+                    onClick={() =>
+                      draft.mutate(
+                        { kind, prompt: concept.trim() },
+                        {
+                          onSuccess: (d) => {
+                            const next: Record<string, string> = {
+                              name: d.name,
+                              description: d.description,
+                            };
+                            if (d.tools !== undefined) next.tools = d.tools;
+                            if (d["allowed-tools"] !== undefined)
+                              next["allowed-tools"] = d["allowed-tools"];
+                            if (d.model !== undefined && d.model !== "inherit")
+                              next.model = d.model;
+                            setFm(next);
+                            setBody(d.body);
+                          },
+                        },
+                      )
+                    }
+                  >
+                    {draft.isPending ? (
+                      <Loading label="Claude 초안 생성 중…" />
+                    ) : (
+                      <>
+                        <Sparkles className="h-3.5 w-3.5" />
+                        초안 생성 → 폼 채움
+                      </>
+                    )}
+                  </Button>
+                  {draft.isSuccess && (
+                    <span className="text-xs text-success">초안 적용됨 — 다듬어 저장하세요</span>
+                  )}
+                  {draft.isError && <InlineError error={draft.error} />}
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {KIND_KEYS[kind].map((k) => {
             const key = k as string;
             const meta = KEY_META[key] ?? { label: key, help: "" };

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { assetKindSchema } from "@opspilot/shared-types";
 import { ClaudeAssistError } from "../../domains/assist/claude.js";
 import { reviewAuthoringDraft } from "../../domains/assist/authoring-review.js";
+import { draftAsset, draftAssetSchema } from "../../domains/assist/draft-asset.js";
 import { judgeResultSchema, judgeRuns } from "../../domains/assist/judge-runs.js";
 import {
   scenarioSuggestionSchema,
@@ -33,6 +34,27 @@ const assist: FastifyPluginAsyncZod = async (fastify) => {
       try {
         const text = await reviewAuthoringDraft(req.body);
         return { text };
+      } catch (e) {
+        if (e instanceof ClaudeAssistError) {
+          return reply.status(400).send({ error: "AssistError", detail: e.message });
+        }
+        throw e;
+      }
+    },
+  );
+
+  // D. 자산 초안 자동 생성 (OPSP-27 follow-up): 컨셉 한 줄 → frontmatter+본문 전체 JSON.
+  fastify.post(
+    "/assist/draft-asset",
+    {
+      schema: {
+        body: z.object({ kind: assetKindSchema, prompt: z.string().min(1) }),
+        response: { 200: draftAssetSchema, 400: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      try {
+        return await draftAsset(req.body);
       } catch (e) {
         if (e instanceof ClaudeAssistError) {
           return reply.status(400).send({ error: "AssistError", detail: e.message });

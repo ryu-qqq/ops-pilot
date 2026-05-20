@@ -45,3 +45,19 @@ export interface ReviewInput {
 export async function reviewAuthoring(v: ReviewInput) {
   return (await apiPost("/api/assist/authoring-review", v, reviewResponse)).text;
 }
+
+// OPSP-27 follow-up: 컨셉 한 줄 → frontmatter+본문 자동 초안.
+// 사용자가 빈 폼에서 시작이 막막한 문제 해결.
+const assetDraftSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().min(1),
+  tools: z.string().optional(),
+  "allowed-tools": z.string().optional(),
+  model: z.enum(["inherit", "sonnet", "opus", "haiku"]).optional(),
+  body: z.string().min(1),
+});
+export type AssetDraft = z.infer<typeof assetDraftSchema>;
+
+export async function draftAsset(input: { kind: AssetKind; prompt: string }) {
+  return apiPost("/api/assist/draft-asset", input, assetDraftSchema);
+}
