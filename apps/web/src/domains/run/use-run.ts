@@ -10,6 +10,7 @@ import {
   getScores,
   judgeRuns,
   launchBatchRun,
+  launchBatchScenarios,
   launchRun,
   runKeys,
   scenarioKeys,
@@ -71,6 +72,15 @@ export function useLaunchBatchRun() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: launchBatchRun,
+    onSuccess: () => qc.invalidateQueries({ queryKey: runKeys.all }),
+  });
+}
+
+// OPSP-9: 같은 자산 버전 + 시나리오 N개 → 한 번에 N run 시작.
+export function useLaunchBatchScenarios() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: launchBatchScenarios,
     onSuccess: () => qc.invalidateQueries({ queryKey: runKeys.all }),
   });
 }

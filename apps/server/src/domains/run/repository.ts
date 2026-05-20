@@ -140,6 +140,22 @@ export function saveRunDiff(runId: string, files: CollectedDiffFile[]): void {
   tx(files);
 }
 
+// OPSP-9: 여러 run 의 scenario.name 을 한꺼번에 — 비교 뷰가 회귀 모드 식별·표시.
+export function listRunScenarioNames(runIds: string[]): Record<string, string> {
+  const map: Record<string, string> = {};
+  if (runIds.length === 0) return map;
+  const placeholders = runIds.map(() => "?").join(",");
+  const rows = getDb()
+    .prepare(
+      `SELECT r.id AS runId, s.name AS name FROM run r
+       JOIN scenario s ON s.id = r.scenario_id
+       WHERE r.id IN (${placeholders})`,
+    )
+    .all(...runIds) as { runId: string; name: string }[];
+  for (const r of rows) map[r.runId] = r.name;
+  return map;
+}
+
 // OPSP-10 비교 뷰: 여러 run 의 diff 파일 수만 한꺼번에 모음.
 export function listRunDiffCounts(runIds: string[]): Record<string, number> {
   if (runIds.length === 0) return {};
