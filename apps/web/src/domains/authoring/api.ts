@@ -32,3 +32,16 @@ export async function getAssetContent(assetId: string) {
 export const authoringKeys = {
   content: (assetId: string) => ["authoring", "content", assetId] as const,
 };
+
+// OPSP-27: 자산 저작 초안 → 로컬 Claude 의 의도·개선 제안(자유 텍스트).
+const reviewResponse = z.object({ text: z.string() });
+
+export interface ReviewInput {
+  kind: AssetKind;
+  name: string;
+  content: string;
+}
+
+export async function reviewAuthoring(v: ReviewInput) {
+  return (await apiPost("/api/assist/authoring-review", v, reviewResponse)).text;
+}

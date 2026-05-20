@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from "react";
 import { InfoMark, InlineError, Loading } from "../../../lib/ui";
-import { useLaunchRun } from "../use-run";
+import { useLaunchRun, useSuggestScenario } from "../use-run";
 
 interface Props {
   assetId: string;
@@ -26,7 +26,9 @@ export function RunLauncher({ assetId, assetVersionId, defaultCwd, onLaunched }:
   const [successText, setSuccessText] = useState("");
   const [cwd, setCwd] = useState(defaultCwd);
   const [source, setSource] = useState<"fixture" | "local-claude">("fixture");
+  const [hint, setHint] = useState("");
   const launch = useLaunchRun();
+  const suggest = useSuggestScenario();
 
   const canSubmit = name.trim() !== "" && input.trim() !== "";
 
@@ -51,6 +53,57 @@ export function RunLauncher({ assetId, assetVersionId, defaultCwd, onLaunched }:
           label="시나리오 실행"
           help="선택한 버전의 git 커밋으로 격리 worktree 를 만들고 그 안에서 에이전트를 돌립니다(클론·원본 무오염). 실행은 비동기 — 즉시 트레이스 탭으로 이동하고, 단계가 실시간으로 채워집니다."
         />
+      </div>
+
+      {/* OPSP-27 B: 자산 본문 + hint 로 시나리오 폼 5필드 초안 자동 채움. */}
+      <div
+        style={{
+          border: "1px solid #8250df",
+          background: "#faf5ff",
+          borderRadius: 6,
+          padding: 8,
+          marginBottom: 8,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+          <strong style={{ fontSize: 12 }}>🤖 AI 시나리오 초안</strong>
+          <InfoMark
+            label="AI 시나리오 초안"
+            help="이 자산의 최신 버전 본문을 로컬 Claude 가 읽고, 시나리오 5필드(이름·목적·입력·기대·성공조건) 초안을 JSON 으로 받아 폼에 자동 채워줍니다. 거부하면 그대로 진행. 실 토큰 소모, 약 10-40초."
+          />
+        </div>
+        <input
+          value={hint}
+          onChange={(e) => setHint(e.target.value)}
+          placeholder="(선택) 어떤 상황을 검증하고 싶나 — 예: ‘추측 없이 정답을 찾는지 본다’"
+          style={{ ...field, marginBottom: 4 }}
+        />
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            type="button"
+            disabled={suggest.isPending}
+            onClick={() =>
+              suggest.mutate(
+                { assetId, hint: hint.trim() === "" ? undefined : hint.trim() },
+                {
+                  onSuccess: (s) => {
+                    setName(s.name);
+                    setPurpose(s.purpose);
+                    setInput(s.input);
+                    setExpectedBehavior(s.expectedBehavior);
+                    setSuccessText(s.successCriteria.join("\n"));
+                  },
+                },
+              )
+            }
+          >
+            {suggest.isPending ? <Loading label="Claude 초안 생성 중…" /> : "초안 생성 → 폼 채움"}
+          </button>
+          {suggest.isSuccess && (
+            <span style={{ color: "green", fontSize: 12 }}>초안 적용됨 — 다듬어 실행하세요</span>
+          )}
+          {suggest.isError && <InlineError error={suggest.error} />}
+        </div>
       </div>
 
       <div style={label}>시나리오 이름 *</div>

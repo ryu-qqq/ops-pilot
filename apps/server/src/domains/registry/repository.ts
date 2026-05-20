@@ -106,6 +106,16 @@ export function assetExists(id: string): boolean {
   return getDb().prepare("SELECT 1 FROM asset WHERE id = ?").get(id) !== undefined;
 }
 
+export function getAsset(id: string): Asset | undefined {
+  return getDb()
+    .prepare(
+      `SELECT id, project_id AS projectId, kind, name, scope,
+              source_path AS sourcePath, created_at AS createdAt
+       FROM asset WHERE id = ?`,
+    )
+    .get(id) as Asset | undefined;
+}
+
 // 수정 prefill 용 — 가장 최근 커밋 버전의 본문.
 export function latestContent(assetId: string): string | undefined {
   const row = getDb()
