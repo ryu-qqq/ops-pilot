@@ -53,3 +53,4 @@ export const dashboardKeys = {
 export async function getStatsOverview() {
   return apiGet("/api/stats/overview", overviewSchema);
 }
+

@@ -4,11 +4,12 @@ import { Button } from "./components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { useTheme } from "./lib/use-theme";
 import { Dashboard } from "./domains/dashboard/components/dashboard";
+import { FlowGraph } from "./domains/dashboard/components/flow-graph";
 import { OnboardingGuide } from "./domains/onboarding/components/onboarding-guide";
 import { RegistryView } from "./domains/registry/components/registry-view";
 import { RunsView } from "./domains/run/components/runs-view";
 
-type Tab = "dashboard" | "registry" | "runs";
+type Tab = "dashboard" | "graph" | "registry" | "runs";
 
 export function App() {
   const [tab, setTab] = useState<Tab>("dashboard");
@@ -51,10 +52,14 @@ export function App() {
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="space-y-4">
         <TabsList>
           <TabsTrigger value="dashboard">대시보드</TabsTrigger>
+          <TabsTrigger value="graph">흐름 그래프</TabsTrigger>
           <TabsTrigger value="registry">레지스트리</TabsTrigger>
           <TabsTrigger value="runs">실행 / 트레이스</TabsTrigger>
         </TabsList>
-        <OnboardingGuide tab={tab === "dashboard" ? "registry" : tab} onSwitchTab={(t) => setTab(t)} />
+        <OnboardingGuide
+          tab={tab === "dashboard" || tab === "graph" ? "registry" : tab}
+          onSwitchTab={(t) => setTab(t)}
+        />
         <TabsContent value="dashboard" className="mt-0">
           <Dashboard
             onSelectRun={(id) => {
@@ -62,6 +67,9 @@ export function App() {
               setTab("runs");
             }}
           />
+        </TabsContent>
+        <TabsContent value="graph" className="mt-0">
+          <FlowGraph selectedRunId={selectedRunId} />
         </TabsContent>
         <TabsContent value="registry" className="mt-0">
           <RegistryView
