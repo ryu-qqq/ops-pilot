@@ -1,9 +1,9 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { runSchema, scoreSchema, scorerSchema } from "@opspilot/shared-types";
+import { runDiffFileSchema, runSchema, scoreSchema, scorerSchema } from "@opspilot/shared-types";
 import { RunInputError, startRun } from "../../domains/run/service.js";
 import { DEMO_FIXTURE, fixtureSource, localClaudeSource } from "../../domains/run/source.js";
-import { getRun, listRuns, listTrace } from "../../domains/run/repository.js";
+import { getRun, listRunDiff, listRuns, listTrace } from "../../domains/run/repository.js";
 import { createScore, listScores } from "../../domains/score/repository.js";
 
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
@@ -95,6 +95,18 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
       },
     },
     async (req) => ({ trace: listTrace(req.params.id) }),
+  );
+
+  // OPSP-30: 실행 후 worktree base↔결과 git diff 결과(파일별).
+  fastify.get(
+    "/runs/:id/diff",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: { 200: z.object({ files: z.array(runDiffFileSchema) }) },
+      },
+    },
+    async (req) => ({ files: listRunDiff(req.params.id) }),
   );
 
   // 사람(또는 기타) 스코어링 (OPSP-17). 한 run 에 여러 score 가능.

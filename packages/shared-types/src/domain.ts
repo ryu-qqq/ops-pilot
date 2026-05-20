@@ -115,6 +115,29 @@ export const traceEventSchema = z.object({
 });
 export type TraceEvent = z.infer<typeof traceEventSchema>;
 
+// OPSP-30: worktree base 커밋↔실행 후 git diff 결과(파일 1개당 1행).
+export const runDiffFileStatusSchema = z.enum([
+  "added",
+  "modified",
+  "deleted",
+  "renamed",
+  "binary",
+]);
+export type RunDiffFileStatus = z.infer<typeof runDiffFileStatusSchema>;
+
+export const runDiffFileSchema = z.object({
+  id,
+  runId: id,
+  filePath: z.string().min(1),
+  status: runDiffFileStatusSchema,
+  additions: z.number().int().nonnegative(),
+  deletions: z.number().int().nonnegative(),
+  binary: z.boolean(),
+  truncated: z.boolean(),
+  patch: z.string().nullable(),
+});
+export type RunDiffFile = z.infer<typeof runDiffFileSchema>;
+
 export const scoreSchema = z.object({
   id,
   runId: id,

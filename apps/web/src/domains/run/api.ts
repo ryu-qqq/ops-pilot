@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { runSchema, scenarioSchema, scoreSchema, traceEventTypeSchema } from "@opspilot/shared-types";
+import {
+  runDiffFileSchema,
+  runSchema,
+  scenarioSchema,
+  scoreSchema,
+  traceEventTypeSchema,
+} from "@opspilot/shared-types";
 import { apiGet, apiPost } from "../../lib/api-client";
 
 export const runListItemSchema = z.object({
@@ -37,7 +43,15 @@ export const runKeys = {
   detail: (runId: string) => [...runKeys.all, "detail", runId] as const,
   trace: (runId: string) => [...runKeys.all, "trace", runId] as const,
   scores: (runId: string) => [...runKeys.all, "scores", runId] as const,
+  diff: (runId: string) => [...runKeys.all, "diff", runId] as const,
 };
+
+const diffResponse = z.object({ files: z.array(runDiffFileSchema) });
+export type RunDiffFileView = z.infer<typeof runDiffFileSchema>;
+
+export async function getRunDiff(runId: string) {
+  return (await apiGet(`/api/runs/${runId}/diff`, diffResponse)).files;
+}
 
 export const scenarioKeys = {
   all: ["scenarios"] as const,

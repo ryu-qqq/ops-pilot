@@ -1,8 +1,9 @@
 import type { Run } from "@opspilot/shared-types";
 import { assetVersionExists, versionExecContext } from "../registry/repository.js";
 import { getScenario } from "../scenario/repository.js";
+import { collectDiffFiles } from "./diff.js";
 import { extractUsage, normalizeEvent, type NormalizedEvent, type RunUsage } from "./normalizer.js";
-import { appendTrace, createRun, finishRun, getRun } from "./repository.js";
+import { appendTrace, createRun, finishRun, getRun, saveRunDiff } from "./repository.js";
 import type { RunnerSource } from "./source.js";
 import { createWorktree, removeWorktree } from "./worktree.js";
 
@@ -31,7 +32,14 @@ async function runLoop(runId: string, scenarioInput: string, params: RunParams):
       if (!ctx) throw new Error("실행 컨텍스트(clonePath/commit) 조회 실패");
       const wt = createWorktree(ctx.clonePath, ctx.gitCommit, runId);
       cwd = wt;
+      // OPSP-30: worktree 폐기 직전 diff 수집 — 격리라 base↔실행 후가 곧 에이전트 작업.
       cleanup = () => {
+        try {
+          const files = collectDiffFiles(wt, ctx.gitCommit);
+          saveRunDiff(runId, files);
+        } catch {
+          // diff 수집 실패가 실행 결과에 영향주지 않게 흡수.
+        }
         removeWorktree(ctx.clonePath, wt);
       };
       appendTrace(runId, seq, sysEvent("worktree", { ref: ctx.gitCommit, path: wt }));
