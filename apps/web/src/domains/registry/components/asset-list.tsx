@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import type { Asset, AssetKind } from "@opspilot/shared-types";
+import { Badge } from "../../../components/ui/badge";
+import { Input } from "../../../components/ui/input";
 import { EmptyState, ErrorNotice, Loading } from "../../../lib/ui";
+import { cn } from "../../../lib/utils";
 import { useAssets } from "../use-registry";
-import s from "./asset-list.module.css";
 
 interface Props {
   projectId: string | null;
@@ -21,7 +23,6 @@ export function AssetList({ projectId, selectedId, onSelect }: Props) {
   const { data: assets, isPending, isError, error } = useAssets(projectId);
   const [q, setQ] = useState("");
 
-  // 검색·그룹은 파생값 — useMemo (서버데이터는 Query, UI필터는 로컬).
   const groups = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const filtered = (assets ?? []).filter((a) =>
@@ -48,7 +49,7 @@ export function AssetList({ projectId, selectedId, onSelect }: Props) {
     );
   if (isPending)
     return (
-      <p>
+      <p className="text-sm text-muted-foreground">
         <Loading label="자산 불러오는 중…" />
       </p>
     );
@@ -62,26 +63,33 @@ export function AssetList({ projectId, selectedId, onSelect }: Props) {
     );
 
   return (
-    <div>
-      <input
+    <div className="space-y-3">
+      <Input
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder={`이름 검색 (총 ${String(assets.length)}개)`}
-        className={s.search}
       />
-      {groups.length === 0 && <p className={s.empty}>검색 결과 없음.</p>}
+      {groups.length === 0 && <p className="text-sm text-muted-foreground">검색 결과 없음.</p>}
       {groups.map((g) => (
-        <div key={g.kind} className={s.kindGroup}>
-          <div className={s.kindHeader}>
-            {KIND_LABEL[g.kind]} <span className={s.kindCount}>({g.items.length})</span>
+        <div key={g.kind} className="space-y-1">
+          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            {KIND_LABEL[g.kind]}
+            <Badge variant="secondary" className="text-[10px]">
+              {g.items.length}
+            </Badge>
           </div>
-          <ul className={s.list}>
+          <ul className="space-y-0.5">
             {g.items.map((a) => (
               <li key={a.id}>
                 <button
                   type="button"
                   onClick={() => onSelect(a.id)}
-                  className={`${s.itemBtn} ${a.id === selectedId ? s.itemSelected : ""}`}
+                  className={cn(
+                    "w-full rounded-md px-2 py-1.5 text-left text-sm transition-colors",
+                    a.id === selectedId
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-accent hover:text-accent-foreground",
+                  )}
                 >
                   {a.name}
                 </button>

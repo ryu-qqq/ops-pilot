@@ -1,5 +1,5 @@
 import { useState } from "react";
-import s from "./app.module.css";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { OnboardingGuide } from "./domains/onboarding/components/onboarding-guide";
 import { RegistryView } from "./domains/registry/components/registry-view";
 import { RunsView } from "./domains/run/components/runs-view";
@@ -21,34 +21,30 @@ export function App() {
     setTab("runs");
   };
 
-  const tabBtn = (id: Tab, label: string) => (
-    <button
-      type="button"
-      onClick={() => setTab(id)}
-      className={`${s.tab} ${tab === id ? s.tabActive : ""}`}
-    >
-      {label}
-    </button>
-  );
-
   return (
-    <main className={s.main}>
-      <h1 className={s.title}>OpsPilot — Harness Control Plane</h1>
-      <nav className={s.nav}>
-        {tabBtn("registry", "레지스트리")}
-        {tabBtn("runs", "실행 / 트레이스")}
-      </nav>
-      <OnboardingGuide tab={tab} onSwitchTab={setTab} />
-      {tab === "registry" ? (
-        <RegistryView onRunCreated={handleRunCreated} />
-      ) : (
-        <RunsView
-          selectedRunId={selectedRunId}
-          onSelectRun={setSelectedRunId}
-          compareRunIds={compareRunIds}
-          onClearCompare={() => setCompareRunIds([])}
-        />
-      )}
+    <main className="container mx-auto max-w-[1200px] px-6 py-8">
+      <header className="mb-6 flex items-baseline justify-between">
+        <h1 className="text-xl font-semibold tracking-tight">OpsPilot</h1>
+        <span className="text-xs text-muted-foreground">Harness Control Plane</span>
+      </header>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="registry">레지스트리</TabsTrigger>
+          <TabsTrigger value="runs">실행 / 트레이스</TabsTrigger>
+        </TabsList>
+        <OnboardingGuide tab={tab} onSwitchTab={setTab} />
+        <TabsContent value="registry" className="mt-0">
+          <RegistryView onRunCreated={handleRunCreated} />
+        </TabsContent>
+        <TabsContent value="runs" className="mt-0">
+          <RunsView
+            selectedRunId={selectedRunId}
+            onSelectRun={setSelectedRunId}
+            compareRunIds={compareRunIds}
+            onClearCompare={() => setCompareRunIds([])}
+          />
+        </TabsContent>
+      </Tabs>
     </main>
   );
 }

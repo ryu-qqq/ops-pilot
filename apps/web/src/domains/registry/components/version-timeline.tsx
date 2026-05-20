@@ -1,6 +1,6 @@
 import { EmptyState, ErrorNotice, Loading } from "../../../lib/ui";
+import { cn } from "../../../lib/utils";
 import { useAssetVersions } from "../use-registry";
-import s from "./version-timeline.module.css";
 
 interface Props {
   assetId: string | null;
@@ -21,7 +21,7 @@ export function VersionTimeline({ assetId, selectedVersionId, onSelectVersion }:
     );
   if (isPending)
     return (
-      <p className={s.loading}>
+      <p className="text-sm text-muted-foreground">
         <Loading label="버전 불러오는 중…" />
       </p>
     );
@@ -30,19 +30,24 @@ export function VersionTimeline({ assetId, selectedVersionId, onSelectVersion }:
     return <EmptyState title="버전이 없어요" hint="이 자산을 수정·저장하면 첫 버전이 생성됩니다." />;
 
   return (
-    <ol className={s.list}>
+    <ol className="space-y-0">
       {versions.map((v) => (
-        <li key={v.id} className={s.item}>
+        <li key={v.id} className="relative">
           <button
             type="button"
             onClick={() => onSelectVersion(v.id)}
-            className={`${s.itemBtn} ${v.id === selectedVersionId ? s.itemSelected : ""}`}
+            className={cn(
+              "w-full border-l-2 px-3 py-2 text-left transition-colors",
+              v.id === selectedVersionId
+                ? "border-primary bg-accent"
+                : "border-border hover:border-primary/40 hover:bg-accent/50",
+            )}
           >
-            <div>
-              <code>{v.gitCommit.slice(0, 8)}</code>{" "}
-              <span className={s.date}>{v.committedAt.slice(0, 10)}</span>
+            <div className="flex items-center gap-2 text-xs">
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono">{v.gitCommit.slice(0, 8)}</code>
+              <span className="text-muted-foreground">{v.committedAt.slice(0, 10)}</span>
             </div>
-            <div className={s.message}>{v.commitMessage ?? "(메시지 없음)"}</div>
+            <div className="mt-0.5 truncate text-sm">{v.commitMessage ?? "(메시지 없음)"}</div>
           </button>
         </li>
       ))}
