@@ -38,7 +38,7 @@ export function BenchmarkLauncher({
   const [n, setN] = useState(3);
 
   const list = scenarios.data ?? [];
-  const canSubmit = scenarioId !== "" && n >= 2 && n <= 10;
+  const canSubmit = scenarioId !== "" && n >= 1 && n <= 10;
 
   if (scenarios.isPending) {
     return (
@@ -93,13 +93,13 @@ export function BenchmarkLauncher({
             <span className="text-muted-foreground">N</span>
             <Input
               type="number"
-              min={2}
+              min={1}
               max={10}
               value={n}
-              onChange={(e) => setN(Math.max(2, Math.min(10, Number(e.target.value) || 2)))}
+              onChange={(e) => setN(Math.max(1, Math.min(10, Number(e.target.value) || 1)))}
               className="w-20 text-sm"
             />
-            <span className="text-xs text-muted-foreground">(2~10)</span>
+            <span className="text-xs text-muted-foreground">(1~10 · N=1은 단일 실행)</span>
           </label>
         </div>
         {source === "local-claude" && (

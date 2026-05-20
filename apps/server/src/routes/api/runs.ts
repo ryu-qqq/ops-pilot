@@ -150,7 +150,7 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
           scenarioId: z.string().uuid(),
           cwd: z.string().min(1),
           source: z.enum(["fixture", "local-claude"]).default("local-claude"),
-          n: z.number().int().min(2).max(10),
+          n: z.number().int().min(1).max(10),
           fixtureEvents: z.array(z.unknown()).optional(),
         }),
         response: { 200: z.object({ runs: z.array(runSchema) }), 400: errorSchema },
@@ -194,8 +194,8 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
         .split(",")
         .map((s) => s.trim())
         .filter((s) => s !== "");
-      if (ids.length < 2 || ids.length > 10) {
-        return reply.status(400).send({ error: "BadRequest", detail: "ids 2~10개" });
+      if (ids.length < 1 || ids.length > 10) {
+        return reply.status(400).send({ error: "BadRequest", detail: "ids 1~10개" });
       }
       return aggregateBenchmark(ids);
     },

@@ -35,7 +35,7 @@ export function RunsView({
   onClearBenchmark,
 }: Props) {
   const compareActive = compareRunIds.length >= 2;
-  const benchmarkActive = benchmarkRunIds.length >= 2;
+  const benchmarkActive = benchmarkRunIds.length >= 1;
   return (
     <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
       <Card className="p-4 space-y-3">
@@ -48,10 +48,12 @@ export function RunsView({
             <CardHeader className="flex flex-row items-baseline justify-between border-b pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Repeat className="h-4 w-4 text-purple" />
-                벤치마크 ({benchmarkRunIds.length}회 run)
+                {benchmarkRunIds.length === 1
+                  ? "단일 실행 (벤치마크 N=1)"
+                  : `벤치마크 (${String(benchmarkRunIds.length)}회 run)`}
                 <InfoMark
                   label="벤치마크 N회"
-                  help="같은 (자산버전 × 시나리오) 를 N회 돌린 결과. 통과율·평균±σ·assertion 분포. 개별 run 클릭하면 그 트레이스로 이동."
+                  help="같은 (자산버전 × 시나리오) 를 N회 돌린 결과. N=1은 단일 실행과 동일 (분산 측정 안 됨, σ=0). 개별 run 클릭하면 그 트레이스로 이동."
                 />
               </CardTitle>
               <Button variant="ghost" size="sm" onClick={onClearBenchmark}>
