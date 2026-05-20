@@ -1,57 +1,57 @@
-/* OPSP-28: 디자인 토큰 먼저, 그 위에 글로벌 리셋·전역 스타일. */
-@import "./styles/tokens.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* 글로벌 기본값 — 페이지 / 폼 컨트롤 일관 */
-html,
-body {
-  margin: 0;
-  font-family: var(--font-family-sans);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
-  color: var(--color-fg-default);
-  background: var(--color-bg-default);
-}
-* {
-  box-sizing: border-box;
-}
-button {
-  font: inherit;
-  cursor: pointer;
-  border: 1px solid var(--color-border-default);
-  background: var(--color-bg-default);
-  color: var(--color-fg-default);
-  padding: var(--control-padding-y) var(--control-padding-x);
-  border-radius: var(--radius-sm);
-}
-button:hover:not(:disabled) {
-  background: var(--color-bg-subtle);
-}
-button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-input,
-select,
-textarea {
-  font: inherit;
-  color: var(--color-fg-default);
-  background: var(--color-bg-default);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm);
-  padding: var(--control-padding-input);
-}
-input:focus,
-select:focus,
-textarea:focus,
-button:focus-visible {
-  outline: 2px solid var(--color-accent-emphasis);
-  outline-offset: 1px;
-}
-code {
-  font-family: var(--font-family-mono);
+/* OPSP-32: shadcn/ui 권장 토큰(zinc base) + 도메인 신호(success/warning/info purple).
+   Linear/Vercel 톤 — 검정 accent + 명확한 위계. */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+    --radius: 0.5rem;
+
+    /* 도메인 신호 — success(초록)·warning(주황)·info(보라, AI/저작). */
+    --success: 142 71% 36%;
+    --success-foreground: 0 0% 98%;
+    --success-muted: 142 76% 96%;
+    --warning: 32 95% 44%;
+    --warning-foreground: 0 0% 98%;
+    --warning-muted: 48 96% 95%;
+    --info: 262 83% 58%;
+    --info-foreground: 0 0% 98%;
+    --info-muted: 270 100% 98%;
+
+    --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
 }
 
-/* OPSP-25: 스피너 회전. */
+/* OPSP-25 스피너 회전(유지) */
 @keyframes opspilot-spin {
   to {
     transform: rotate(360deg);

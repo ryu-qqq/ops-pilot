@@ -1,7 +1,9 @@
+import { Lightbulb, X } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "../../../components/ui/alert";
+import { Button } from "../../../components/ui/button";
 import { useProjects } from "../../project/use-project";
 import { useRuns } from "../../run/use-run";
 import { useOnboardingDismissed } from "../use-onboarding";
-import s from "./onboarding-guide.module.css";
 
 type Tab = "registry" | "runs";
 
@@ -11,13 +13,7 @@ interface Props {
 }
 
 // 컨텍스트 기반 next-action 배너. "지금 무엇을 하면 되는지"를 전역 상태로 판단.
-// 정밀 가이드(.claude 유무 등)는 OPSP-25 EmptyState/ErrorNotice 가 담당 —
-// 여기는 *전체 흐름* 안내. 의존성 0(투어 라이브러리 미사용).
-type Step =
-  | "register-project"
-  | "run-scenario"
-  | "review-traces"
-  | "done"; // 모든 길을 한 번씩 밟은 뒤 — 가이드는 닫힘 안내만
+type Step = "register-project" | "run-scenario" | "review-traces" | "done";
 
 interface StepCopy {
   title: string;
@@ -37,18 +33,17 @@ export function OnboardingGuide({ tab, onSwitchTab }: Props) {
   const { data: runs } = useRuns();
   const { dismissed, dismiss, reopen } = useOnboardingDismissed();
 
-  // 가이드 끈 상태에선 우상단에 "가이드 보기" 토글만.
   if (dismissed) {
     return (
-      <div className={s.dismissedBar}>
-        <button type="button" onClick={reopen} className={s.reopenBtn}>
+      <div className="flex justify-end">
+        <Button variant="ghost" size="sm" onClick={reopen} className="text-xs text-muted-foreground">
+          <Lightbulb className="h-3.5 w-3.5" />
           가이드 보기
-        </button>
+        </Button>
       </div>
     );
   }
 
-  // 데이터 로딩 전엔 자리만 잡고 카피 표시 보류 (깜빡임 방지).
   const projectCount = projects?.length ?? null;
   const runCount = runs?.length ?? null;
   if (projectCount === null || runCount === null) return null;
@@ -86,26 +81,25 @@ export function OnboardingGuide({ tab, onSwitchTab }: Props) {
   const c = copy[step];
 
   return (
-    <div className={s.banner}>
-      <div className={s.header}>
-        <strong className={s.title}>{c.title}</strong>
-        <button
-          type="button"
-          onClick={dismiss}
-          className={s.dismissBtn}
-          title="이 가이드를 닫습니다 (우상단 ‘가이드 보기’로 다시 열 수 있음)"
-        >
-          닫기
-        </button>
-      </div>
-      <div className={s.body}>{c.body}</div>
-      {c.action && (
-        <div className={s.actionBar}>
-          <button type="button" onClick={c.action.onClick} className={s.actionBtn}>
+    <Alert variant="info">
+      <Lightbulb className="h-4 w-4" />
+      <button
+        type="button"
+        onClick={dismiss}
+        title="이 가이드를 닫습니다 (우상단 ‘가이드 보기’로 다시 열 수 있음)"
+        className="absolute right-2 top-2 rounded-md p-1 text-info hover:bg-info/10"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+      <AlertTitle>{c.title}</AlertTitle>
+      <AlertDescription>
+        <p>{c.body}</p>
+        {c.action && (
+          <Button size="sm" onClick={c.action.onClick} className="mt-2">
             {c.action.label}
-          </button>
-        </div>
-      )}
-    </div>
+          </Button>
+        )}
+      </AlertDescription>
+    </Alert>
   );
 }

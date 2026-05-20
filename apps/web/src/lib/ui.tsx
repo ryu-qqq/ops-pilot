@@ -1,47 +1,53 @@
 import type { ReactNode } from "react";
+import { AlertCircle, HelpCircle, Info, Loader2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../components/ui/tooltip";
 import { ApiError } from "./api-client";
-import s from "./ui.module.css";
+import { cn } from "./utils";
 
-// OPSP-25/28 공통 UX 프리미티브: 일관 스피너 / 친화 에러 / 빈상태 / 정보 마커.
-// OPSP-28: 인라인 스타일 제거 → CSS Modules + 디자인 토큰.
+// OPSP-32 (재작성): shadcn/ui 기반 공통 프리미티브.
+// 인라인 스타일·CSS Modules 모두 제거 — Tailwind 클래스 + Radix.
 
-export function Spinner({ size = 14 }: { size?: number }) {
-  return (
-    <span
-      aria-label="로딩 중"
-      role="status"
-      className={s.spinner}
-      style={{ width: size, height: size }}
-    />
-  );
+export function Spinner({ className }: { className?: string }) {
+  return <Loader2 className={cn("h-4 w-4 animate-spin", className)} aria-label="로딩 중" role="status" />;
 }
 
-// 스피너 + 라벨 (버튼 안에서 사용). 진행 중임을 한눈에.
 export function Loading({ label }: { label: string }) {
   return (
-    <span className={s.loading}>
-      <Spinner size={12} />
+    <span className="inline-flex items-center gap-1.5">
+      <Spinner />
       {label}
     </span>
   );
 }
 
-// 라벨 옆 의미 표시: hover/포커스 시 풍부한 설명(HTML title — 의존성 0).
-// 모바일/접근성 보완은 OPSP-28 이후 popover 컴포넌트 도입 시 교체.
+// InfoMark — hover/포커스 시 Radix Tooltip(접근성·모바일 친화).
+// span 으로 렌더 — Button 안에 들어가도 button 중첩 경고 안 남.
 export function InfoMark({ help, label }: { help: string; label?: string }) {
   return (
-    <span
-      tabIndex={0}
-      title={help}
-      aria-label={label === undefined ? help : `${label}: ${help}`}
-      className={s.infoMark}
-    >
-      ?
-    </span>
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            role="img"
+            tabIndex={0}
+            aria-label={label === undefined ? help : `${label}: ${help}`}
+            className="ml-1 inline-flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted-foreground hover:text-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <HelpCircle className="h-3 w-3" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>{help}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
-// .claude 미존재(빈 레포)는 정상 동작 — raw JSON 대신 다음 행동을 안내.
 function isMissingClaude(err: ApiError): boolean {
   return err.code === "ScanError" && (err.detail ?? "").includes(".claude");
 }
@@ -82,27 +88,29 @@ export function friendlyError(error: unknown): FriendlyError {
   };
 }
 
-// 친화 에러 패널: 사람말 + (선택) 다음 행동 CTA. raw JSON 절대 노출 안 함.
 export function ErrorNotice({ error }: { error: unknown }) {
   const f = friendlyError(error);
-  const cls = `${s.notice} ${f.tone === "info" ? s.noticeInfo : s.noticeError}`;
   return (
-    <div role="alert" className={cls}>
-      <div className={s.noticeTitle}>{f.title}</div>
-      <div>{f.body}</div>
-      {f.cta !== undefined && <div className={s.noticeCta}>{f.cta}</div>}
-    </div>
+    <Alert variant={f.tone === "info" ? "info" : "destructive"}>
+      {f.tone === "info" ? <Info className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+      <AlertTitle>{f.title}</AlertTitle>
+      <AlertDescription>
+        <div>{f.body}</div>
+        {f.cta !== undefined && <div className="mt-1.5 font-semibold">{f.cta}</div>}
+      </AlertDescription>
+    </Alert>
   );
 }
 
-// 한 줄짜리 인라인 에러(폼 제출 옆 등 좁은 자리).
 export function InlineError({ error }: { error: unknown }) {
   const f = friendlyError(error);
-  const cls = f.tone === "info" ? s.inlineInfo : s.inlineError;
-  return <span className={cls}>{f.body}</span>;
+  return (
+    <span className={cn("text-xs", f.tone === "info" ? "text-info" : "text-destructive")}>
+      {f.body}
+    </span>
+  );
 }
 
-// 빈상태: 왜 비었고 무엇을 하면 되는지를 문구로 명시.
 export function EmptyState({
   title,
   hint,
@@ -113,9 +121,11 @@ export function EmptyState({
   children?: ReactNode;
 }) {
   return (
-    <div className={s.emptyState}>
-      <div className={s.emptyStateTitle}>{title}</div>
-      {hint !== undefined && <div className={s.emptyStateHint}>{hint}</div>}
+    <div className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center">
+      <p className="text-sm font-medium text-foreground">{title}</p>
+      {hint !== undefined && (
+        <p className="mt-1 text-sm text-muted-foreground">{hint}</p>
+      )}
       {children}
     </div>
   );

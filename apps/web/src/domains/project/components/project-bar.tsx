@@ -1,9 +1,19 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { CheckCircle2 } from "lucide-react";
+import { Button } from "../../../components/ui/button";
+import { Card } from "../../../components/ui/card";
+import { Input } from "../../../components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../../components/ui/select";
 import { registryKeys } from "../../registry/api";
 import { ErrorNotice, InfoMark, InlineError, Loading } from "../../../lib/ui";
 import { useCreateProject, useInstallHooks, useProjects, useScanProject } from "../use-project";
-import s from "./project-bar.module.css";
 
 interface Props {
   selectedProjectId: string | null;
@@ -20,15 +30,15 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
   const [gitUrl, setGitUrl] = useState("");
 
   return (
-    <div className={s.bar}>
-      <div className={s.row}>
-        <input
+    <Card className="space-y-3 p-4">
+      <div className="flex gap-2">
+        <Input
           value={gitUrl}
           onChange={(e) => setGitUrl(e.target.value)}
           placeholder="git URL (예: https://github.com/owner/repo.git)"
-          className={s.gitInput}
+          className="font-mono text-sm"
         />
-        <button
+        <Button
           type="button"
           disabled={create.isPending || gitUrl.trim() === ""}
           onClick={() =>
@@ -51,31 +61,30 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
               />
             </>
           )}
-        </button>
+        </Button>
       </div>
-      {create.isError && (
-        <div className={s.errorWrap}>
-          <InlineError error={create.error} />
-        </div>
-      )}
+      {create.isError && <InlineError error={create.error} />}
 
-      <div className={s.row}>
-        <select
-          value={selectedProjectId ?? ""}
-          onChange={(e) => onSelect(e.target.value)}
-          className={s.projectSelect}
-        >
-          <option value="" disabled>
-            {projects && projects.length > 0 ? "프로젝트 선택" : "등록된 프로젝트 없음"}
-          </option>
-          {(projects ?? []).map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name} ({p.defaultBranch ?? "?"})
-            </option>
-          ))}
-        </select>
-        <button
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="min-w-[240px] flex-1">
+          <Select value={selectedProjectId ?? ""} onValueChange={onSelect}>
+            <SelectTrigger>
+              <SelectValue
+                placeholder={projects && projects.length > 0 ? "프로젝트 선택" : "등록된 프로젝트 없음"}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {(projects ?? []).map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name} ({p.defaultBranch ?? "?"})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button
           type="button"
+          variant="secondary"
           disabled={selectedProjectId === null || scan.isPending}
           onClick={() => {
             if (selectedProjectId === null) return;
@@ -96,9 +105,10 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
               />
             </>
           )}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
           disabled={selectedProjectId === null || hooks.isPending}
           onClick={() => {
             if (selectedProjectId !== null) hooks.mutate(selectedProjectId);
@@ -115,25 +125,23 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
               />
             </>
           )}
-        </button>
+        </Button>
         {scan.isSuccess && (
-          <span className={s.successText}>
+          <span className="inline-flex items-center gap-1 text-xs text-success">
+            <CheckCircle2 className="h-3.5 w-3.5" />
             자산 {scan.data.scannedAssets} · 신규버전 {scan.data.saved.versions}
           </span>
         )}
         {hooks.isSuccess && (
-          <span className={s.successText}>
-            훅 설치됨{" "}
-            {hooks.data.committed ? `(커밋 ${hooks.data.committed.slice(0, 8)})` : "(이미 설치됨)"}
+          <span className="inline-flex items-center gap-1 text-xs text-success">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            훅 설치됨
+            {hooks.data.committed ? ` (커밋 ${hooks.data.committed.slice(0, 8)})` : " (이미 설치됨)"}
           </span>
         )}
         {hooks.isError && <InlineError error={hooks.error} />}
       </div>
-      {scan.isError && (
-        <div className={s.errorWrap}>
-          <ErrorNotice error={scan.error} />
-        </div>
-      )}
-    </div>
+      {scan.isError && <ErrorNotice error={scan.error} />}
+    </Card>
   );
 }
