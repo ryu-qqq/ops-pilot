@@ -1,9 +1,10 @@
+import { Sparkles, Target, Trophy } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "../../../components/ui/alert";
+import { Badge } from "../../../components/ui/badge";
+import { Button } from "../../../components/ui/button";
 import { EmptyState, ErrorNotice, InfoMark, InlineError, Loading } from "../../../lib/ui";
 import type { JudgeVerdict } from "../api";
 import { useJudgeRuns, useRunsCompare } from "../use-run";
-import s from "./comparison-view.module.css";
-
-// OPSP-10 비교 뷰 / OPSP-9 회귀 점수판: N개 run 을 컬럼으로, 행에 핵심 메트릭 매트릭스.
 
 interface Props {
   runIds: string[];
@@ -17,23 +18,21 @@ const statusEmoji: Record<string, string> = {
   pending: "⏳",
 };
 
-const ss = s as Record<string, string | undefined>;
-const verdictMeta: Record<JudgeVerdict, { label: string; cls: string }> = {
-  best: { label: "🏆 BEST", cls: ss.verdictBest ?? "" },
-  fine: { label: "OK", cls: ss.verdictFine ?? "" },
-  worse: { label: "WORSE", cls: ss.verdictWorse ?? "" },
+const verdictMeta: Record<JudgeVerdict, { label: string; variant: "success" | "warning" | "destructive" }> = {
+  best: { label: "🏆 BEST", variant: "success" },
+  fine: { label: "OK", variant: "warning" },
+  worse: { label: "WORSE", variant: "destructive" },
 };
 
 export function ComparisonView({ runIds, onSelectRun }: Props) {
-  const anyRunning = false;
-  const { data: items, isPending, isError, error } = useRunsCompare(runIds, anyRunning);
+  const { data: items, isPending, isError, error } = useRunsCompare(runIds, false);
   const judge = useJudgeRuns();
   const verdictByRunId = new Map(judge.data?.perRun.map((p) => [p.runId, p]) ?? []);
 
   if (runIds.length === 0) return null;
   if (isPending)
     return (
-      <p className={s.loading}>
+      <p className="text-sm text-muted-foreground">
         <Loading label="비교 데이터 불러오는 중…" />
       </p>
     );
@@ -42,201 +41,238 @@ export function ComparisonView({ runIds, onSelectRun }: Props) {
     return <EmptyState title="비교할 run 이 없어요" hint="버전 비교 모드로 다시 실행해 보세요." />;
 
   const allDone = items.every((it) => it.run.status === "succeeded" || it.run.status === "failed");
-
-  // OPSP-9: 서로 다른 시나리오면 회귀 모드.
   const scenarioNames = [...new Set(items.map((it) => it.scenarioName))];
   const isRegression = scenarioNames.length > 1;
   const passedFull = items.filter((it) => it.assertionScore?.passed === true).length;
 
   return (
-    <div className={s.wrapper}>
+    <div className="space-y-3">
       {isRegression && (
-        <div className={s.regressionSummary}>
-          🎯 회귀 — {items.length}개 시나리오 중 <strong>{passedFull}</strong>개 assertion 전원 통과
-        </div>
+        <Alert variant="success">
+          <Target className="h-4 w-4" />
+          <AlertDescription>
+            회귀 — {items.length}개 시나리오 중 <strong>{passedFull}</strong>개 assertion 전원 통과
+          </AlertDescription>
+        </Alert>
       )}
 
-      <div className={s.judgeRow}>
-        <button
-          type="button"
+      <div className="flex items-center gap-2">
+        <Button
+          variant="secondary"
+          size="sm"
           disabled={judge.isPending || !allDone}
           onClick={() => judge.mutate(runIds)}
-          title={allDone ? "로컬 Claude 로 N개 run 결과를 비교해 판정" : "모든 run 이 끝난 뒤에 가능"}
+          title={allDone ? "로컬 Claude 로 N개 run 결과 비교 판정" : "모든 run 이 끝난 뒤에 가능"}
         >
-          {judge.isPending ? <Loading label="🤖 Claude 판정 중…" /> : "🤖 AI 판정 (어느 게 나았나)"}
-        </button>
+          {judge.isPending ? (
+            <Loading label="Claude 판정 중…" />
+          ) : (
+            <>
+              <Sparkles className="h-3.5 w-3.5" />
+              AI 판정 (어느 게 나았나)
+            </>
+          )}
+        </Button>
         <InfoMark
           label="AI 판정"
-          help="시나리오 + 자산 본문 + 각 run 요약(마지막 응답·단계·토큰·diff)을 로컬 Claude 에 보내 ‘어느 버전이 더 나았나·왜’ 를 JSON 으로 받습니다. 자동 적용 없음, 사용자 판단의 보조. 실 토큰 ~20-60초."
+          help="시나리오 + 자산 본문 + 각 run 요약을 Claude 에 보내 ‘어느 버전이 더 나았나·왜’ 를 JSON 으로 받습니다."
         />
         {judge.isError && <InlineError error={judge.error} />}
       </div>
+
       {judge.isSuccess && (
-        <div className={s.judgePanel}>
-          <strong>🏆 판정 결과: </strong>
-          {judge.data.winnerRunId !== null ? (
-            <code>{judge.data.winnerRunId.slice(0, 8)}</code>
-          ) : (
-            <span>우열 판단 불가</span>
-          )}
-          <div className={s.judgeSummary}>{judge.data.summary}</div>
-        </div>
+        <Alert variant="info">
+          <Trophy className="h-4 w-4" />
+          <AlertTitle>
+            판정 결과:{" "}
+            {judge.data.winnerRunId !== null ? (
+              <code className="font-mono">{judge.data.winnerRunId.slice(0, 8)}</code>
+            ) : (
+              "우열 판단 불가"
+            )}
+          </AlertTitle>
+          <AlertDescription>
+            <p className="whitespace-pre-wrap text-sm">{judge.data.summary}</p>
+          </AlertDescription>
+        </Alert>
       )}
 
-      <table className={s.table}>
-        <thead>
-          <tr>
-            <th className={`${s.cell} ${s.headerCell}`}>지표</th>
-            {items.map((it) => {
-              const verdict = verdictByRunId.get(it.run.id);
-              return (
-                <th
-                  key={it.run.id}
-                  className={`${s.cell} ${s.runHeader}`}
-                  onClick={() => onSelectRun(it.run.id)}
-                  title="이 run 의 트레이스 보기"
-                >
-                  <code>{it.run.id.slice(0, 8)}</code>
-                  {isRegression && (
-                    <div className={s.scenarioName} title={it.scenarioName}>
-                      🎯 {it.scenarioName}
-                    </div>
+      <div className="overflow-x-auto rounded-md border">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50">
+            <tr>
+              <th className="border-b p-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                지표
+              </th>
+              {items.map((it) => {
+                const verdict = verdictByRunId.get(it.run.id);
+                return (
+                  <th
+                    key={it.run.id}
+                    className="cursor-pointer border-b p-2 text-left hover:bg-accent"
+                    onClick={() => onSelectRun(it.run.id)}
+                    title="이 run 의 트레이스 보기"
+                  >
+                    <code className="font-mono text-xs">{it.run.id.slice(0, 8)}</code>
+                    {isRegression && (
+                      <div className="mt-1 max-w-40 truncate text-xs font-semibold text-success">
+                        🎯 {it.scenarioName}
+                      </div>
+                    )}
+                    {verdict && (
+                      <Badge variant={verdictMeta[verdict.verdict].variant} className="ml-1 text-[10px]">
+                        {verdictMeta[verdict.verdict].label}
+                      </Badge>
+                    )}
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            <Row label="상태">
+              {items.map((it) => (
+                <td key={it.run.id} className="border-b p-2 align-top">
+                  {statusEmoji[it.run.status] ?? "?"} {it.run.status}
+                  {it.run.error !== null && (
+                    <div className="text-xs text-destructive">{it.run.error.slice(0, 80)}</div>
                   )}
-                  {verdict !== undefined && (
-                    <span
-                      className={`${s.verdictBadge} ${verdictMeta[verdict.verdict].cls}`}
-                      title={verdict.note}
-                    >
-                      {verdictMeta[verdict.verdict].label}
+                </td>
+              ))}
+            </Row>
+            <Row label="실행 소스">
+              {items.map((it) => (
+                <td key={it.run.id} className="border-b p-2 align-top">
+                  {it.run.runner}
+                </td>
+              ))}
+            </Row>
+            <Row label="토큰 (입/출)">
+              {items.map((it) => (
+                <td key={it.run.id} className="border-b p-2 align-top">
+                  {it.run.promptTokens === null && it.run.completionTokens === null
+                    ? "—"
+                    : `${String(it.run.promptTokens ?? "—")} / ${String(it.run.completionTokens ?? "—")}`}
+                </td>
+              ))}
+            </Row>
+            <Row label="비용 (USD)">
+              {items.map((it) => (
+                <td key={it.run.id} className="border-b p-2 align-top">
+                  {it.run.costUsd === null ? "—" : it.run.costUsd.toFixed(4)}
+                </td>
+              ))}
+            </Row>
+            <Row label="변경 파일">
+              {items.map((it) => (
+                <td key={it.run.id} className="border-b p-2 align-top">
+                  {it.diffFileCount}
+                </td>
+              ))}
+            </Row>
+            <Row
+              label="성공조건 통과"
+              help="시나리오 assertions 각 줄을 트레이스 텍스트에 substring 매칭."
+            >
+              {items.map((it) => {
+                const sc = it.assertionScore;
+                if (sc === null) {
+                  return (
+                    <td key={it.run.id} className="border-b p-2 align-top text-muted-foreground">
+                      —
+                    </td>
+                  );
+                }
+                const total = Array.isArray(sc.detail?.expected) ? sc.detail.expected.length : 0;
+                const passCount = Math.round((sc.score ?? 0) * total);
+                return (
+                  <td key={it.run.id} className="border-b p-2 align-top">
+                    <span className={sc.passed ? "font-semibold text-success" : "font-semibold text-warning"}>
+                      {`${String(passCount)}/${String(total)}`}
                     </span>
+                  </td>
+                );
+              })}
+            </Row>
+            <Row label="judge 점수" help="🤖 AI 판정 후 저장된 score(scorer='llm_judge').">
+              {items.map((it) => {
+                const sc = it.judgeScore;
+                if (sc === null) {
+                  return (
+                    <td key={it.run.id} className="border-b p-2 align-top text-muted-foreground">
+                      —
+                    </td>
+                  );
+                }
+                return (
+                  <td
+                    key={it.run.id}
+                    className="border-b p-2 align-top"
+                    title={sc.detail?.reason ?? ""}
+                  >
+                    <span className="font-semibold">{(sc.score ?? 0).toFixed(2)}</span>
+                  </td>
+                );
+              })}
+            </Row>
+            <Row label="사람 점수" help="트레이스 뷰에서 사용자가 매긴 점수(OPSP-17).">
+              {items.map((it) => {
+                const sc = it.humanScore;
+                if (sc === null) {
+                  return (
+                    <td key={it.run.id} className="border-b p-2 align-top text-muted-foreground">
+                      —
+                    </td>
+                  );
+                }
+                return (
+                  <td
+                    key={it.run.id}
+                    className="border-b p-2 align-top"
+                    title={sc.detail?.reason ?? ""}
+                  >
+                    <span className="font-semibold">{(sc.score ?? 0).toFixed(2)}</span>
+                  </td>
+                );
+              })}
+            </Row>
+            <Row label="마지막 응답">
+              {items.map((it) => (
+                <td key={it.run.id} className="max-w-60 p-2 align-top text-xs">
+                  {it.lastAssistantText === null ? (
+                    <span className="text-muted-foreground">(없음)</span>
+                  ) : (
+                    <span className="whitespace-pre-wrap break-words">{it.lastAssistantText}</span>
                   )}
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td className={`${s.cell} ${s.rowLabel}`}>상태</td>
-            {items.map((it) => (
-              <td key={it.run.id} className={s.cell}>
-                {statusEmoji[it.run.status] ?? "?"} {it.run.status}
-                {it.run.error !== null && <div className={s.errorText}>{it.run.error.slice(0, 80)}</div>}
-              </td>
-            ))}
-          </tr>
-          <tr>
-            <td className={`${s.cell} ${s.rowLabel}`}>실행 소스</td>
-            {items.map((it) => (
-              <td key={it.run.id} className={s.cell}>
-                {it.run.runner}
-              </td>
-            ))}
-          </tr>
-          <tr>
-            <td className={`${s.cell} ${s.rowLabel}`}>토큰 (입력/출력)</td>
-            {items.map((it) => (
-              <td key={it.run.id} className={s.cell}>
-                {it.run.promptTokens === null && it.run.completionTokens === null
-                  ? "—"
-                  : `${String(it.run.promptTokens ?? "—")} / ${String(it.run.completionTokens ?? "—")}`}
-              </td>
-            ))}
-          </tr>
-          <tr>
-            <td className={`${s.cell} ${s.rowLabel}`}>비용 (USD)</td>
-            {items.map((it) => (
-              <td key={it.run.id} className={s.cell}>
-                {it.run.costUsd === null ? "—" : it.run.costUsd.toFixed(4)}
-              </td>
-            ))}
-          </tr>
-          <tr>
-            <td className={`${s.cell} ${s.rowLabel}`}>변경 파일 수</td>
-            {items.map((it) => (
-              <td key={it.run.id} className={s.cell}>
-                {it.diffFileCount}
-              </td>
-            ))}
-          </tr>
-          {/* OPSP-20: 객관 신호 3행 */}
-          <tr>
-            <td className={`${s.cell} ${s.rowLabel}`}>
-              성공조건 통과
-              <InfoMark
-                label="성공조건 자동 측정"
-                help="시나리오 expectation.assertions 각 줄을 트레이스 텍스트에 substring 매칭. 약한 규칙(자유 자연어) — 정밀 규칙 엔진은 후속."
-              />
-            </td>
-            {items.map((it) => {
-              const sc = it.assertionScore;
-              if (sc === null) return <td key={it.run.id} className={`${s.cell} ${s.dashCell}`}>—</td>;
-              const detail = sc.detail;
-              const expected = detail?.expected;
-              const total = Array.isArray(expected) ? expected.length : 0;
-              const passCount = Math.round((sc.score ?? 0) * total);
-              return (
-                <td key={it.run.id} className={s.cell}>
-                  <span className={sc.passed ? s.passColor : s.partialColor}>
-                    {`${String(passCount)}/${String(total)}`}
-                  </span>
                 </td>
-              );
-            })}
-          </tr>
-          <tr>
-            <td className={`${s.cell} ${s.rowLabel}`}>
-              judge 점수
-              <InfoMark
-                label="LLM judge 점수"
-                help="🤖 AI 판정 후 저장된 score(scorer='llm_judge'). best=1.0 / fine=0.5 / worse=0.0."
-              />
-            </td>
-            {items.map((it) => {
-              const sc = it.judgeScore;
-              if (sc === null) return <td key={it.run.id} className={`${s.cell} ${s.dashCell}`}>—</td>;
-              return (
-                <td key={it.run.id} className={s.cell} title={sc.detail?.reason ?? ""}>
-                  <span className={s.numCell}>{(sc.score ?? 0).toFixed(2)}</span>
-                </td>
-              );
-            })}
-          </tr>
-          <tr>
-            <td className={`${s.cell} ${s.rowLabel}`}>
-              사람 점수
-              <InfoMark
-                label="사람 점수"
-                help="트레이스 뷰에서 사용자가 직접 매긴 점수(OPSP-17). 데이터 없으면 — 표시."
-              />
-            </td>
-            {items.map((it) => {
-              const sc = it.humanScore;
-              if (sc === null) return <td key={it.run.id} className={`${s.cell} ${s.dashCell}`}>—</td>;
-              return (
-                <td key={it.run.id} className={s.cell} title={sc.detail?.reason ?? ""}>
-                  <span className={s.numCell}>{(sc.score ?? 0).toFixed(2)}</span>
-                </td>
-              );
-            })}
-          </tr>
-          <tr>
-            <td className={`${s.cell} ${s.rowLabel}`}>마지막 응답 미리보기</td>
-            {items.map((it) => (
-              <td key={it.run.id} className={`${s.cell} ${s.previewCell}`}>
-                {it.lastAssistantText === null ? (
-                  <span className={s.dashCell}>(없음)</span>
-                ) : (
-                  <span className={s.previewText}>{it.lastAssistantText}</span>
-                )}
-              </td>
-            ))}
-          </tr>
-        </tbody>
-      </table>
-      <p className={s.footnote}>
+              ))}
+            </Row>
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-muted-foreground">
         컬럼 헤더(run id) 를 클릭하면 그 run 의 트레이스로 이동. 셀에 hover 하면 자세한 이유가 뜹니다.
       </p>
     </div>
+  );
+}
+
+function Row({
+  label,
+  help,
+  children,
+}: {
+  label: string;
+  help?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <tr className="hover:bg-muted/30">
+      <td className="border-b p-2 align-top text-xs font-medium text-muted-foreground">
+        {label}
+        {help && <InfoMark label={label} help={help} />}
+      </td>
+      {children}
+    </tr>
   );
 }
