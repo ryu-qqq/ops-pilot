@@ -1,0 +1,128 @@
+/* OPSP-28: 시나리오 실행 폼 + AI 초안(보라) + 비교 모드(파랑) */
+
+.form {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin-top: var(--space-3);
+  background: var(--color-bg-default);
+}
+
+.title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--space-2);
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  color: var(--color-fg-muted);
+  margin: var(--space-1) 0 2px;
+}
+
+.required {
+  color: var(--color-danger-fg);
+}
+
+.field {
+  width: 100%;
+  margin-bottom: var(--space-2);
+}
+.mono {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+}
+
+/* AI 시나리오 초안 (OPSP-27 B) */
+.aiCard {
+  border: 1px solid var(--color-purple-emphasis);
+  background: var(--color-purple-bg);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.aiHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+.aiTitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-purple-fg);
+}
+.aiRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* 비교 모드 (OPSP-10) */
+.compareCard {
+  border: 1px solid var(--color-accent-emphasis);
+  background: var(--color-accent-bg);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.compareToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-fg-default);
+}
+.compareCount {
+  font-size: var(--font-size-xs);
+  color: var(--color-accent-fg);
+  margin: var(--space-1) 0;
+}
+.compareList {
+  max-height: 140px;
+  overflow-y: auto;
+  padding-right: var(--space-1);
+}
+.compareItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  padding: 2px 0;
+}
+.compareItem code {
+  font-size: var(--font-size-xs);
+}
+.compareDate {
+  color: var(--color-fg-muted);
+}
+.compareMsg {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.compareWarn {
+  font-size: var(--font-size-xs);
+  color: var(--color-warning-fg);
+  margin: var(--space-1) 0 0;
+}
+
+/* 소스 + 실행 라인 */
+.actionRow {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  font-size: var(--font-size-base);
+}
+.actionRow .submit {
+  margin-left: auto;
+}
+
+.successText {
+  color: var(--color-success-fg);
+  font-size: var(--font-size-sm);
+}
+.errorWrap {
+  margin: var(--space-2) 0 0;
+}

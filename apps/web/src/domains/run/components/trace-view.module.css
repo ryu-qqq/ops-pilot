@@ -1,0 +1,78 @@
+/* OPSP-28: 트레이스 뷰 — 단계별 row + 색 구분 */
+
+.statusLine {
+  font-size: var(--font-size-base);
+  margin-bottom: var(--space-1);
+}
+.statusRunning {
+  color: var(--color-warning-fg);
+}
+.statusSucceeded {
+  color: var(--color-success-fg);
+}
+.statusFailed {
+  color: var(--color-danger-fg);
+}
+
+.loading {
+  color: var(--color-fg-muted);
+}
+.loadingRunning {
+  color: var(--color-warning-fg);
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.row {
+  border-left: 3px solid var(--color-border-default);
+  padding: var(--space-1) 0 var(--space-2) var(--space-3);
+  margin-left: var(--space-2);
+}
+.rowSystem { border-left-color: #6e7781; }
+.rowUser { border-left-color: var(--color-accent-emphasis); }
+.rowAssistant { border-left-color: var(--color-fg-default); }
+.rowThinking { border-left-color: var(--color-purple-emphasis); }
+.rowToolCall { border-left-color: #bc4c00; }
+.rowToolResult { border-left-color: var(--color-success-emphasis); }
+.rowResult { border-left-color: var(--color-accent-fg); }
+
+.head {
+  font-size: var(--font-size-sm);
+}
+.seq {
+  color: var(--color-fg-subtle);
+}
+.label {
+  font-weight: 700;
+}
+.labelSystem { color: #6e7781; }
+.labelUser { color: var(--color-accent-emphasis); }
+.labelAssistant { color: var(--color-fg-default); }
+.labelThinking { color: var(--color-purple-emphasis); }
+.labelToolCall { color: #bc4c00; }
+.labelToolResult { color: var(--color-success-emphasis); }
+.labelResult { color: var(--color-accent-fg); }
+
+.name {
+  margin-left: var(--space-1);
+}
+
+.summary {
+  cursor: pointer;
+  color: var(--color-fg-default);
+  font-size: var(--font-size-base);
+  margin-top: 2px;
+}
+.pre {
+  background: var(--color-bg-subtle);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  overflow: auto;
+  max-height: 280px;
+  font-family: var(--font-family-mono);
+}

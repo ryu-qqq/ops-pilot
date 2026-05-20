@@ -1,0 +1,111 @@
+/* OPSP-28: 자산 저작 폼 — 보라 톤(저작/AI). */
+
+.form {
+  border: 1px solid var(--color-purple-emphasis);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin-top: var(--space-3);
+  background: var(--color-bg-default);
+}
+
+.title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--space-2);
+}
+
+.kindRow {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  align-items: center;
+}
+
+.docsLink {
+  font-size: var(--font-size-sm);
+  color: var(--color-accent-fg);
+  text-decoration: none;
+}
+.docsLink:hover {
+  text-decoration: underline;
+}
+
+.templateBtn {
+  margin-left: auto;
+}
+
+.fieldLabel {
+  font-size: var(--font-size-sm);
+  color: var(--color-fg-muted);
+  margin-top: var(--space-2);
+  margin-bottom: 2px;
+}
+.required {
+  color: var(--color-danger-fg);
+}
+
+.field {
+  width: 100%;
+  margin-bottom: var(--space-2);
+}
+
+.bodyArea {
+  width: 100%;
+  margin-bottom: var(--space-2);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+}
+
+.preview {
+  margin-bottom: var(--space-2);
+}
+.previewSummary {
+  font-size: var(--font-size-sm);
+  color: var(--color-fg-muted);
+  cursor: pointer;
+}
+.previewPre {
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  font-size: var(--font-size-xs);
+  overflow-x: auto;
+  margin: var(--space-1) 0;
+  font-family: var(--font-family-mono);
+}
+
+.validationError {
+  color: var(--color-danger-fg);
+  font-size: var(--font-size-sm);
+  margin: var(--space-1) 0;
+}
+
+/* AI 검수 (OPSP-27 A) */
+.reviewRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+}
+.reviewPanel {
+  border: 1px solid var(--color-purple-emphasis);
+  background: var(--color-purple-bg);
+  color: var(--color-purple-fg);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  margin: var(--space-1) 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
+  white-space: pre-wrap;
+}
+
+.submitRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.successText {
+  color: var(--color-success-fg);
+  font-size: var(--font-size-sm);
+}

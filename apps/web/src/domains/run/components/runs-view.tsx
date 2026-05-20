@@ -1,10 +1,11 @@
+import { InfoMark } from "../../../lib/ui";
 import { ComparisonView } from "./comparison-view";
 import { DiffView } from "./diff-view";
 import { RunList } from "./run-list";
 import { TraceView } from "./trace-view";
 import { ScenarioPanel } from "./scenario-panel";
 import { HumanScore } from "./human-score";
-import { InfoMark } from "../../../lib/ui";
+import s from "./runs-view.module.css";
 
 interface Props {
   selectedRunId: string | null;
@@ -16,24 +17,16 @@ interface Props {
 export function RunsView({ selectedRunId, onSelectRun, compareRunIds, onClearCompare }: Props) {
   const compareActive = compareRunIds.length >= 2;
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 24 }}>
+    <div className={s.layout}>
       <section>
-        <h2 style={{ fontSize: 14, color: "#555" }}>실행 (run)</h2>
+        <h2 className={s.sectionTitle}>실행 (run)</h2>
         <RunList selectedId={selectedRunId} onSelect={onSelectRun} />
       </section>
       <section>
         {compareActive && (
-          <div
-            style={{
-              border: "1px solid #0969da",
-              background: "#ddf4ff",
-              borderRadius: 6,
-              padding: 10,
-              marginBottom: 12,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "baseline" }}>
-              <h2 style={{ fontSize: 14, color: "#0a3069", margin: 0 }}>
+          <div className={s.comparePanel}>
+            <div className={s.compareHeader}>
+              <h2 className={s.compareTitle}>
                 📊 버전 비교 ({compareRunIds.length}개 run)
                 <InfoMark
                   label="버전 비교"
@@ -43,14 +36,7 @@ export function RunsView({ selectedRunId, onSelectRun, compareRunIds, onClearCom
               <button
                 type="button"
                 onClick={onClearCompare}
-                style={{
-                  marginLeft: "auto",
-                  background: "transparent",
-                  border: "none",
-                  color: "#0969da",
-                  cursor: "pointer",
-                  fontSize: 12,
-                }}
+                className={s.closeBtn}
                 title="비교 패널 닫고 단일 트레이스만 보기"
               >
                 닫기
@@ -59,13 +45,13 @@ export function RunsView({ selectedRunId, onSelectRun, compareRunIds, onClearCom
             <ComparisonView runIds={compareRunIds} onSelectRun={onSelectRun} />
           </div>
         )}
-        <h2 style={{ fontSize: 14, color: "#555" }}>트레이스 — 왜 그렇게 행동했나</h2>
+        <h2 className={s.sectionTitle}>트레이스 — 왜 그렇게 행동했나</h2>
         <ScenarioPanel runId={selectedRunId} />
         <HumanScore runId={selectedRunId} />
         <TraceView runId={selectedRunId} />
         {selectedRunId !== null && (
-          <section style={{ marginTop: 16 }}>
-            <h3 style={{ fontSize: 13, color: "#555", display: "flex", alignItems: "center" }}>
+          <section className={s.subSection}>
+            <h3 className={s.subTitle}>
               변경 (파일 diff)
               <InfoMark
                 label="변경 패널"

@@ -1,22 +1,27 @@
 import { EmptyState, ErrorNotice, Loading } from "../../../lib/ui";
 import { useRun, useRunTrace } from "../use-run";
 import type { TraceEventView } from "../api";
+import s from "./trace-view.module.css";
 
-// 타입별 색/라벨 — "무엇이 일어났는지"가 한눈에 (가독성).
-const typeStyle: Record<string, { label: string; color: string }> = {
-  system: { label: "SYSTEM", color: "#6e7781" },
-  user_message: { label: "USER", color: "#0969da" },
-  assistant_message: { label: "ASSISTANT", color: "#1f2328" },
-  thinking: { label: "THINKING", color: "#8250df" },
-  tool_call: { label: "TOOL →", color: "#bc4c00" },
-  tool_result: { label: "← RESULT", color: "#1a7f37" },
-  result: { label: "DONE", color: "#0a3069" },
+// 타입별 색·라벨 — "무엇이 일어났는지"가 한눈에 (가독성).
+// CSS Modules 키 lookup 은 noUncheckedIndexedAccess 로 string|undefined → `?? ""` 로 안전.
+function cls(k: string): string {
+  return (s as Record<string, string | undefined>)[k] ?? "";
+}
+const typeMeta: Record<string, { label: string; row: string; label_: string }> = {
+  system: { label: "SYSTEM", row: cls("rowSystem"), label_: cls("labelSystem") },
+  user_message: { label: "USER", row: cls("rowUser"), label_: cls("labelUser") },
+  assistant_message: { label: "ASSISTANT", row: cls("rowAssistant"), label_: cls("labelAssistant") },
+  thinking: { label: "THINKING", row: cls("rowThinking"), label_: cls("labelThinking") },
+  tool_call: { label: "TOOL →", row: cls("rowToolCall"), label_: cls("labelToolCall") },
+  tool_result: { label: "← RESULT", row: cls("rowToolResult"), label_: cls("labelToolResult") },
+  result: { label: "DONE", row: cls("rowResult"), label_: cls("labelResult") },
 };
 
 function preview(v: unknown): string {
   if (v === null || v === undefined) return "";
-  const s = typeof v === "string" ? v : JSON.stringify(v);
-  return s.length > 120 ? `${s.slice(0, 120)}…` : s;
+  const str = typeof v === "string" ? v : JSON.stringify(v);
+  return str.length > 120 ? `${str.slice(0, 120)}…` : str;
 }
 
 function pretty(v: unknown): string {
@@ -24,30 +29,19 @@ function pretty(v: unknown): string {
 }
 
 function TraceRow({ e }: { e: TraceEventView }) {
-  const st = typeStyle[e.type] ?? { label: e.type.toUpperCase(), color: "#333" };
+  const meta = typeMeta[e.type] ?? { label: e.type.toUpperCase(), row: "", label_: "" };
   const body = e.input ?? e.output;
   return (
-    <li style={{ borderLeft: `3px solid ${st.color}`, padding: "6px 0 10px 12px", marginLeft: 8 }}>
-      <div style={{ fontSize: 12 }}>
-        <span style={{ color: "#aaa" }}>#{e.seq}</span>{" "}
-        <strong style={{ color: st.color }}>{st.label}</strong>
-        {e.name && <code style={{ marginLeft: 6 }}>{e.name}</code>}
+    <li className={`${s.row} ${meta.row}`}>
+      <div className={s.head}>
+        <span className={s.seq}>#{e.seq}</span>{" "}
+        <strong className={`${s.label} ${meta.label_}`}>{meta.label}</strong>
+        {e.name && <code className={s.name}>{e.name}</code>}
       </div>
       {body !== null && body !== undefined && (
         <details style={{ marginTop: 2 }}>
-          <summary style={{ cursor: "pointer", color: "#444", fontSize: 13 }}>
-            {preview(body)}
-          </summary>
-          <pre
-            style={{
-              background: "#f6f8fa",
-              padding: 8,
-              borderRadius: 4,
-              fontSize: 12,
-              overflow: "auto",
-              maxHeight: 280,
-            }}
-          >
+          <summary className={s.summary}>{preview(body)}</summary>
+          <pre className={s.pre}>
             {e.input != null && `input:\n${pretty(e.input)}\n\n`}
             {e.output != null && `output:\n${pretty(e.output)}`}
           </pre>
@@ -71,7 +65,7 @@ export function TraceView({ runId }: { runId: string | null }) {
     );
   if (isPending)
     return (
-      <p style={{ color: "#57606a" }}>
+      <p className={s.loading}>
         <Loading label="트레이스 불러오는 중…" />
       </p>
     );
@@ -80,11 +74,13 @@ export function TraceView({ runId }: { runId: string | null }) {
   return (
     <>
       {run && (
-        <div style={{ fontSize: 13, marginBottom: 6 }}>
+        <div className={s.statusLine}>
           {running ? (
-            <span style={{ color: "#9a6700" }}>● 실행 중… (실시간 갱신)</span>
+            <span className={s.statusRunning}>● 실행 중… (실시간 갱신)</span>
           ) : (
-            <span style={{ color: run.status === "succeeded" ? "#1a7f37" : "crimson" }}>
+            <span
+              className={run.status === "succeeded" ? s.statusSucceeded : s.statusFailed}
+            >
               ● {run.status}
             </span>
           )}
@@ -92,14 +88,14 @@ export function TraceView({ runId }: { runId: string | null }) {
       )}
       {trace.length === 0 ? (
         running ? (
-          <p style={{ color: "#9a6700" }}>
+          <p className={s.loadingRunning}>
             <Loading label="트레이스 생성 중…" />
           </p>
         ) : (
           <EmptyState title="트레이스가 없어요" hint="이 실행에서 기록된 단계가 없습니다." />
         )
       ) : (
-        <ol style={{ listStyle: "none", padding: 0, margin: 0 }}>
+        <ol className={s.list}>
           {trace.map((e) => (
             <TraceRow key={e.seq} e={e} />
           ))}

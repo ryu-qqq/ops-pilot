@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { InlineError, Loading } from "../../../lib/ui";
 import { useCreateHumanScore, useScores } from "../use-run";
+import s from "./human-score.module.css";
 
 // 사람이 트레이스를 시나리오 성공조건과 대조해 직접 점수·이유를 남긴다 (OPSP-17).
 // 이 데이터가 OPSP-21(피드백→더 나은 프롬프트 추천) 플라이휠의 연료.
@@ -13,22 +14,22 @@ export function HumanScore({ runId }: { runId: string | null }) {
 
   if (runId === null) return null;
 
-  const humanScores = (scores ?? []).filter((s) => s.scorer === "human");
+  const humanScores = (scores ?? []).filter((sc) => sc.scorer === "human");
 
   return (
-    <div style={{ border: "1px solid #d0d7de", borderRadius: 6, padding: 12, marginBottom: 12 }}>
-      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6 }}>사람 평가</div>
+    <div className={s.panel}>
+      <div className={s.title}>사람 평가</div>
 
       {humanScores.length > 0 && (
-        <ul style={{ listStyle: "none", padding: 0, margin: "0 0 8px", fontSize: 13 }}>
-          {humanScores.map((s) => (
-            <li key={s.id} style={{ borderLeft: `3px solid ${s.passed ? "#1a7f37" : "crimson"}`, padding: "2px 8px", marginBottom: 4 }}>
-              <span style={{ color: s.passed ? "#1a7f37" : "crimson", fontWeight: 600 }}>
-                {s.passed ? "PASS" : "FAIL"}
+        <ul className={s.history}>
+          {humanScores.map((sc) => (
+            <li key={sc.id} className={`${s.histItem} ${sc.passed ? s.histPass : s.histFail}`}>
+              <span className={sc.passed ? s.verdictPass : s.verdictFail}>
+                {sc.passed ? "PASS" : "FAIL"}
               </span>
-              {s.score !== null && <span> · {s.score.toFixed(2)}</span>}
-              {s.detail?.reason && <span style={{ color: "#444" }}> — {s.detail.reason}</span>}
-              <span style={{ color: "#999" }}> · {s.createdAt.slice(0, 16).replace("T", " ")}</span>
+              {sc.score !== null && <span> · {sc.score.toFixed(2)}</span>}
+              {sc.detail?.reason && <span className={s.reason}> — {sc.detail.reason}</span>}
+              <span className={s.date}> · {sc.createdAt.slice(0, 16).replace("T", " ")}</span>
             </li>
           ))}
         </ul>
@@ -48,10 +49,15 @@ export function HumanScore({ runId }: { runId: string | null }) {
             { onSuccess: () => setReason("") },
           );
         }}
-        style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 13 }}
+        className={s.form}
       >
         <label>
-          <input type="checkbox" checked={passed} onChange={(e) => setPassed(e.target.checked)} /> 통과
+          <input
+            type="checkbox"
+            checked={passed}
+            onChange={(e) => setPassed(e.target.checked)}
+          />{" "}
+          통과
         </label>
         <label>
           점수{" "}
@@ -62,14 +68,14 @@ export function HumanScore({ runId }: { runId: string | null }) {
             step={0.1}
             value={score}
             onChange={(e) => setScore(e.target.value)}
-            style={{ width: 60, padding: 4 }}
+            className={s.scoreInput}
           />
         </label>
         <input
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="이유 (성공조건 대비 왜 이 점수인가)"
-          style={{ flex: 1, minWidth: 200, padding: 6 }}
+          className={s.reasonInput}
         />
         <button type="submit" disabled={create.isPending}>
           {create.isPending ? <Loading label="저장 중…" /> : "평가 저장"}
