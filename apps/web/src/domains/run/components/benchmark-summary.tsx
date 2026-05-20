@@ -75,7 +75,7 @@ export function BenchmarkSummary({ runIds, onSelectRun }: Props) {
   const agg = useBenchmarkAggregate(runIds, anyRunning);
   const data: BenchmarkAggregate | undefined = agg.data;
 
-  if (runIds.length < 2) {
+  if (runIds.length < 1) {
     return (
       <Card>
         <CardContent className="p-4">

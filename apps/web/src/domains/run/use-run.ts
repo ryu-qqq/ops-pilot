@@ -148,7 +148,7 @@ export function useBenchmarkAggregate(ids: string[], anyRunning: boolean) {
   return useQuery({
     queryKey: runKeys.benchmark(ids),
     queryFn: () => getBenchmarkAggregate(ids),
-    enabled: ids.length >= 2,
+    enabled: ids.length >= 1,
     refetchInterval: anyRunning ? 1500 : false,
   });
 }
