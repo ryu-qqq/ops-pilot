@@ -1,5 +1,6 @@
-import { EmptyState, ErrorNotice, Loading } from "../../../lib/ui";
-import { useRunsCompare } from "../use-run";
+import { EmptyState, ErrorNotice, InfoMark, InlineError, Loading } from "../../../lib/ui";
+import type { JudgeVerdict } from "../api";
+import { useJudgeRuns, useRunsCompare } from "../use-run";
 
 // OPSP-10 비교 뷰: N개 run 을 컬럼으로, 행에 핵심 메트릭 매트릭스.
 // 실행 중인 run 있으면 폴링으로 실시간 갱신. fixture/local-claude 둘 다.
@@ -16,6 +17,13 @@ const statusEmoji: Record<string, string> = {
   pending: "⏳",
 };
 
+// AI judge verdict 배지 색상.
+const verdictMeta: Record<JudgeVerdict, { label: string; bg: string; fg: string }> = {
+  best: { label: "🏆 BEST", bg: "#1a7f37", fg: "white" },
+  fine: { label: "OK", bg: "#9a6700", fg: "white" },
+  worse: { label: "WORSE", bg: "#cf222e", fg: "white" },
+};
+
 const cellStyle = {
   padding: "6px 8px",
   borderTop: "1px solid #eee",
@@ -26,6 +34,8 @@ const cellStyle = {
 export function ComparisonView({ runIds, onSelectRun }: Props) {
   const anyRunning = false; // 폴링 트리거: 첫 응답 이후 결정.
   const { data: items, isPending, isError, error } = useRunsCompare(runIds, anyRunning);
+  const judge = useJudgeRuns();
+  const verdictByRunId = new Map(judge.data?.perRun.map((p) => [p.runId, p]) ?? []);
 
   if (runIds.length === 0) return null;
   if (isPending)
@@ -41,22 +51,83 @@ export function ComparisonView({ runIds, onSelectRun }: Props) {
   // 응답 받은 뒤 실행 중 run 이 있으면 다음 폴링 의미 — 단순히 위 hook 의 anyRunning 을 동적으로
   // 하면 좋지만, 1차는 컴포넌트 키를 runIds 로 잡아 새로 마운트되게 함. 추후 useRun + interval 로 분리.
 
+  const allDone = items.every((it) => it.run.status === "succeeded" || it.run.status === "failed");
+
   return (
     <div style={{ overflowX: "auto" }}>
+      {/* AI 판정 트리거 + 결과 요약 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <button
+          type="button"
+          disabled={judge.isPending || !allDone}
+          onClick={() => judge.mutate(runIds)}
+          title={allDone ? "로컬 Claude 로 N개 run 결과를 비교해 판정" : "모든 run 이 끝난 뒤에 가능"}
+        >
+          {judge.isPending ? <Loading label="🤖 Claude 판정 중…" /> : "🤖 AI 판정 (어느 게 나았나)"}
+        </button>
+        <InfoMark
+          label="AI 판정"
+          help="시나리오 + 자산 본문 + 각 run 요약(마지막 응답·단계·토큰·diff)을 로컬 Claude 에 보내 ‘어느 버전이 더 나았나·왜’ 를 JSON 으로 받습니다. 자동 적용 없음, 사용자 판단의 보조. 실 토큰 ~20-60초."
+        />
+        {judge.isError && <InlineError error={judge.error} />}
+      </div>
+      {judge.isSuccess && (
+        <div
+          style={{
+            border: "1px solid #8250df",
+            background: "#faf5ff",
+            color: "#3b1f70",
+            borderRadius: 6,
+            padding: "8px 10px",
+            marginBottom: 8,
+            fontSize: 12,
+            lineHeight: 1.5,
+          }}
+        >
+          <strong>🏆 판정 결과: </strong>
+          {judge.data.winnerRunId !== null ? (
+            <code>{judge.data.winnerRunId.slice(0, 8)}</code>
+          ) : (
+            <span>우열 판단 불가</span>
+          )}
+          <div style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>{judge.data.summary}</div>
+        </div>
+      )}
+
       <table style={{ borderCollapse: "collapse", minWidth: "100%", fontSize: 12 }}>
         <thead>
           <tr>
             <th style={{ ...cellStyle, textAlign: "left", color: "#57606a" }}>지표</th>
-            {items.map((it) => (
-              <th
-                key={it.run.id}
-                style={{ ...cellStyle, textAlign: "left", cursor: "pointer", color: "#0969da" }}
-                onClick={() => onSelectRun(it.run.id)}
-                title="이 run 의 트레이스 보기"
-              >
-                <code style={{ fontSize: 11 }}>{it.run.id.slice(0, 8)}</code>
-              </th>
-            ))}
+            {items.map((it) => {
+              const verdict = verdictByRunId.get(it.run.id);
+              return (
+                <th
+                  key={it.run.id}
+                  style={{ ...cellStyle, textAlign: "left", cursor: "pointer", color: "#0969da" }}
+                  onClick={() => onSelectRun(it.run.id)}
+                  title="이 run 의 트레이스 보기"
+                >
+                  <code style={{ fontSize: 11 }}>{it.run.id.slice(0, 8)}</code>
+                  {verdict !== undefined && (
+                    <span
+                      style={{
+                        display: "inline-block",
+                        marginLeft: 6,
+                        padding: "1px 6px",
+                        borderRadius: 3,
+                        background: verdictMeta[verdict.verdict].bg,
+                        color: verdictMeta[verdict.verdict].fg,
+                        fontSize: 10,
+                        fontWeight: 700,
+                      }}
+                      title={verdict.note}
+                    >
+                      {verdictMeta[verdict.verdict].label}
+                    </span>
+                  )}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>

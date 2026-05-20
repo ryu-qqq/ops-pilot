@@ -119,6 +119,26 @@ const compareItemSchema = z.object({
 export type CompareItem = z.infer<typeof compareItemSchema>;
 const compareResponse = z.object({ items: z.array(compareItemSchema) });
 
+// OPSP-10 follow-up: 비교 판정(AI judge). N개 run 결과 → winner + perRun verdict.
+export const judgeVerdictSchema = z.enum(["best", "fine", "worse"]);
+export type JudgeVerdict = z.infer<typeof judgeVerdictSchema>;
+export const judgeResultSchema = z.object({
+  winnerRunId: z.string().nullable(),
+  summary: z.string().min(1),
+  perRun: z.array(
+    z.object({
+      runId: z.string(),
+      verdict: judgeVerdictSchema,
+      note: z.string(),
+    }),
+  ),
+});
+export type JudgeResult = z.infer<typeof judgeResultSchema>;
+
+export async function judgeRuns(runIds: string[]) {
+  return apiPost("/api/assist/judge-runs", { runIds }, judgeResultSchema);
+}
+
 export async function getRunsCompare(ids: string[]) {
   return (await apiGet(`/api/runs/compare?ids=${ids.join(",")}`, compareResponse)).items;
 }
