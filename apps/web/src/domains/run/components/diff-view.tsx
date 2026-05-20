@@ -1,10 +1,8 @@
+import { Badge } from "../../../components/ui/badge";
 import { EmptyState, ErrorNotice, Loading } from "../../../lib/ui";
+import { cn } from "../../../lib/utils";
 import type { RunDiffFileView } from "../api";
 import { useRun, useRunDiff } from "../use-run";
-import s from "./diff-view.module.css";
-
-// OPSP-30: worktree base 커밋↔실행 후 git diff 결과 패널.
-// 격리 worktree 구조의 차별점 — 에이전트가 만진 파일·라인이 정확히 잡힘.
 
 const statusLabel: Record<RunDiffFileView["status"], string> = {
   added: "추가",
@@ -14,19 +12,18 @@ const statusLabel: Record<RunDiffFileView["status"], string> = {
   binary: "바이너리",
 };
 
-const ss = s as Record<string, string | undefined>;
-const badgeClass: Record<RunDiffFileView["status"], string> = {
-  added: ss.badgeAdded ?? "",
-  modified: ss.badgeModified ?? "",
-  deleted: ss.badgeDeleted ?? "",
-  renamed: ss.badgeRenamed ?? "",
-  binary: ss.badgeBinary ?? "",
+const statusVariant: Record<RunDiffFileView["status"], "success" | "warning" | "destructive" | "info" | "secondary"> = {
+  added: "success",
+  modified: "warning",
+  deleted: "destructive",
+  renamed: "info",
+  binary: "secondary",
 };
 
 function patchLineClass(line: string): string {
-  if (line.startsWith("+") && !line.startsWith("+++")) return ss.patchAdd ?? "";
-  if (line.startsWith("-") && !line.startsWith("---")) return ss.patchDel ?? "";
-  if (line.startsWith("@@")) return ss.patchHunk ?? "";
+  if (line.startsWith("+") && !line.startsWith("+++")) return "bg-success/15";
+  if (line.startsWith("-") && !line.startsWith("---")) return "bg-destructive/15";
+  if (line.startsWith("@@")) return "text-primary";
   return "";
 }
 
@@ -42,7 +39,7 @@ export function DiffView({ runId }: Props) {
   if (runId === null) return null;
   if (isPending)
     return (
-      <p className={s.loading}>
+      <p className="text-sm text-muted-foreground">
         <Loading label="변경 불러오는 중…" />
       </p>
     );
@@ -51,7 +48,7 @@ export function DiffView({ runId }: Props) {
   if (files.length === 0) {
     if (running)
       return (
-        <p className={s.loadingRunning}>
+        <p className="text-sm text-warning">
           <Loading label="변경 수집 대기 (실행 종료 후 worktree에서 diff 추출)…" />
         </p>
       );
@@ -65,7 +62,7 @@ export function DiffView({ runId }: Props) {
     return (
       <EmptyState
         title="변경된 파일 없음"
-        hint="이 실행에서 에이전트가 worktree 안 파일을 만지지 않았습니다(읽기·검색만 한 시나리오일 수 있어요)."
+        hint="이 실행에서 에이전트가 worktree 안 파일을 만지지 않았습니다."
       />
     );
   }
@@ -76,44 +73,52 @@ export function DiffView({ runId }: Props) {
   );
 
   return (
-    <div>
-      <div className={s.summary}>
-        파일 {files.length} · <span className={s.summaryAdd}>+{totals.add}</span> ·{" "}
-        <span className={s.summaryDel}>−{totals.del}</span>
-        {run?.runner === "fixture" && <span className={s.summaryFix}>(fixture)</span>}
+    <div className="space-y-2">
+      <div className="text-sm text-muted-foreground">
+        파일 {files.length} · <span className="text-success">+{totals.add}</span> ·{" "}
+        <span className="text-destructive">−{totals.del}</span>
+        {run?.runner === "fixture" && <span className="ml-2">(fixture)</span>}
       </div>
-      {files.map((f) => (
-        <details key={f.id} className={s.file}>
-          <summary className={s.fileSummary}>
-            <span className={`${s.badge} ${badgeClass[f.status]}`}>{statusLabel[f.status]}</span>
-            <code className={s.path}>{f.filePath}</code>
-            {!f.binary && (
-              <>
-                <span className={s.addCount}>+{f.additions}</span>
-                <span className={s.delCount}>−{f.deletions}</span>
-              </>
-            )}
-            {f.truncated && (
-              <span className={s.truncated} title="큰 patch 라 잘렸습니다">
-                truncated
-              </span>
-            )}
-          </summary>
-          {f.binary ? (
-            <p className={s.message}>바이너리 파일 — patch 생략.</p>
-          ) : f.patch === null ? (
-            <p className={s.message}>patch 수집 실패(파일 권한·인코딩 등).</p>
-          ) : (
-            <pre className={s.patch}>
-              {f.patch.split("\n").map((line, i) => (
-                <div key={i} className={patchLineClass(line)}>
-                  {line}
-                </div>
-              ))}
-            </pre>
-          )}
-        </details>
-      ))}
+      <ul className="space-y-1.5">
+        {files.map((f) => (
+          <li key={f.id}>
+            <details className="rounded-md border">
+              <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-accent">
+                <Badge variant={statusVariant[f.status]} className="text-[10px]">
+                  {statusLabel[f.status]}
+                </Badge>
+                <code className="flex-1 truncate font-mono text-xs">{f.filePath}</code>
+                {!f.binary && (
+                  <>
+                    <span className="text-success">+{f.additions}</span>
+                    <span className="text-destructive">−{f.deletions}</span>
+                  </>
+                )}
+                {f.truncated && (
+                  <Badge variant="warning" className="text-[10px]" title="큰 patch 라 잘렸습니다">
+                    truncated
+                  </Badge>
+                )}
+              </summary>
+              {f.binary ? (
+                <p className="px-3 py-2 text-sm text-muted-foreground">바이너리 파일 — patch 생략.</p>
+              ) : f.patch === null ? (
+                <p className="px-3 py-2 text-sm text-muted-foreground">
+                  patch 수집 실패(파일 권한·인코딩 등).
+                </p>
+              ) : (
+                <pre className="overflow-x-auto border-t bg-muted/50 px-3 py-2 font-mono text-xs leading-relaxed">
+                  {f.patch.split("\n").map((line, i) => (
+                    <div key={i} className={cn(patchLineClass(line))}>
+                      {line}
+                    </div>
+                  ))}
+                </pre>
+              )}
+            </details>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Asset, AssetKind } from "@opspilot/shared-types";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../../../components/ui/accordion";
 import { Badge } from "../../../components/ui/badge";
 import { Input } from "../../../components/ui/input";
 import { EmptyState, ErrorNotice, Loading } from "../../../lib/ui";
@@ -58,9 +59,12 @@ export function AssetList({ projectId, selectedId, onSelect }: Props) {
     return (
       <EmptyState
         title="아직 자산이 없어요"
-        hint="상단 ‘스캔’으로 이 프로젝트의 .claude를 적재하거나, 오른쪽 ‘새 자산 작성’으로 첫 에이전트/스킬/커맨드를 만드세요. .claude가 없는 프로젝트는 작성부터 하면 OpsPilot이 자동으로 만들고 버전을 생성합니다."
+        hint="상단 ‘스캔’으로 이 프로젝트의 .claude를 적재하거나, 오른쪽 ‘새 자산 작성’으로 첫 에이전트/스킬/커맨드를 만드세요."
       />
     );
+
+  // 기본 모든 그룹 펼침 — 사용자가 닫을 수 있음.
+  const defaultOpen = groups.map((g) => g.kind);
 
   return (
     <div className="space-y-3">
@@ -70,34 +74,40 @@ export function AssetList({ projectId, selectedId, onSelect }: Props) {
         placeholder={`이름 검색 (총 ${String(assets.length)}개)`}
       />
       {groups.length === 0 && <p className="text-sm text-muted-foreground">검색 결과 없음.</p>}
-      {groups.map((g) => (
-        <div key={g.kind} className="space-y-1">
-          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            {KIND_LABEL[g.kind]}
-            <Badge variant="secondary" className="text-[10px]">
-              {g.items.length}
-            </Badge>
-          </div>
-          <ul className="space-y-0.5">
-            {g.items.map((a) => (
-              <li key={a.id}>
-                <button
-                  type="button"
-                  onClick={() => onSelect(a.id)}
-                  className={cn(
-                    "w-full rounded-md px-2 py-1.5 text-left text-sm transition-colors",
-                    a.id === selectedId
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-accent hover:text-accent-foreground",
-                  )}
-                >
-                  {a.name}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+      <Accordion type="multiple" defaultValue={defaultOpen} className="w-full">
+        {groups.map((g) => (
+          <AccordionItem key={g.kind} value={g.kind} className="border-b last:border-b-0">
+            <AccordionTrigger className="text-xs font-medium uppercase tracking-wider text-muted-foreground hover:no-underline">
+              <span className="inline-flex items-center gap-2">
+                {KIND_LABEL[g.kind]}
+                <Badge variant="secondary" className="text-[10px]">
+                  {g.items.length}
+                </Badge>
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <ul className="space-y-0.5">
+                {g.items.map((a) => (
+                  <li key={a.id}>
+                    <button
+                      type="button"
+                      onClick={() => onSelect(a.id)}
+                      className={cn(
+                        "w-full rounded-md px-2 py-1.5 text-left text-sm transition-colors",
+                        a.id === selectedId
+                          ? "bg-primary text-primary-foreground"
+                          : "hover:bg-accent hover:text-accent-foreground",
+                      )}
+                    >
+                      {a.name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
     </div>
   );
 }

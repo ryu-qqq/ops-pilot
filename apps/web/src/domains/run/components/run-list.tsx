@@ -1,18 +1,18 @@
+import { Badge } from "../../../components/ui/badge";
 import { EmptyState, ErrorNotice, Loading } from "../../../lib/ui";
+import { cn } from "../../../lib/utils";
 import { useRuns } from "../use-run";
-import s from "./run-list.module.css";
 
 interface Props {
   selectedId: string | null;
   onSelect: (id: string) => void;
 }
 
-const cls = (s as Record<string, string | undefined>);
-const statusClass: Record<string, string> = {
-  succeeded: cls.statusSucceeded ?? "",
-  failed: cls.statusFailed ?? "",
-  running: cls.statusRunning ?? "",
-  pending: cls.statusPending ?? "",
+const statusVariant: Record<string, "default" | "secondary" | "destructive" | "success" | "warning"> = {
+  succeeded: "success",
+  failed: "destructive",
+  running: "warning",
+  pending: "secondary",
 };
 
 export function RunList({ selectedId, onSelect }: Props) {
@@ -20,7 +20,7 @@ export function RunList({ selectedId, onSelect }: Props) {
 
   if (isPending)
     return (
-      <p className={s.loading}>
+      <p className="text-sm text-muted-foreground">
         <Loading label="실행 목록 불러오는 중…" />
       </p>
     );
@@ -34,20 +34,28 @@ export function RunList({ selectedId, onSelect }: Props) {
     );
 
   return (
-    <ul className={s.list}>
+    <ul className="space-y-1">
       {runs.map((r) => (
         <li key={r.id}>
           <button
             type="button"
             onClick={() => onSelect(r.id)}
-            className={`${s.itemBtn} ${r.id === selectedId ? s.itemSelected : ""}`}
+            className={cn(
+              "w-full rounded-md border px-3 py-2 text-left transition-colors",
+              r.id === selectedId
+                ? "border-primary bg-accent"
+                : "border-transparent hover:border-border hover:bg-accent/50",
+            )}
           >
-            <div>
-              <span className={statusClass[r.status] ?? ""}>● {r.status}</span>{" "}
-              <code className={s.assetKind}>{r.assetKind}</code> {r.assetName}
+            <div className="flex items-center gap-2 text-sm">
+              <Badge variant={statusVariant[r.status] ?? "secondary"} className="px-1.5 py-0 text-[10px]">
+                {r.status}
+              </Badge>
+              <span className="font-mono text-xs text-muted-foreground">{r.assetKind}</span>
+              <span className="truncate">{r.assetName}</span>
             </div>
-            <div className={s.meta}>
-              {r.scenarioName} · <code>{r.gitCommit.slice(0, 8)}</code> · {r.runner}
+            <div className="mt-1 truncate text-xs text-muted-foreground">
+              {r.scenarioName} · <code className="font-mono">{r.gitCommit.slice(0, 8)}</code> · {r.runner}
               {r.promptTokens !== null &&
                 ` · ${String(r.promptTokens + (r.completionTokens ?? 0))} tok`}
             </div>
