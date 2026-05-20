@@ -84,6 +84,10 @@ export function fixtureSource(events: unknown[]): RunnerSource {
  * 로컬 Claude Code CLI 를 헤드리스로 spawn.
  * 기존 로컬 인증(Keychain OAuth/플랜)을 그대로 사용 — 별도 API 키 불필요.
  * `claude -p <prompt> --output-format stream-json --verbose` 의 JSON 라인을 흘린다.
+ *
+ * **MCP 차단(--strict-mcp-config + 빈 mcp-config)**: 사용자 글로벌 MCP(Serena 등)가
+ * 매 실행마다 onboarding 하지 않게. 평가 실행은 깔끔한 빈 컨텍스트가 일관성·재현성에
+ * 유리. 사용자 인증·플랜 키체인은 그대로(--bare 는 키체인까지 차단이라 부적합).
  */
 export function localClaudeSource(claudeBin = "claude"): RunnerSource {
   return {
@@ -93,7 +97,16 @@ export function localClaudeSource(claudeBin = "claude"): RunnerSource {
         async *[Symbol.asyncIterator]() {
           const child = spawn(
             claudeBin,
-            ["-p", prompt, "--output-format", "stream-json", "--verbose"],
+            [
+              "--strict-mcp-config",
+              "--mcp-config",
+              '{"mcpServers":{}}',
+              "-p",
+              prompt,
+              "--output-format",
+              "stream-json",
+              "--verbose",
+            ],
             { cwd, stdio: ["ignore", "pipe", "pipe"] },
           );
           let stderr = "";

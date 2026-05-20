@@ -18,7 +18,12 @@ export async function runClaudeOnce(prompt: string, opts: Options = {}): Promise
   const timeoutMs = opts.timeoutMs ?? 120_000;
 
   return new Promise<string>((resolve, reject) => {
-    const child = spawn("claude", ["-p", prompt], { cwd, stdio: ["ignore", "pipe", "pipe"] });
+    // OPSP-32 follow-up: 사용자 글로벌 MCP(Serena 등) 차단 — 어시스트는 빈 컨텍스트로 빠르게.
+    const child = spawn(
+      "claude",
+      ["--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}', "-p", prompt],
+      { cwd, stdio: ["ignore", "pipe", "pipe"] },
+    );
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (d: Buffer) => (stdout += d.toString()));
