@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import type { Run, RunStatus } from "@opspilot/shared-types";
+import type { Run, RunDiffFile, RunStatus } from "@opspilot/shared-types";
 import { getDb } from "../../db/index.js";
+import type { CollectedDiffFile } from "./diff.js";
 import type { NormalizedEvent, RunUsage } from "./normalizer.js";
 
 const nowIso = () => new Date().toISOString();
@@ -110,6 +111,59 @@ export interface TraceRow {
   name: string | null;
   input: unknown;
   output: unknown;
+}
+
+// OPSP-30: 수집된 파일 diff 들을 한 트랜잭션으로 저장(중복 시 무시 — UNIQUE run+path).
+export function saveRunDiff(runId: string, files: CollectedDiffFile[]): void {
+  if (files.length === 0) return;
+  const db = getDb();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO run_diff_file
+       (id, run_id, file_path, status, additions, deletions, binary, truncated, patch)
+     VALUES (@id, @runId, @filePath, @status, @additions, @deletions, @binary, @truncated, @patch)`,
+  );
+  const tx = db.transaction((rows: CollectedDiffFile[]) => {
+    for (const f of rows) {
+      stmt.run({
+        id: randomUUID(),
+        runId,
+        filePath: f.filePath,
+        status: f.status,
+        additions: f.additions,
+        deletions: f.deletions,
+        binary: f.binary ? 1 : 0,
+        truncated: f.truncated ? 1 : 0,
+        patch: f.patch,
+      });
+    }
+  });
+  tx(files);
+}
+
+export function listRunDiff(runId: string): RunDiffFile[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT id, run_id AS runId, file_path AS filePath, status,
+              additions, deletions, binary, truncated, patch
+       FROM run_diff_file WHERE run_id = ? ORDER BY file_path ASC`,
+    )
+    .all(runId) as {
+    id: string;
+    runId: string;
+    filePath: string;
+    status: string;
+    additions: number;
+    deletions: number;
+    binary: number;
+    truncated: number;
+    patch: string | null;
+  }[];
+  return rows.map((r) => ({
+    ...r,
+    status: r.status as RunDiffFile["status"],
+    binary: r.binary === 1,
+    truncated: r.truncated === 1,
+  }));
 }
 
 export function listTrace(runId: string): TraceRow[] {

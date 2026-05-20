@@ -96,3 +96,19 @@ CREATE TABLE IF NOT EXISTS score (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_score_run ON score (run_id);
+
+-- OPSP-30: 실행 결과 파일 변경. worktree 격리이므로 base 커밋↔실행 후 diff = 에이전트가
+-- 만진 파일·라인이 정확. 큰 patch 는 truncated=1 로 자르고, 바이너리는 status='binary'.
+CREATE TABLE IF NOT EXISTS run_diff_file (
+  id        TEXT PRIMARY KEY,
+  run_id    TEXT NOT NULL REFERENCES run (id) ON DELETE CASCADE,
+  file_path TEXT NOT NULL,
+  status    TEXT NOT NULL CHECK (status IN ('added','modified','deleted','renamed','binary')),
+  additions INTEGER NOT NULL DEFAULT 0,
+  deletions INTEGER NOT NULL DEFAULT 0,
+  binary    INTEGER NOT NULL DEFAULT 0 CHECK (binary IN (0, 1)),
+  truncated INTEGER NOT NULL DEFAULT 0 CHECK (truncated IN (0, 1)),
+  patch     TEXT,
+  UNIQUE (run_id, file_path)
+);
+CREATE INDEX IF NOT EXISTS idx_run_diff_file_run ON run_diff_file (run_id);

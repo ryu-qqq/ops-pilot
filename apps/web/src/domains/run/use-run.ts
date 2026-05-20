@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createHumanScore,
   getRun,
+  getRunDiff,
   getRuns,
   getRunTrace,
   getScenario,
@@ -53,6 +54,17 @@ export function useLaunchRun() {
   return useMutation({
     mutationFn: launchRun,
     onSuccess: () => qc.invalidateQueries({ queryKey: runKeys.all }),
+  });
+}
+
+// OPSP-30: 실행 종료 후 worktree diff. 실행 중에는 비어있고, 끝나는 순간 채워짐 →
+// running 중에는 폴링해 보고, 종료되면 멈춤.
+export function useRunDiff(runId: string | null, isRunning: boolean) {
+  return useQuery({
+    queryKey: runKeys.diff(runId ?? "none"),
+    queryFn: () => getRunDiff(runId ?? ""),
+    enabled: runId !== null,
+    refetchInterval: isRunning ? 1500 : false,
   });
 }
 
