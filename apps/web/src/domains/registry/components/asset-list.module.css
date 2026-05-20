@@ -1,0 +1,52 @@
+/* OPSP-28: 자산 목록 — 검색 + kind별 그룹. */
+
+.search {
+  width: 100%;
+  margin-bottom: var(--space-2);
+}
+
+.kindGroup {
+  margin-bottom: var(--space-3);
+}
+
+.kindHeader {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-fg-muted);
+  text-transform: uppercase;
+  padding: 2px 0;
+  border-bottom: 1px solid var(--color-border-muted);
+}
+.kindCount {
+  color: var(--color-fg-subtle);
+  font-weight: var(--font-weight-normal);
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.itemBtn {
+  width: 100%;
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+.itemBtn:hover:not(:disabled) {
+  background: var(--color-bg-subtle);
+}
+.itemSelected {
+  background: var(--color-accent-bg);
+  color: var(--color-accent-fg);
+}
+.itemSelected:hover:not(:disabled) {
+  background: var(--color-accent-bg);
+}
+
+.empty {
+  color: var(--color-fg-subtle);
+}

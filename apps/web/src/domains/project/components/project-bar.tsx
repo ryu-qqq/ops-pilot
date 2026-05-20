@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { registryKeys } from "../../registry/api";
 import { ErrorNotice, InfoMark, InlineError, Loading } from "../../../lib/ui";
 import { useCreateProject, useInstallHooks, useProjects, useScanProject } from "../use-project";
+import s from "./project-bar.module.css";
 
 interface Props {
   selectedProjectId: string | null;
@@ -19,13 +20,13 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
   const [gitUrl, setGitUrl] = useState("");
 
   return (
-    <div style={{ border: "1px solid #d0d7de", borderRadius: 6, padding: 12, marginBottom: 16 }}>
-      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+    <div className={s.bar}>
+      <div className={s.row}>
         <input
           value={gitUrl}
           onChange={(e) => setGitUrl(e.target.value)}
           placeholder="git URL (예: https://github.com/owner/repo.git)"
-          style={{ flex: 1, padding: 6, fontFamily: "monospace", fontSize: 13 }}
+          className={s.gitInput}
         />
         <button
           type="button"
@@ -53,16 +54,16 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
         </button>
       </div>
       {create.isError && (
-        <div style={{ marginBottom: 8 }}>
+        <div className={s.errorWrap}>
           <InlineError error={create.error} />
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <div className={s.row}>
         <select
           value={selectedProjectId ?? ""}
           onChange={(e) => onSelect(e.target.value)}
-          style={{ flex: 1, padding: 6 }}
+          className={s.projectSelect}
         >
           <option value="" disabled>
             {projects && projects.length > 0 ? "프로젝트 선택" : "등록된 프로젝트 없음"}
@@ -116,23 +117,20 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
           )}
         </button>
         {scan.isSuccess && (
-          <span style={{ color: "green", fontSize: 13 }}>
+          <span className={s.successText}>
             자산 {scan.data.scannedAssets} · 신규버전 {scan.data.saved.versions}
           </span>
         )}
         {hooks.isSuccess && (
-          <span style={{ color: "green", fontSize: 13 }}>
-            훅 설치됨 {hooks.data.committed ? `(커밋 ${hooks.data.committed.slice(0, 8)})` : "(이미 설치됨)"}
+          <span className={s.successText}>
+            훅 설치됨{" "}
+            {hooks.data.committed ? `(커밋 ${hooks.data.committed.slice(0, 8)})` : "(이미 설치됨)"}
           </span>
         )}
-        {hooks.isError && (
-          <span style={{ color: "crimson", fontSize: 12 }}>
-            <InlineError error={hooks.error} />
-          </span>
-        )}
+        {hooks.isError && <InlineError error={hooks.error} />}
       </div>
       {scan.isError && (
-        <div style={{ marginTop: 8 }}>
+        <div className={s.errorWrap}>
           <ErrorNotice error={scan.error} />
         </div>
       )}

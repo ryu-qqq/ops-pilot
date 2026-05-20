@@ -6,6 +6,7 @@ import { RegressionLauncher } from "../../run/components/regression-launcher";
 import { RunLauncher } from "../../run/components/run-launcher";
 import { AssetList } from "./asset-list";
 import { VersionTimeline } from "./version-timeline";
+import s from "./registry-view.module.css";
 
 interface Props {
   onRunCreated: (runIds: string[]) => void;
@@ -29,9 +30,9 @@ export function RegistryView({ onRunCreated }: Props) {
           setVersionId(null);
         }}
       />
-      <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 24 }}>
+      <div className={s.layout}>
         <section>
-          <h2 style={{ fontSize: 14, color: "#555" }}>자산 (agents · skills · commands)</h2>
+          <h2 className={s.sectionTitle}>자산 (agents · skills · commands)</h2>
           <AssetList
             projectId={projectId}
             selectedId={assetId}
@@ -42,7 +43,7 @@ export function RegistryView({ onRunCreated }: Props) {
           />
         </section>
         <section>
-          <h2 style={{ fontSize: 14, color: "#555" }}>git 버전 타임라인</h2>
+          <h2 className={s.sectionTitle}>git 버전 타임라인</h2>
           <VersionTimeline
             assetId={assetId}
             selectedVersionId={versionId}

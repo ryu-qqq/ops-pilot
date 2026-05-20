@@ -1,4 +1,57 @@
-/* OPSP-25: 스피너 회전만. 전반 디자인 패스는 OPSP-28. */
+/* OPSP-28: 디자인 토큰 먼저, 그 위에 글로벌 리셋·전역 스타일. */
+@import "./styles/tokens.css";
+
+/* 글로벌 기본값 — 페이지 / 폼 컨트롤 일관 */
+html,
+body {
+  margin: 0;
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--color-fg-default);
+  background: var(--color-bg-default);
+}
+* {
+  box-sizing: border-box;
+}
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-default);
+  color: var(--color-fg-default);
+  padding: var(--control-padding-y) var(--control-padding-x);
+  border-radius: var(--radius-sm);
+}
+button:hover:not(:disabled) {
+  background: var(--color-bg-subtle);
+}
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+input,
+select,
+textarea {
+  font: inherit;
+  color: var(--color-fg-default);
+  background: var(--color-bg-default);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  padding: var(--control-padding-input);
+}
+input:focus,
+select:focus,
+textarea:focus,
+button:focus-visible {
+  outline: 2px solid var(--color-accent-emphasis);
+  outline-offset: 1px;
+}
+code {
+  font-family: var(--font-family-mono);
+}
+
+/* OPSP-25: 스피너 회전. */
 @keyframes opspilot-spin {
   to {
     transform: rotate(360deg);

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import s from "./app.module.css";
 import { OnboardingGuide } from "./domains/onboarding/components/onboarding-guide";
 import { RegistryView } from "./domains/registry/components/registry-view";
 import { RunsView } from "./domains/run/components/runs-view";
@@ -24,23 +25,16 @@ export function App() {
     <button
       type="button"
       onClick={() => setTab(id)}
-      style={{
-        padding: "6px 14px",
-        border: "none",
-        borderBottom: tab === id ? "2px solid #0969da" : "2px solid transparent",
-        background: "transparent",
-        fontWeight: tab === id ? 700 : 400,
-        cursor: "pointer",
-      }}
+      className={`${s.tab} ${tab === id ? s.tabActive : ""}`}
     >
       {label}
     </button>
   );
 
   return (
-    <main style={{ fontFamily: "system-ui", padding: "1.5rem", maxWidth: 1000, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 20 }}>OpsPilot — Harness Control Plane</h1>
-      <nav style={{ display: "flex", gap: 4, borderBottom: "1px solid #eee", marginBottom: 16 }}>
+    <main className={s.main}>
+      <h1 className={s.title}>OpsPilot — Harness Control Plane</h1>
+      <nav className={s.nav}>
         {tabBtn("registry", "레지스트리")}
         {tabBtn("runs", "실행 / 트레이스")}
       </nav>
