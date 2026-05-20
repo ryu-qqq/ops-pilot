@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { Asset, AssetKind } from "@opspilot/shared-types";
 import { EmptyState, ErrorNotice, Loading } from "../../../lib/ui";
 import { useAssets } from "../use-registry";
+import s from "./asset-list.module.css";
 
 interface Props {
   projectId: string | null;
@@ -47,7 +48,7 @@ export function AssetList({ projectId, selectedId, onSelect }: Props) {
     );
   if (isPending)
     return (
-      <p style={{ color: "#57606a" }}>
+      <p>
         <Loading label="자산 불러오는 중…" />
       </p>
     );
@@ -66,37 +67,21 @@ export function AssetList({ projectId, selectedId, onSelect }: Props) {
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder={`이름 검색 (총 ${String(assets.length)}개)`}
-        style={{ width: "100%", padding: 6, marginBottom: 8, boxSizing: "border-box" }}
+        className={s.search}
       />
-      {groups.length === 0 && <p style={{ color: "#888" }}>검색 결과 없음.</p>}
+      {groups.length === 0 && <p className={s.empty}>검색 결과 없음.</p>}
       {groups.map((g) => (
-        <div key={g.kind} style={{ marginBottom: 12 }}>
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              color: "#57606a",
-              textTransform: "uppercase",
-              padding: "2px 0",
-              borderBottom: "1px solid #eee",
-            }}
-          >
-            {KIND_LABEL[g.kind]} <span style={{ color: "#999" }}>({g.items.length})</span>
+        <div key={g.kind} className={s.kindGroup}>
+          <div className={s.kindHeader}>
+            {KIND_LABEL[g.kind]} <span className={s.kindCount}>({g.items.length})</span>
           </div>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+          <ul className={s.list}>
             {g.items.map((a) => (
               <li key={a.id}>
                 <button
                   type="button"
                   onClick={() => onSelect(a.id)}
-                  style={{
-                    width: "100%",
-                    textAlign: "left",
-                    padding: "5px 8px",
-                    border: "none",
-                    background: a.id === selectedId ? "#e6f0ff" : "transparent",
-                    cursor: "pointer",
-                  }}
+                  className={`${s.itemBtn} ${a.id === selectedId ? s.itemSelected : ""}`}
                 >
                   {a.name}
                 </button>

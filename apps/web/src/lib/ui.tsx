@@ -1,24 +1,17 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { ApiError } from "./api-client";
+import s from "./ui.module.css";
 
-// OPSP-25 공통 UX 프리미티브: 일관 스피너 / 친화 에러 / 빈상태.
-// 시각 디테일은 OPSP-28 디자인 패스에서 통합. 여기선 의미 전달만.
+// OPSP-25/28 공통 UX 프리미티브: 일관 스피너 / 친화 에러 / 빈상태 / 정보 마커.
+// OPSP-28: 인라인 스타일 제거 → CSS Modules + 디자인 토큰.
 
 export function Spinner({ size = 14 }: { size?: number }) {
   return (
     <span
       aria-label="로딩 중"
       role="status"
-      style={{
-        display: "inline-block",
-        width: size,
-        height: size,
-        border: `2px solid currentColor`,
-        borderTopColor: "transparent",
-        borderRadius: "50%",
-        animation: "opspilot-spin 0.6s linear infinite",
-        verticalAlign: "-2px",
-      }}
+      className={s.spinner}
+      style={{ width: size, height: size }}
     />
   );
 }
@@ -26,9 +19,24 @@ export function Spinner({ size = 14 }: { size?: number }) {
 // 스피너 + 라벨 (버튼 안에서 사용). 진행 중임을 한눈에.
 export function Loading({ label }: { label: string }) {
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+    <span className={s.loading}>
       <Spinner size={12} />
       {label}
+    </span>
+  );
+}
+
+// 라벨 옆 의미 표시: hover/포커스 시 풍부한 설명(HTML title — 의존성 0).
+// 모바일/접근성 보완은 OPSP-28 이후 popover 컴포넌트 도입 시 교체.
+export function InfoMark({ help, label }: { help: string; label?: string }) {
+  return (
+    <span
+      tabIndex={0}
+      title={help}
+      aria-label={label === undefined ? help : `${label}: ${help}`}
+      className={s.infoMark}
+    >
+      ?
     </span>
   );
 }
@@ -74,32 +82,15 @@ export function friendlyError(error: unknown): FriendlyError {
   };
 }
 
-const boxBase: CSSProperties = {
-  borderRadius: 6,
-  padding: "10px 12px",
-  fontSize: 13,
-  lineHeight: 1.5,
-};
-
 // 친화 에러 패널: 사람말 + (선택) 다음 행동 CTA. raw JSON 절대 노출 안 함.
 export function ErrorNotice({ error }: { error: unknown }) {
   const f = friendlyError(error);
-  const isInfo = f.tone === "info";
+  const cls = `${s.notice} ${f.tone === "info" ? s.noticeInfo : s.noticeError}`;
   return (
-    <div
-      role="alert"
-      style={{
-        ...boxBase,
-        border: `1px solid ${isInfo ? "#8250df" : "#cf222e"}`,
-        background: isInfo ? "#faf5ff" : "#fff5f5",
-        color: isInfo ? "#3b1f70" : "#86181d",
-      }}
-    >
-      <div style={{ fontWeight: 700, marginBottom: 2 }}>{f.title}</div>
+    <div role="alert" className={cls}>
+      <div className={s.noticeTitle}>{f.title}</div>
       <div>{f.body}</div>
-      {f.cta !== undefined && (
-        <div style={{ marginTop: 6, fontWeight: 600, color: "#8250df" }}>{f.cta}</div>
-      )}
+      {f.cta !== undefined && <div className={s.noticeCta}>{f.cta}</div>}
     </div>
   );
 }
@@ -107,40 +98,8 @@ export function ErrorNotice({ error }: { error: unknown }) {
 // 한 줄짜리 인라인 에러(폼 제출 옆 등 좁은 자리).
 export function InlineError({ error }: { error: unknown }) {
   const f = friendlyError(error);
-  return (
-    <span style={{ color: f.tone === "info" ? "#8250df" : "crimson", fontSize: 12 }}>
-      {f.body}
-    </span>
-  );
-}
-
-// 라벨 옆 의미 표시: hover/포커스 시 풍부한 설명(HTML title — 의존성 0).
-// 모바일/접근성 보완은 OPSP-28 디자인 패스에서.
-export function InfoMark({ help, label }: { help: string; label?: string }) {
-  return (
-    <span
-      tabIndex={0}
-      title={help}
-      aria-label={label === undefined ? help : `${label}: ${help}`}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: 14,
-        height: 14,
-        marginLeft: 4,
-        borderRadius: "50%",
-        background: "#d0d7de",
-        color: "#24292f",
-        fontSize: 10,
-        fontWeight: 700,
-        cursor: "help",
-        verticalAlign: "1px",
-      }}
-    >
-      ?
-    </span>
-  );
+  const cls = f.tone === "info" ? s.inlineInfo : s.inlineError;
+  return <span className={cls}>{f.body}</span>;
 }
 
 // 빈상태: 왜 비었고 무엇을 하면 되는지를 문구로 명시.
@@ -154,18 +113,9 @@ export function EmptyState({
   children?: ReactNode;
 }) {
   return (
-    <div
-      style={{
-        ...boxBase,
-        border: "1px dashed #d0d7de",
-        background: "#f6f8fa",
-        color: "#57606a",
-      }}
-    >
-      <div style={{ fontWeight: 600, color: "#24292f", marginBottom: hint ? 2 : 0 }}>
-        {title}
-      </div>
-      {hint !== undefined && <div>{hint}</div>}
+    <div className={s.emptyState}>
+      <div className={s.emptyStateTitle}>{title}</div>
+      {hint !== undefined && <div className={s.emptyStateHint}>{hint}</div>}
       {children}
     </div>
   );
