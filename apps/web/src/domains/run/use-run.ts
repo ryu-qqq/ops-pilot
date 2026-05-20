@@ -8,6 +8,7 @@ import {
   getRunTrace,
   getScenario,
   getScores,
+  judgeRuns,
   launchBatchRun,
   launchRun,
   runKeys,
@@ -72,6 +73,11 @@ export function useLaunchBatchRun() {
     mutationFn: launchBatchRun,
     onSuccess: () => qc.invalidateQueries({ queryKey: runKeys.all }),
   });
+}
+
+// OPSP-10 follow-up: 비교 판정(AI judge). 사용자 명시 클릭 시만.
+export function useJudgeRuns() {
+  return useMutation({ mutationFn: judgeRuns });
 }
 
 // OPSP-10: 비교 패널용 N개 run 요약. 실행 중이면 폴링.

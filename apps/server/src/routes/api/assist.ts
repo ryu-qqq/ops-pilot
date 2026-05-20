@@ -3,6 +3,7 @@ import { z } from "zod";
 import { assetKindSchema } from "@opspilot/shared-types";
 import { ClaudeAssistError } from "../../domains/assist/claude.js";
 import { reviewAuthoringDraft } from "../../domains/assist/authoring-review.js";
+import { judgeResultSchema, judgeRuns } from "../../domains/assist/judge-runs.js";
 import {
   scenarioSuggestionSchema,
   suggestScenario,
@@ -32,6 +33,27 @@ const assist: FastifyPluginAsyncZod = async (fastify) => {
       try {
         const text = await reviewAuthoringDraft(req.body);
         return { text };
+      } catch (e) {
+        if (e instanceof ClaudeAssistError) {
+          return reply.status(400).send({ error: "AssistError", detail: e.message });
+        }
+        throw e;
+      }
+    },
+  );
+
+  // C. 비교 판정 (OPSP-10 follow-up): N개 run 결과 → "어느 게 나음+왜" JSON.
+  fastify.post(
+    "/assist/judge-runs",
+    {
+      schema: {
+        body: z.object({ runIds: z.array(z.string().uuid()).min(2).max(5) }),
+        response: { 200: judgeResultSchema, 400: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      try {
+        return await judgeRuns(req.body.runIds);
       } catch (e) {
         if (e instanceof ClaudeAssistError) {
           return reply.status(400).send({ error: "AssistError", detail: e.message });
