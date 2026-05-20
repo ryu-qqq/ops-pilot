@@ -88,11 +88,11 @@ export const KEY_META: Record<
   },
 };
 
-// kind별 공식 docs URL. 사용자에게 진짜를 안내.
+// kind별 공식 docs URL — *렌더링된 HTML* 페이지(`.md` 붙이면 raw markdown 반환됨).
 export const DOCS_URL: Record<AssetKind, string> = {
-  agent: "https://code.claude.com/docs/en/sub-agents.md",
-  skill: "https://code.claude.com/docs/en/skills.md",
-  command: "https://code.claude.com/docs/en/skills.md", // commands = skills 통합 문서
+  agent: "https://code.claude.com/docs/en/sub-agents",
+  skill: "https://code.claude.com/docs/en/skills",
+  command: "https://code.claude.com/docs/en/skills", // commands = skills 통합 문서
 };
 
 // 단순 YAML 직렬화 — single-line key: value 만 지원. 배열/멀티라인은 inline string.
