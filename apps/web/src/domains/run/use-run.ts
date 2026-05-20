@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createHumanScore,
+  deleteScenario,
   getBenchmarkAggregate,
   getRun,
   getRunDiff,
@@ -8,6 +9,7 @@ import {
   getRunsCompare,
   getRunTrace,
   getScenario,
+  getScenariosForAsset,
   getScores,
   judgeRuns,
   launchBatchRun,
@@ -17,6 +19,8 @@ import {
   runKeys,
   scenarioKeys,
   suggestScenario,
+  updateScenario,
+  type UpdateScenarioInput,
 } from "./api";
 
 export function useRuns() {
@@ -140,6 +144,41 @@ export function useLaunchBenchmark() {
   return useMutation({
     mutationFn: launchBenchmark,
     onSuccess: () => qc.invalidateQueries({ queryKey: runKeys.all }),
+  });
+}
+
+// OPSP-34: 자산별 시나리오 관리 목록(본문 + 사용 횟수).
+export function useScenariosForAsset(assetId: string | null) {
+  return useQuery({
+    queryKey: scenarioKeys.forAsset(assetId ?? "none"),
+    queryFn: () => getScenariosForAsset(assetId ?? ""),
+    enabled: assetId !== null,
+  });
+}
+
+// OPSP-34: 시나리오 부분 update. 성공 시 관련 캐시 광범위 invalidate
+// (RegressionLauncher · BenchmarkLauncher 의 useAssetScenarios 도 같이 갱신).
+export function useUpdateScenario() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: UpdateScenarioInput }) =>
+      updateScenario(id, patch),
+    onSuccess: (updated) => {
+      qc.invalidateQueries({ queryKey: scenarioKeys.all });
+      qc.invalidateQueries({ queryKey: scenarioKeys.detail(updated.id) });
+    },
+  });
+}
+
+// OPSP-34: 시나리오 삭제. 성공 시 시나리오·run 캐시 둘 다 무효화 (cascade 영향).
+export function useDeleteScenario() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteScenario(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: scenarioKeys.all });
+      qc.invalidateQueries({ queryKey: runKeys.all });
+    },
   });
 }
 
