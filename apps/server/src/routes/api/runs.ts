@@ -1,6 +1,12 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { runDiffFileSchema, runSchema, scoreSchema, scorerSchema } from "@opspilot/shared-types";
+import {
+  benchmarkAggregateSchema,
+  runDiffFileSchema,
+  runSchema,
+  scoreSchema,
+  scorerSchema,
+} from "@opspilot/shared-types";
 import { RunInputError, startRun } from "../../domains/run/service.js";
 import { DEMO_FIXTURE, fixtureSource, localClaudeSource } from "../../domains/run/source.js";
 import {
@@ -12,6 +18,7 @@ import {
   listRuns,
   listTrace,
 } from "../../domains/run/repository.js";
+import { aggregateBenchmark } from "../../domains/run/benchmark.js";
 import { createScore, listScores, listScoresForRuns } from "../../domains/score/repository.js";
 
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
@@ -129,6 +136,68 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
         }
         throw e;
       }
+    },
+  );
+
+  // OPSP-31: 같은 (asset_version × scenario) 를 N회 실행 — 비결정 자산 통과율·분산.
+  // batch/batch-scenarios 와 다른 축(같은 입력 N회) — 별도 라우트로 의미 분리.
+  fastify.post(
+    "/runs/benchmark",
+    {
+      schema: {
+        body: z.object({
+          assetVersionId: z.string().uuid(),
+          scenarioId: z.string().uuid(),
+          cwd: z.string().min(1),
+          source: z.enum(["fixture", "local-claude"]).default("local-claude"),
+          n: z.number().int().min(2).max(10),
+          fixtureEvents: z.array(z.unknown()).optional(),
+        }),
+        response: { 200: z.object({ runs: z.array(runSchema) }), 400: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      const { assetVersionId, scenarioId, cwd, source, n, fixtureEvents } = req.body;
+      try {
+        const runs = Array.from({ length: n }, () =>
+          startRun({
+            assetVersionId,
+            scenarioId,
+            cwd,
+            source:
+              source === "fixture"
+                ? fixtureSource(fixtureEvents ?? DEMO_FIXTURE)
+                : localClaudeSource(),
+          }),
+        );
+        return { runs };
+      } catch (e) {
+        if (e instanceof RunInputError) {
+          return reply.status(400).send({ error: "BadRequest", detail: e.message });
+        }
+        throw e;
+      }
+    },
+  );
+
+  // OPSP-31: 위 benchmark 의 N개 run 통계 집계 — passRate / 평균 / 표준편차 / assertion 분포.
+  fastify.get(
+    "/runs/benchmark-aggregate",
+    {
+      schema: {
+        querystring: z.object({ ids: z.string().min(1) }), // csv of uuid
+        response: { 200: benchmarkAggregateSchema, 400: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      const ids = req.query.ids
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s !== "");
+      if (ids.length < 2 || ids.length > 10) {
+        return reply.status(400).send({ error: "BadRequest", detail: "ids 2~10개" });
+      }
+      return aggregateBenchmark(ids);
     },
   );
 

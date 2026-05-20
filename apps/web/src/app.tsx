@@ -13,11 +13,20 @@ export function App() {
   const [tab, setTab] = useState<Tab>("registry");
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [compareRunIds, setCompareRunIds] = useState<string[]>([]);
+  const [benchmarkRunIds, setBenchmarkRunIds] = useState<string[]>([]);
   const { theme, toggle } = useTheme();
 
   const handleRunCreated = (runIds: string[]) => {
     setSelectedRunId(runIds[0] ?? null);
     setCompareRunIds(runIds.length >= 2 ? runIds : []);
+    setBenchmarkRunIds([]);
+    setTab("runs");
+  };
+  // OPSP-31: 벤치마크는 *같은 입력 N회* 라 compare 와 의미 다름 → 별도 패널.
+  const handleBenchmarkStarted = (runIds: string[]) => {
+    setSelectedRunId(runIds[0] ?? null);
+    setBenchmarkRunIds(runIds);
+    setCompareRunIds([]);
     setTab("runs");
   };
 
@@ -45,7 +54,10 @@ export function App() {
         </TabsList>
         <OnboardingGuide tab={tab} onSwitchTab={setTab} />
         <TabsContent value="registry" className="mt-0">
-          <RegistryView onRunCreated={handleRunCreated} />
+          <RegistryView
+            onRunCreated={handleRunCreated}
+            onBenchmarkStarted={handleBenchmarkStarted}
+          />
         </TabsContent>
         <TabsContent value="runs" className="mt-0">
           <RunsView
@@ -53,6 +65,8 @@ export function App() {
             onSelectRun={setSelectedRunId}
             compareRunIds={compareRunIds}
             onClearCompare={() => setCompareRunIds([])}
+            benchmarkRunIds={benchmarkRunIds}
+            onClearBenchmark={() => setBenchmarkRunIds([])}
           />
         </TabsContent>
       </Tabs>
