@@ -1,7 +1,8 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { assetVersionSchema } from "@opspilot/shared-types";
+import { assetVersionSchema, scenarioSchema } from "@opspilot/shared-types";
 import { assetExists, latestContent, listVersions } from "../../domains/registry/repository.js";
+import { listScenariosByAsset } from "../../domains/scenario/repository.js";
 
 const versionSummarySchema = assetVersionSchema.omit({ content: true });
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
@@ -21,6 +22,23 @@ const registry: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ error: "NotFound", detail: "asset not found" });
       }
       return { versions: listVersions(req.params.id) };
+    },
+  );
+
+  // OPSP-9: 자산별 시나리오 목록(회귀 셋 모드용).
+  fastify.get(
+    "/registry/assets/:id/scenarios",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: { 200: z.object({ scenarios: z.array(scenarioSchema) }), 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      if (!assetExists(req.params.id)) {
+        return reply.status(404).send({ error: "NotFound", detail: "asset not found" });
+      }
+      return { scenarios: listScenariosByAsset(req.params.id) };
     },
   );
 

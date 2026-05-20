@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ProjectBar } from "../../project/components/project-bar";
 import { useProjects } from "../../project/use-project";
 import { AssetAuthor } from "../../authoring/components/asset-author";
+import { RegressionLauncher } from "../../run/components/regression-launcher";
 import { RunLauncher } from "../../run/components/run-launcher";
 import { AssetList } from "./asset-list";
 import { VersionTimeline } from "./version-timeline";
@@ -51,12 +52,20 @@ export function RegistryView({ onRunCreated }: Props) {
             <AssetAuthor projectId={project.id} selectedAssetId={assetId} />
           )}
           {assetId !== null && versionId !== null && project !== null && (
-            <RunLauncher
-              assetId={assetId}
-              assetVersionId={versionId}
-              defaultCwd={project.clonePath}
-              onLaunched={onRunCreated}
-            />
+            <>
+              <RunLauncher
+                assetId={assetId}
+                assetVersionId={versionId}
+                defaultCwd={project.clonePath}
+                onLaunched={onRunCreated}
+              />
+              <RegressionLauncher
+                assetId={assetId}
+                assetVersionId={versionId}
+                defaultCwd={project.clonePath}
+                onLaunched={onRunCreated}
+              />
+            </>
           )}
         </section>
       </div>

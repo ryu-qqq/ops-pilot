@@ -111,8 +111,10 @@ export async function suggestScenario(v: { assetId: string; hint?: string }) {
 }
 
 // OPSP-10/20 비교 뷰: N개 run 요약 + assertion/judge/human score 통합.
+// OPSP-9: scenarioName 추가(회귀 모드 식별).
 const compareItemSchema = z.object({
   run: runSchema,
+  scenarioName: z.string(),
   diffFileCount: z.number().int().nonnegative(),
   lastAssistantText: z.string().nullable(),
   assertionScore: scoreSchema.nullable(),
@@ -157,6 +159,28 @@ export interface LaunchInput {
   input: string; // 에이전트에 줄 입력
   expectedBehavior: string; // 기대 동작 — expectation.judge
   successCriteria: string[]; // 성공조건 — expectation.assertions
+}
+
+// OPSP-9: 같은 자산 버전 + 시나리오 N개 일괄. 기존 시나리오 그대로 사용(폼 입력 없음).
+const batchScenariosResponse = z.object({ runs: z.array(runSchema) });
+export interface BatchScenariosInput {
+  assetVersionId: string;
+  scenarioIds: string[];
+  cwd: string;
+  source: "fixture" | "local-claude";
+}
+
+export async function launchBatchScenarios(v: BatchScenariosInput) {
+  return apiPost(
+    "/api/runs/batch-scenarios",
+    {
+      assetVersionId: v.assetVersionId,
+      scenarioIds: v.scenarioIds,
+      cwd: v.cwd,
+      source: v.source,
+    },
+    batchScenariosResponse,
+  );
 }
 
 // OPSP-10 비교 모드: 시나리오 1개 + 자산 버전 N개 → 한 번에 N run 시작.

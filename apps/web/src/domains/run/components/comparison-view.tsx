@@ -53,8 +53,29 @@ export function ComparisonView({ runIds, onSelectRun }: Props) {
 
   const allDone = items.every((it) => it.run.status === "succeeded" || it.run.status === "failed");
 
+  // OPSP-9: 서로 다른 시나리오면 회귀 모드 — 컬럼 헤더에 시나리오 이름 + 상단 요약.
+  const scenarioNames = [...new Set(items.map((it) => it.scenarioName))];
+  const isRegression = scenarioNames.length > 1;
+  const passedFull = items.filter((it) => it.assertionScore?.passed === true).length;
+
   return (
     <div style={{ overflowX: "auto" }}>
+      {isRegression && (
+        <div
+          style={{
+            fontSize: 12,
+            color: "#055d20",
+            background: "#dafbe1",
+            border: "1px solid #1a7f37",
+            borderRadius: 4,
+            padding: "4px 8px",
+            marginBottom: 6,
+          }}
+        >
+          🎯 회귀 — {items.length}개 시나리오 중{" "}
+          <strong>{passedFull}</strong>개 assertion 전원 통과
+        </div>
+      )}
       {/* AI 판정 트리거 + 결과 요약 */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
         <button
@@ -108,6 +129,23 @@ export function ComparisonView({ runIds, onSelectRun }: Props) {
                   title="이 run 의 트레이스 보기"
                 >
                   <code style={{ fontSize: 11 }}>{it.run.id.slice(0, 8)}</code>
+                  {isRegression && (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "#055d20",
+                        fontWeight: 700,
+                        marginTop: 2,
+                        maxWidth: 180,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                      title={it.scenarioName}
+                    >
+                      🎯 {it.scenarioName}
+                    </div>
+                  )}
                   {verdict !== undefined && (
                     <span
                       style={{

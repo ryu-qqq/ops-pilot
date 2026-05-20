@@ -8,6 +8,7 @@ import {
   listLastAssistantTexts,
   listRunDiff,
   listRunDiffCounts,
+  listRunScenarioNames,
   listRuns,
   listTrace,
 } from "../../domains/run/repository.js";
@@ -91,8 +92,49 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // OPSP-9: 같은 자산 버전을 N개 시나리오로 한 번에 회귀 — N run 즉시 반환.
+  // OPSP-10 batch 와 다른 축(시나리오 다중 vs 버전 다중) — 별도 라우트로 분리해 명확.
+  fastify.post(
+    "/runs/batch-scenarios",
+    {
+      schema: {
+        body: z.object({
+          assetVersionId: z.string().uuid(),
+          scenarioIds: z.array(z.string().uuid()).min(2).max(10),
+          cwd: z.string().min(1),
+          source: z.enum(["fixture", "local-claude"]).default("local-claude"),
+          fixtureEvents: z.array(z.unknown()).optional(),
+        }),
+        response: { 200: z.object({ runs: z.array(runSchema) }), 400: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      const { assetVersionId, scenarioIds, cwd, source, fixtureEvents } = req.body;
+      try {
+        const runs = scenarioIds.map((scenarioId) =>
+          startRun({
+            assetVersionId,
+            scenarioId,
+            cwd,
+            source:
+              source === "fixture"
+                ? fixtureSource(fixtureEvents ?? DEMO_FIXTURE)
+                : localClaudeSource(),
+          }),
+        );
+        return { runs };
+      } catch (e) {
+        if (e instanceof RunInputError) {
+          return reply.status(400).send({ error: "BadRequest", detail: e.message });
+        }
+        throw e;
+      }
+    },
+  );
+
   // OPSP-10: 비교 뷰용 N개 run 요약 한꺼번에(N+1 회피).
   // OPSP-20: assertion / llm_judge / human score 를 같이 합쳐 컬럼 데이터로.
+  // OPSP-9: scenarioName 추가(회귀 모드면 컬럼 헤더에 시나리오 이름 표시).
   fastify.get(
     "/runs/compare",
     {
@@ -103,6 +145,7 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
             items: z.array(
               z.object({
                 run: runSchema,
+                scenarioName: z.string(),
                 diffFileCount: z.number().int().nonnegative(),
                 lastAssistantText: z.string().nullable(),
                 assertionScore: scoreSchema.nullable(),
@@ -125,6 +168,7 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
       const diffCounts = listRunDiffCounts(runIds);
       const lastTexts = listLastAssistantTexts(runIds);
       const scoresByRun = listScoresForRuns(runIds);
+      const scenarioNames = listRunScenarioNames(runIds);
       // 한 run 에 같은 scorer 가 여러 행이면 가장 최근(createdAt 오름차순이므로 마지막).
       const pickLatest = (runId: string, scorer: "assertion" | "llm_judge" | "human") => {
         const list = (scoresByRun[runId] ?? []).filter((s) => s.scorer === scorer);
@@ -133,6 +177,7 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
       return {
         items: runs.map((run) => ({
           run,
+          scenarioName: scenarioNames[run.id] ?? "(unknown)",
           diffFileCount: diffCounts[run.id] ?? 0,
           lastAssistantText: lastTexts[run.id] ?? null,
           assertionScore: pickLatest(run.id, "assertion"),
