@@ -1,6 +1,7 @@
 import type { Run } from "@opspilot/shared-types";
 import { assetVersionExists, versionExecContext } from "../registry/repository.js";
 import { getScenario } from "../scenario/repository.js";
+import { evaluateAssertionsForRun } from "../score/auto-evaluate.js";
 import { collectDiffFiles } from "./diff.js";
 import { extractUsage, normalizeEvent, type NormalizedEvent, type RunUsage } from "./normalizer.js";
 import { appendTrace, createRun, finishRun, getRun, saveRunDiff } from "./repository.js";
@@ -58,6 +59,9 @@ async function runLoop(runId: string, scenarioInput: string, params: RunParams):
     finishRun(runId, "failed", { error: (e as Error).message, usage });
   } finally {
     cleanup?.();
+    // OPSP-20: run 종료 후 시나리오 assertions 자동 측정 → score(scorer='assertion') 저장.
+    // 실패해도 noop, 실행 결과에 영향 X.
+    evaluateAssertionsForRun(runId);
   }
 }
 

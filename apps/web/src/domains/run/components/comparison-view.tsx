@@ -176,6 +176,67 @@ export function ComparisonView({ runIds, onSelectRun }: Props) {
               </td>
             ))}
           </tr>
+          {/* OPSP-20: 객관 신호 3행 — assertion 자동 측정 / judge 점수 / 사람 점수 */}
+          <tr>
+            <td style={{ ...cellStyle, fontWeight: 600 }}>
+              성공조건 통과
+              <InfoMark
+                label="성공조건 자동 측정"
+                help="시나리오 expectation.assertions 각 줄을 트레이스 텍스트에 substring 매칭. 약한 규칙(자유 자연어) — 정밀 규칙 엔진은 후속."
+              />
+            </td>
+            {items.map((it) => {
+              const s = it.assertionScore;
+              if (s === null) return <td key={it.run.id} style={{ ...cellStyle, color: "#888" }}>—</td>;
+              const detail = s.detail;
+              const expected = detail?.expected;
+              const total = Array.isArray(expected) ? expected.length : 0;
+              const passCount = Math.round((s.score ?? 0) * total);
+              return (
+                <td key={it.run.id} style={cellStyle}>
+                  <span style={{ color: s.passed ? "#1a7f37" : "#9a6700", fontWeight: 600 }}>
+                    {`${String(passCount)}/${String(total)}`}
+                  </span>
+                </td>
+              );
+            })}
+          </tr>
+          <tr>
+            <td style={{ ...cellStyle, fontWeight: 600 }}>
+              judge 점수
+              <InfoMark
+                label="LLM judge 점수"
+                help="🤖 AI 판정 후 저장된 score(scorer='llm_judge'). best=1.0 / fine=0.5 / worse=0.0."
+              />
+            </td>
+            {items.map((it) => {
+              const s = it.judgeScore;
+              if (s === null) return <td key={it.run.id} style={{ ...cellStyle, color: "#888" }}>—</td>;
+              return (
+                <td key={it.run.id} style={cellStyle} title={s.detail?.reason ?? ""}>
+                  <span style={{ fontWeight: 600 }}>{(s.score ?? 0).toFixed(2)}</span>
+                </td>
+              );
+            })}
+          </tr>
+          <tr>
+            <td style={{ ...cellStyle, fontWeight: 600 }}>
+              사람 점수
+              <InfoMark
+                label="사람 점수"
+                help="트레이스 뷰에서 사용자가 직접 매긴 점수(OPSP-17). 데이터 없으면 — 표시."
+              />
+            </td>
+            {items.map((it) => {
+              const s = it.humanScore;
+              if (s === null) return <td key={it.run.id} style={{ ...cellStyle, color: "#888" }}>—</td>;
+              return (
+                <td key={it.run.id} style={cellStyle} title={s.detail?.reason ?? ""}>
+                  <span style={{ fontWeight: 600 }}>{(s.score ?? 0).toFixed(2)}</span>
+                </td>
+              );
+            })}
+          </tr>
           <tr>
             <td style={{ ...cellStyle, fontWeight: 600, verticalAlign: "top" }}>마지막 응답 미리보기</td>
             {items.map((it) => (
@@ -193,7 +254,7 @@ export function ComparisonView({ runIds, onSelectRun }: Props) {
         </tbody>
       </table>
       <p style={{ fontSize: 11, color: "#57606a", marginTop: 6 }}>
-        컬럼 헤더(run id) 를 클릭하면 그 run 의 트레이스로 이동. 사람 점수 컬럼은 OPSP-17 데이터가 쌓이면 추가됩니다.
+        컬럼 헤더(run id) 를 클릭하면 그 run 의 트레이스로 이동. 셀에 hover 하면 자세한 이유가 뜹니다.
       </p>
     </div>
   );

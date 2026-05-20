@@ -6,6 +6,7 @@ import {
   listLastAssistantTexts,
   listRunDiffCounts,
 } from "../run/repository.js";
+import { createScoreWithDetail } from "../score/repository.js";
 import { getDb } from "../../db/index.js";
 import { getScenario } from "../scenario/repository.js";
 
@@ -165,6 +166,27 @@ export async function judgeRuns(runIds: string[]): Promise<JudgeResult> {
   for (const id of inputSet) {
     if (!respSet.has(id)) {
       throw new ClaudeAssistError(`judge 응답에 누락된 runId: ${id}`);
+    }
+  }
+  // OPSP-20: 판정 결과를 score 테이블에 저장(OPSP-9/21 데이터 누적 시작).
+  // 디테릭트 매번 호출시 새 행 — 멱등 아닌 의도. detail.actual 에 verdict+winner 여부.
+  const winnerId = parsed.data.winnerRunId;
+  const scoreMap: Record<string, number> = { best: 1.0, fine: 0.5, worse: 0.0 };
+  for (const p of parsed.data.perRun) {
+    try {
+      createScoreWithDetail({
+        runId: p.runId,
+        scorer: "llm_judge",
+        passed: p.verdict !== "worse",
+        score: scoreMap[p.verdict] ?? 0,
+        detail: {
+          reason: p.note,
+          expected: parsed.data.summary,
+          actual: { verdict: p.verdict, isWinner: winnerId === p.runId },
+        },
+      });
+    } catch {
+      // 한 행 실패가 다른 행에 영향주지 않게 흡수.
     }
   }
   return parsed.data;

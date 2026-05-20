@@ -110,11 +110,14 @@ export async function suggestScenario(v: { assetId: string; hint?: string }) {
   return apiPost("/api/assist/scenario-suggest", v, scenarioSuggestionResponse);
 }
 
-// OPSP-10 비교 뷰: N개 run 요약을 한 응답으로(N+1 회피).
+// OPSP-10/20 비교 뷰: N개 run 요약 + assertion/judge/human score 통합.
 const compareItemSchema = z.object({
   run: runSchema,
   diffFileCount: z.number().int().nonnegative(),
   lastAssistantText: z.string().nullable(),
+  assertionScore: scoreSchema.nullable(),
+  judgeScore: scoreSchema.nullable(),
+  humanScore: scoreSchema.nullable(),
 });
 export type CompareItem = z.infer<typeof compareItemSchema>;
 const compareResponse = z.object({ items: z.array(compareItemSchema) });
