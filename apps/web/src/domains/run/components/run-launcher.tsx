@@ -1,5 +1,5 @@
 import { useState, type CSSProperties } from "react";
-import { InlineError, Loading } from "../../../lib/ui";
+import { InfoMark, InlineError, Loading } from "../../../lib/ui";
 import { useLaunchRun } from "../use-run";
 
 interface Props {
@@ -45,7 +45,13 @@ export function RunLauncher({ assetId, assetVersionId, defaultCwd, onLaunched }:
       }}
       style={{ border: "1px solid #e1e4e8", borderRadius: 6, padding: 12, marginTop: 12 }}
     >
-      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>이 버전으로 시나리오 실행</div>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
+        이 버전으로 시나리오 실행
+        <InfoMark
+          label="시나리오 실행"
+          help="선택한 버전의 git 커밋으로 격리 worktree 를 만들고 그 안에서 에이전트를 돌립니다(클론·원본 무오염). 실행은 비동기 — 즉시 트레이스 탭으로 이동하고, 단계가 실시간으로 채워집니다."
+        />
+      </div>
 
       <div style={label}>시나리오 이름 *</div>
       <input value={name} onChange={(e) => setName(e.target.value)} placeholder="예: 큰 코드베이스에서 X 찾기" style={field} />
@@ -91,9 +97,17 @@ export function RunLauncher({ assetId, assetVersionId, defaultCwd, onLaunched }:
       <div style={{ display: "flex", gap: 12, alignItems: "center", fontSize: 13 }}>
         <label>
           <input type="radio" name="src" checked={source === "fixture"} onChange={() => setSource("fixture")} /> fixture (토큰0)
+          <InfoMark
+            label="fixture 소스"
+            help="결정론적 가짜 트레이스(6단계)로 실행 — 실제 Claude를 부르지 않아 토큰·비용 0. UI 흐름·평가 로직 검증용. CI 회귀에도 안전."
+          />
         </label>
         <label>
           <input type="radio" name="src" checked={source === "local-claude"} onChange={() => setSource("local-claude")} /> local-claude
+          <InfoMark
+            label="local-claude 소스"
+            help="로컬에 설치된 claude CLI 를 격리 worktree 안에서 spawn 합니다(별도 API 키·과금 없음, 기존 로컬 인증 재사용). 실 토큰 소비 — 비결정적, 실제 평가용."
+          />
         </label>
         <button type="submit" disabled={launch.isPending || !canSubmit} style={{ marginLeft: "auto" }}>
           {launch.isPending ? <Loading label="실행 중…" /> : "▶ 실행"}

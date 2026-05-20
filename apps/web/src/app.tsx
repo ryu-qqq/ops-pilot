@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { OnboardingGuide } from "./domains/onboarding/components/onboarding-guide";
 import { RegistryView } from "./domains/registry/components/registry-view";
 import { RunsView } from "./domains/run/components/runs-view";
 
@@ -39,6 +40,7 @@ export function App() {
         {tabBtn("registry", "레지스트리")}
         {tabBtn("runs", "실행 / 트레이스")}
       </nav>
+      <OnboardingGuide tab={tab} onSwitchTab={setTab} />
       {tab === "registry" ? (
         <RegistryView onRunCreated={handleRunCreated} />
       ) : (
