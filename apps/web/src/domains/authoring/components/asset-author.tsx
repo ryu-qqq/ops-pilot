@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { AssetKind } from "@opspilot/shared-types";
 import { useAssets } from "../../registry/use-registry";
-import { InlineError, Loading } from "../../../lib/ui";
+import { InfoMark, InlineError, Loading } from "../../../lib/ui";
 import { useAssetContent, useAuthorAsset } from "../use-authoring";
 
 interface Props {
@@ -60,6 +60,10 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
     >
       <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
         {isEdit ? `자산 수정 → 새 버전: ${editing.kind}/${editing.name}` : "새 자산 작성"}
+        <InfoMark
+          label="자산 저작"
+          help="작성/저장은 클론의 .claude 에 파일을 쓰고 ‘ops(kind/name): 변경요약 [opspilot authored]’ 구조화 커밋을 만들며, 그 커밋이 곧 새 자산 버전이 됩니다. 변경 요약이 없으면 저장이 거부됩니다(추적 불가 방지)."
+        />
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
         <select

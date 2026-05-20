@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { registryKeys } from "../../registry/api";
-import { ErrorNotice, InlineError, Loading } from "../../../lib/ui";
+import { ErrorNotice, InfoMark, InlineError, Loading } from "../../../lib/ui";
 import { useCreateProject, useInstallHooks, useProjects, useScanProject } from "../use-project";
 
 interface Props {
@@ -39,7 +39,17 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
             })
           }
         >
-          {create.isPending ? <Loading label="클론 중…" /> : "프로젝트 등록"}
+          {create.isPending ? (
+            <Loading label="클론 중…" />
+          ) : (
+            <>
+              프로젝트 등록
+              <InfoMark
+                label="프로젝트 등록"
+                help="git URL(또는 로컬 경로/file://)을 클론해 OpsPilot 작업 베이스(~/.opspilot/projects/<슬러그>)를 만듭니다. 이 클론이 버전·실행의 기준이며, 클론·원본 둘 다 무오염으로 유지됩니다."
+              />
+            </>
+          )}
         </button>
       </div>
       {create.isError && (
@@ -74,7 +84,17 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
             });
           }}
         >
-          {scan.isPending ? <Loading label="스캔 중…" /> : "스캔"}
+          {scan.isPending ? (
+            <Loading label="스캔 중…" />
+          ) : (
+            <>
+              스캔
+              <InfoMark
+                label="스캔"
+                help="클론을 git pull 후 .claude/{agents,skills,commands}/*.md 를 읽어 자산·버전(=git 커밋 이력)을 멱등 갱신합니다. .claude가 없으면 정상 동작으로 안내가 뜨고, 그땐 ‘새 자산 작성’부터 시작하면 됩니다."
+              />
+            </>
+          )}
         </button>
         <button
           type="button"
@@ -82,9 +102,18 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
           onClick={() => {
             if (selectedProjectId !== null) hooks.mutate(selectedProjectId);
           }}
-          title="Claude Code PostToolUse + git post-commit 훅 설치 (자동 버전 강제)"
         >
-          {hooks.isPending ? <Loading label="설치 중…" /> : "버전 강제 훅 설치"}
+          {hooks.isPending ? (
+            <Loading label="설치 중…" />
+          ) : (
+            <>
+              버전 강제 훅 설치
+              <InfoMark
+                label="버전 강제 훅 설치"
+                help="이 프로젝트 클론에 (1) .claude/opspilot/version-on-change.sh + .claude/settings.json PostToolUse 훅(Claude Code 세션이 .claude를 고치면 즉시 구조화 커밋) (2) .git/hooks/post-commit(어떤 에디터로 커밋해도 OpsPilot에 재스캔 알림) 을 설치합니다. 한 번만 실행, 멱등. 이후 사람이 까먹어도 모든 .claude 변경이 자동으로 버전이 됩니다."
+              />
+            </>
+          )}
         </button>
         {scan.isSuccess && (
           <span style={{ color: "green", fontSize: 13 }}>

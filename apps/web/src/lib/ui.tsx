@@ -114,6 +114,35 @@ export function InlineError({ error }: { error: unknown }) {
   );
 }
 
+// 라벨 옆 의미 표시: hover/포커스 시 풍부한 설명(HTML title — 의존성 0).
+// 모바일/접근성 보완은 OPSP-28 디자인 패스에서.
+export function InfoMark({ help, label }: { help: string; label?: string }) {
+  return (
+    <span
+      tabIndex={0}
+      title={help}
+      aria-label={label === undefined ? help : `${label}: ${help}`}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 14,
+        height: 14,
+        marginLeft: 4,
+        borderRadius: "50%",
+        background: "#d0d7de",
+        color: "#24292f",
+        fontSize: 10,
+        fontWeight: 700,
+        cursor: "help",
+        verticalAlign: "1px",
+      }}
+    >
+      ?
+    </span>
+  );
+}
+
 // 빈상태: 왜 비었고 무엇을 하면 되는지를 문구로 명시.
 export function EmptyState({
   title,
