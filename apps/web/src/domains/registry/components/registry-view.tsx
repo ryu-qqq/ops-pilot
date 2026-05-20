@@ -30,8 +30,9 @@ export function RegistryView({ onRunCreated }: Props) {
           setVersionId(null);
         }}
       />
-      <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-        <Card className="space-y-3 p-4">
+      <div className="grid items-start gap-4 lg:grid-cols-[320px_1fr]">
+        {/* 자산 패널 — sticky sidebar: 스크롤해도 보이게, 우측 콘텐츠 높이와 무관 */}
+        <Card className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto p-4 space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground">
             자산 (agents · skills · commands)
           </h2>
