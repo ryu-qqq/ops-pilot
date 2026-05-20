@@ -1,12 +1,14 @@
-import { useState, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { InfoMark, InlineError, Loading } from "../../../lib/ui";
-import { useLaunchRun, useSuggestScenario } from "../use-run";
+import { useAssetVersions } from "../../registry/use-registry";
+import { useLaunchBatchRun, useLaunchRun, useSuggestScenario } from "../use-run";
 
+// OPSP-10: onLaunched 시그니처를 runIds[] 로 통일 — 길이 1=단일, 2+=비교 모드.
 interface Props {
   assetId: string;
   assetVersionId: string;
   defaultCwd: string;
-  onLaunched: (runId: string) => void;
+  onLaunched: (runIds: string[]) => void;
 }
 
 const field: CSSProperties = {
@@ -27,10 +29,25 @@ export function RunLauncher({ assetId, assetVersionId, defaultCwd, onLaunched }:
   const [cwd, setCwd] = useState(defaultCwd);
   const [source, setSource] = useState<"fixture" | "local-claude">("fixture");
   const [hint, setHint] = useState("");
+  const [compare, setCompare] = useState(false);
+  const [compareIds, setCompareIds] = useState<Set<string>>(() => new Set([assetVersionId]));
   const launch = useLaunchRun();
+  const launchBatch = useLaunchBatchRun();
   const suggest = useSuggestScenario();
+  const versions = useAssetVersions(assetId);
 
-  const canSubmit = name.trim() !== "" && input.trim() !== "";
+  // 비교 모드 켜질 때 현재 선택 버전을 기본 체크.
+  const versionList = versions.data ?? [];
+  const compareList = useMemo(() => [...compareIds], [compareIds]);
+  const compareCount = compareList.length;
+  const isPending = launch.isPending || launchBatch.isPending;
+  const launchError = launch.error ?? launchBatch.error;
+  const isError = launch.isError || launchBatch.isError;
+
+  const canSubmit =
+    name.trim() !== "" &&
+    input.trim() !== "" &&
+    (!compare || (compareCount >= 2 && compareCount <= 5));
 
   return (
     <form
@@ -40,10 +57,27 @@ export function RunLauncher({ assetId, assetVersionId, defaultCwd, onLaunched }:
           .split("\n")
           .map((s) => s.trim())
           .filter((s) => s !== "");
-        launch.mutate(
-          { assetId, assetVersionId, cwd, source, name, purpose, input, expectedBehavior, successCriteria },
-          { onSuccess: (run) => onLaunched(run.id) },
-        );
+        if (compare) {
+          launchBatch.mutate(
+            {
+              assetId,
+              assetVersionIds: compareList,
+              cwd,
+              source,
+              name,
+              purpose,
+              input,
+              expectedBehavior,
+              successCriteria,
+            },
+            { onSuccess: (res) => onLaunched(res.runs.map((r) => r.id)) },
+          );
+        } else {
+          launch.mutate(
+            { assetId, assetVersionId, cwd, source, name, purpose, input, expectedBehavior, successCriteria },
+            { onSuccess: (run) => onLaunched([run.id]) },
+          );
+        }
       }}
       style={{ border: "1px solid #e1e4e8", borderRadius: 6, padding: 12, marginTop: 12 }}
     >
@@ -147,6 +181,75 @@ export function RunLauncher({ assetId, assetVersionId, defaultCwd, onLaunched }:
       <div style={label}>대상 레포 cwd</div>
       <input value={cwd} onChange={(e) => setCwd(e.target.value)} style={{ ...field, fontSize: 12, fontFamily: "monospace" }} />
 
+      {/* OPSP-10: 비교 모드 — 같은 자산의 여러 버전을 한 번에 같은 시나리오로. */}
+      <div
+        style={{
+          border: "1px solid #0969da",
+          background: "#ddf4ff",
+          borderRadius: 6,
+          padding: 8,
+          marginBottom: 8,
+        }}
+      >
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700 }}>
+          <input
+            type="checkbox"
+            checked={compare}
+            onChange={(e) => setCompare(e.target.checked)}
+          />
+          📊 버전 비교 모드 (2~5개 버전을 같은 시나리오로 동시 실행)
+          <InfoMark
+            label="버전 비교"
+            help="같은 자산의 여러 버전을 한 시나리오로 한 번에 돌려, 컬럼별로 나란히 비교합니다. ‘프롬프트 한 줄 바꿨는데 더 나아졌나?’를 즉답."
+          />
+        </label>
+        {compare && (
+          <div style={{ marginTop: 6 }}>
+            <div style={{ fontSize: 11, color: "#0a3069", marginBottom: 4 }}>
+              실행할 버전 ({compareCount} / 5)
+            </div>
+            <div style={{ maxHeight: 140, overflowY: "auto", paddingRight: 4 }}>
+              {versionList.length === 0 && (
+                <p style={{ fontSize: 12, color: "#57606a", margin: 0 }}>버전이 없습니다.</p>
+              )}
+              {versionList.map((v) => {
+                const checked = compareIds.has(v.id);
+                return (
+                  <label
+                    key={v.id}
+                    style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, padding: "2px 0" }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={!checked && compareCount >= 5}
+                      onChange={(e) => {
+                        setCompareIds((prev) => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(v.id);
+                          else next.delete(v.id);
+                          return next;
+                        });
+                      }}
+                    />
+                    <code style={{ fontSize: 11 }}>{v.gitCommit.slice(0, 8)}</code>
+                    <span style={{ color: "#57606a" }}>{v.committedAt.slice(0, 10)}</span>
+                    <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {v.commitMessage ?? "(no message)"}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            {compareCount < 2 && (
+              <p style={{ fontSize: 11, color: "#9a6700", margin: "4px 0 0" }}>
+                최소 2개 선택해야 비교 의미가 있어요.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
       <div style={{ display: "flex", gap: 12, alignItems: "center", fontSize: 13 }}>
         <label>
           <input type="radio" name="src" checked={source === "fixture"} onChange={() => setSource("fixture")} /> fixture (토큰0)
@@ -162,13 +265,19 @@ export function RunLauncher({ assetId, assetVersionId, defaultCwd, onLaunched }:
             help="로컬에 설치된 claude CLI 를 격리 worktree 안에서 spawn 합니다(별도 API 키·과금 없음, 기존 로컬 인증 재사용). 실 토큰 소비 — 비결정적, 실제 평가용."
           />
         </label>
-        <button type="submit" disabled={launch.isPending || !canSubmit} style={{ marginLeft: "auto" }}>
-          {launch.isPending ? <Loading label="실행 중…" /> : "▶ 실행"}
+        <button type="submit" disabled={isPending || !canSubmit} style={{ marginLeft: "auto" }}>
+          {isPending ? (
+            <Loading label={compare ? `${String(compareCount)}개 실행 중…` : "실행 중…"} />
+          ) : compare ? (
+            `▶ ${String(compareCount)}개 버전 동시 실행`
+          ) : (
+            "▶ 실행"
+          )}
         </button>
       </div>
-      {launch.isError && (
+      {isError && launchError !== null && (
         <p style={{ margin: "6px 0 0" }}>
-          <InlineError error={launch.error} />
+          <InlineError error={launchError} />
         </p>
       )}
     </form>

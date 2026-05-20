@@ -7,7 +7,7 @@ import { AssetList } from "./asset-list";
 import { VersionTimeline } from "./version-timeline";
 
 interface Props {
-  onRunCreated: (runId: string) => void;
+  onRunCreated: (runIds: string[]) => void;
 }
 
 export function RegistryView({ onRunCreated }: Props) {

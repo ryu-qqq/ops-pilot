@@ -44,6 +44,7 @@ export const runKeys = {
   trace: (runId: string) => [...runKeys.all, "trace", runId] as const,
   scores: (runId: string) => [...runKeys.all, "scores", runId] as const,
   diff: (runId: string) => [...runKeys.all, "diff", runId] as const,
+  compare: (ids: string[]) => [...runKeys.all, "compare", [...ids].sort().join(",")] as const,
 };
 
 const diffResponse = z.object({ files: z.array(runDiffFileSchema) });
@@ -109,6 +110,19 @@ export async function suggestScenario(v: { assetId: string; hint?: string }) {
   return apiPost("/api/assist/scenario-suggest", v, scenarioSuggestionResponse);
 }
 
+// OPSP-10 비교 뷰: N개 run 요약을 한 응답으로(N+1 회피).
+const compareItemSchema = z.object({
+  run: runSchema,
+  diffFileCount: z.number().int().nonnegative(),
+  lastAssistantText: z.string().nullable(),
+});
+export type CompareItem = z.infer<typeof compareItemSchema>;
+const compareResponse = z.object({ items: z.array(compareItemSchema) });
+
+export async function getRunsCompare(ids: string[]) {
+  return (await apiGet(`/api/runs/compare?ids=${ids.join(",")}`, compareResponse)).items;
+}
+
 // 시나리오 구체화: 목적/입력/기대 동작/성공조건 → description + expectation 매핑.
 export interface LaunchInput {
   assetId: string;
@@ -120,6 +134,39 @@ export interface LaunchInput {
   input: string; // 에이전트에 줄 입력
   expectedBehavior: string; // 기대 동작 — expectation.judge
   successCriteria: string[]; // 성공조건 — expectation.assertions
+}
+
+// OPSP-10 비교 모드: 시나리오 1개 + 자산 버전 N개 → 한 번에 N run 시작.
+// 시나리오는 RunLauncher 의 폼 입력으로 새로 만들고(=launchRun 과 같이), runs/batch 한 호출.
+export interface BatchLaunchInput extends Omit<LaunchInput, "assetVersionId"> {
+  assetVersionIds: string[];
+}
+
+export async function launchBatchRun(v: BatchLaunchInput) {
+  const scenario = await apiPost(
+    "/api/scenarios",
+    {
+      assetId: v.assetId,
+      name: v.name,
+      description: v.purpose.trim() === "" ? null : v.purpose,
+      input: v.input,
+      expectation: {
+        judge: v.expectedBehavior.trim() === "" ? undefined : v.expectedBehavior,
+        assertions: v.successCriteria.length > 0 ? v.successCriteria : undefined,
+      },
+    },
+    scenarioSchema,
+  );
+  return apiPost(
+    "/api/runs/batch",
+    {
+      assetVersionIds: v.assetVersionIds,
+      scenarioId: scenario.id,
+      cwd: v.cwd,
+      source: v.source,
+    },
+    z.object({ runs: z.array(runSchema) }),
+  );
 }
 
 // 시나리오 생성 → 그 시나리오로 run 실행 (E2E 한 흐름).

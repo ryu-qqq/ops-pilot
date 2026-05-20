@@ -140,6 +140,56 @@ export function saveRunDiff(runId: string, files: CollectedDiffFile[]): void {
   tx(files);
 }
 
+// OPSP-10 비교 뷰: 여러 run 의 diff 파일 수만 한꺼번에 모음.
+export function listRunDiffCounts(runIds: string[]): Record<string, number> {
+  if (runIds.length === 0) return {};
+  const placeholders = runIds.map(() => "?").join(",");
+  const rows = getDb()
+    .prepare(
+      `SELECT run_id AS runId, COUNT(*) AS count FROM run_diff_file
+       WHERE run_id IN (${placeholders}) GROUP BY run_id`,
+    )
+    .all(...runIds) as { runId: string; count: number }[];
+  const map: Record<string, number> = {};
+  for (const r of rows) map[r.runId] = r.count;
+  return map;
+}
+
+// OPSP-10 비교 뷰: 각 run 의 마지막 assistant 메시지 텍스트(미리보기).
+// trace_event 의 output 은 정규화된 JSON 객체 — assistant_message 면 그 안에 text.
+// 못 추출하면 null. 1차는 단순 — 마지막 assistant_message 의 output 통째 string.
+export function listLastAssistantTexts(runIds: string[]): Record<string, string | null> {
+  const map: Record<string, string | null> = {};
+  if (runIds.length === 0) return map;
+  const db = getDb();
+  const stmt = db.prepare(
+    `SELECT output FROM trace_event
+     WHERE run_id = ? AND type = 'assistant_message'
+     ORDER BY seq DESC LIMIT 1`,
+  );
+  for (const id of runIds) {
+    const row = stmt.get(id) as { output: string | null } | undefined;
+    if (row === undefined || row.output === null) {
+      map[id] = null;
+      continue;
+    }
+    try {
+      const parsed = JSON.parse(row.output) as unknown;
+      // assistant 출력 normalization 형태: { text: "...", ... } 또는 raw 객체
+      if (typeof parsed === "string") map[id] = parsed.slice(0, 280);
+      else if (parsed !== null && typeof parsed === "object" && "text" in parsed) {
+        const t = (parsed as { text: unknown }).text;
+        map[id] = typeof t === "string" ? t.slice(0, 280) : JSON.stringify(parsed).slice(0, 280);
+      } else {
+        map[id] = JSON.stringify(parsed).slice(0, 280);
+      }
+    } catch {
+      map[id] = row.output.slice(0, 280);
+    }
+  }
+  return map;
+}
+
 export function listRunDiff(runId: string): RunDiffFile[] {
   const rows = getDb()
     .prepare(

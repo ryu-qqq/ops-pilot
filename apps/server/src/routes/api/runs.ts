@@ -3,7 +3,14 @@ import { z } from "zod";
 import { runDiffFileSchema, runSchema, scoreSchema, scorerSchema } from "@opspilot/shared-types";
 import { RunInputError, startRun } from "../../domains/run/service.js";
 import { DEMO_FIXTURE, fixtureSource, localClaudeSource } from "../../domains/run/source.js";
-import { getRun, listRunDiff, listRuns, listTrace } from "../../domains/run/repository.js";
+import {
+  getRun,
+  listLastAssistantTexts,
+  listRunDiff,
+  listRunDiffCounts,
+  listRuns,
+  listTrace,
+} from "../../domains/run/repository.js";
 import { createScore, listScores } from "../../domains/score/repository.js";
 
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
@@ -44,6 +51,85 @@ const traceResponse = z.object({
 });
 
 const runs: FastifyPluginAsyncZod = async (fastify) => {
+  // OPSP-10: 같은 시나리오로 여러 자산 버전을 한 번에 실행 → 즉시 N개 run 반환.
+  // 내부적으로 startRun N번. 모두 백그라운드·worktree 격리(local-claude)이라 자연스레 병렬.
+  fastify.post(
+    "/runs/batch",
+    {
+      schema: {
+        body: z.object({
+          assetVersionIds: z.array(z.string().uuid()).min(2).max(5),
+          scenarioId: z.string().uuid(),
+          cwd: z.string().min(1),
+          source: z.enum(["fixture", "local-claude"]).default("local-claude"),
+          fixtureEvents: z.array(z.unknown()).optional(),
+        }),
+        response: { 200: z.object({ runs: z.array(runSchema) }), 400: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      const { assetVersionIds, scenarioId, cwd, source, fixtureEvents } = req.body;
+      try {
+        const runs = assetVersionIds.map((assetVersionId) =>
+          startRun({
+            assetVersionId,
+            scenarioId,
+            cwd,
+            source:
+              source === "fixture"
+                ? fixtureSource(fixtureEvents ?? DEMO_FIXTURE)
+                : localClaudeSource(),
+          }),
+        );
+        return { runs };
+      } catch (e) {
+        if (e instanceof RunInputError) {
+          return reply.status(400).send({ error: "BadRequest", detail: e.message });
+        }
+        throw e;
+      }
+    },
+  );
+
+  // OPSP-10: 비교 뷰용 N개 run 요약 한꺼번에(N+1 회피).
+  // run + diff file count + last assistant text(미리보기). score 는 별도 호출.
+  fastify.get(
+    "/runs/compare",
+    {
+      schema: {
+        querystring: z.object({ ids: z.string().min(1) }), // csv of uuid
+        response: {
+          200: z.object({
+            items: z.array(
+              z.object({
+                run: runSchema,
+                diffFileCount: z.number().int().nonnegative(),
+                lastAssistantText: z.string().nullable(),
+              }),
+            ),
+          }),
+          400: errorSchema,
+        },
+      },
+    },
+    async (req, reply) => {
+      const ids = req.query.ids.split(",").map((s) => s.trim()).filter((s) => s !== "");
+      if (ids.length === 0 || ids.length > 10) {
+        return reply.status(400).send({ error: "BadRequest", detail: "ids 1~10개" });
+      }
+      const runs = ids.map((id) => getRun(id)).filter((r): r is NonNullable<typeof r> => r !== undefined);
+      const diffCounts = listRunDiffCounts(runs.map((r) => r.id));
+      const lastTexts = listLastAssistantTexts(runs.map((r) => r.id));
+      return {
+        items: runs.map((run) => ({
+          run,
+          diffFileCount: diffCounts[run.id] ?? 0,
+          lastAssistantText: lastTexts[run.id] ?? null,
+        })),
+      };
+    },
+  );
+
   fastify.post(
     "/runs",
     { schema: { body: runBody, response: { 200: runSchema, 400: errorSchema } } },
