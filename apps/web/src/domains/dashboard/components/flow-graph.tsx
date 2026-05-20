@@ -26,6 +26,7 @@ import {
 import { Badge } from "../../../components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { EmptyState, InlineError, Loading } from "../../../lib/ui";
+import { useTheme } from "../../../lib/use-theme";
 import { useRun, useRunTrace } from "../../run/use-run";
 import type { TraceEventView } from "../../run/api";
 
@@ -37,33 +38,49 @@ interface Props {
   selectedRunId: string | null;
 }
 
+// fixture(normalize)와 실 local-claude 둘 다 커버하는 type 매핑.
 const TYPE_COLOR: Record<string, string> = {
+  // 실 local-claude
   assistant_text: "border-info bg-info/10",
-  thinking: "border-purple bg-purple/10",
-  tool_use: "border-warning bg-warning/10",
-  tool_result: "border-success bg-success/10",
-  system: "border-muted-foreground bg-muted/10",
+  tool_use: "border-warning bg-warning/15",
+  tool_result: "border-success bg-success/15",
   user_message: "border-foreground/40 bg-card",
+  // 공통
+  thinking: "border-purple bg-purple/15",
+  system: "border-muted-foreground bg-muted/30",
+  // fixture(normalize) 별칭
+  tool_call: "border-warning bg-warning/15",
+  assistant_message: "border-info bg-info/10",
+  result: "border-success bg-success/15",
+  init: "border-muted-foreground bg-muted/30",
 };
 const TYPE_ICON: Record<string, React.ReactNode> = {
   assistant_text: <MessageSquare className="h-3 w-3" />,
+  assistant_message: <MessageSquare className="h-3 w-3" />,
   thinking: <Brain className="h-3 w-3" />,
   tool_use: <Wrench className="h-3 w-3" />,
+  tool_call: <Wrench className="h-3 w-3" />,
   tool_result: <Activity className="h-3 w-3" />,
+  result: <Activity className="h-3 w-3" />,
   system: <Cog className="h-3 w-3" />,
+  init: <Cog className="h-3 w-3" />,
   user_message: <MessageSquare className="h-3 w-3" />,
 };
 
-// x column 분포 — *옵시디언 느낌* 으로 type별 분기. y = seq 시간순.
+// x column 분포 — 시간(y) 흐름 + type 좌우 분기. column 간격 좁힘(보기 편하게).
 const TYPE_COLUMN: Record<string, number> = {
-  user_message: -240,
+  system: -260,
+  init: -260,
+  user_message: -130,
   assistant_text: 0,
-  thinking: 200,
-  tool_use: 400,
-  tool_result: 600,
-  system: -120,
+  assistant_message: 0,
+  result: 0,
+  thinking: 130,
+  tool_use: 260,
+  tool_call: 260,
+  tool_result: 390,
 };
-const ROW_HEIGHT = 70;
+const ROW_HEIGHT = 95; // 70 → 95 — 노드 간격 더 여유
 
 interface TraceNodeData extends Record<string, unknown> {
   ev: TraceEventView;
@@ -71,20 +88,22 @@ interface TraceNodeData extends Record<string, unknown> {
 
 function TraceEventNode({ data }: NodeProps<Node<TraceNodeData>>) {
   const ev = data.ev;
-  const isTaskTool = ev.type === "tool_use" && ev.name === "Task";
-  const cls = TYPE_COLOR[ev.type] ?? "border-border";
+  const isTaskTool = (ev.type === "tool_use" || ev.type === "tool_call") && ev.name === "Task";
+  const cls = TYPE_COLOR[ev.type] ?? "border-border bg-card";
   const icon = TYPE_ICON[ev.type] ?? <FileText className="h-3 w-3" />;
   return (
-    <div className={`rounded-md border-2 px-2 py-1.5 text-xs shadow-sm ${cls} ${isTaskTool ? "ring-2 ring-purple/50" : ""}`}>
-      <Handle type="target" position={Position.Top} />
-      <Handle type="source" position={Position.Bottom} />
+    <div
+      className={`min-w-[140px] rounded-md border-2 px-2 py-1.5 text-xs text-foreground shadow-sm ${cls} ${isTaskTool ? "ring-2 ring-purple/60" : ""}`}
+    >
+      <Handle type="target" position={Position.Top} className="!bg-foreground/40" />
+      <Handle type="source" position={Position.Bottom} className="!bg-foreground/40" />
       <div className="flex items-center gap-1">
         {icon}
         <span className="font-mono text-[10px] opacity-70">#{ev.seq}</span>
-        <span className="font-mono text-[10px]">{ev.type}</span>
+        <span className="font-mono text-[10px] opacity-80">{ev.type}</span>
       </div>
       {ev.name !== null && (
-        <div className={`max-w-[160px] truncate text-[11px] font-medium ${isTaskTool ? "text-purple-foreground" : ""}`}>
+        <div className={`max-w-[180px] truncate text-[11px] font-medium ${isTaskTool ? "text-purple-foreground" : ""}`}>
           {isTaskTool && <ChevronRight className="mr-0.5 inline h-3 w-3" />}
           {ev.name}
         </div>
@@ -107,10 +126,10 @@ function computeMetrics(trace: TraceEventView[]): Metrics {
   const subAgents: string[] = [];
   for (const ev of trace) {
     byType[ev.type] = (byType[ev.type] ?? 0) + 1;
-    if (ev.type === "tool_use" && ev.name !== null) {
+    // fixture(normalize)는 'tool_call', 실 local-claude는 'tool_use' — 둘 다 흡수.
+    if ((ev.type === "tool_use" || ev.type === "tool_call") && ev.name !== null) {
       byTool[ev.name] = (byTool[ev.name] ?? 0) + 1;
       if (ev.name === "Task") {
-        // Task input 에 subagent_type 가 있을 수 있음 — best-effort 추출
         const input = ev.input as { subagent_type?: string; description?: string } | null;
         const sub = input?.subagent_type ?? input?.description ?? "Task";
         subAgents.push(sub);
@@ -167,6 +186,7 @@ function DistRow({ label, items }: { label: string; items: [string, number][] })
 }
 
 export function FlowGraph({ selectedRunId }: Props) {
+  const { theme } = useTheme();
   const run = useRun(selectedRunId);
   const isRunning = run.data?.status === "running";
   const trace = useRunTrace(selectedRunId, isRunning);
@@ -258,17 +278,48 @@ export function FlowGraph({ selectedRunId }: Props) {
               <EmptyState title="trace event 없음" hint="실행이 아직 시작 전이거나 데이터가 비어 있어요." />
             </div>
           ) : (
-            <div style={{ height: 600 }}>
+            <div className="h-[640px] bg-background">
               <ReactFlow
                 nodes={flowNodes}
                 edges={flowEdges}
                 nodeTypes={nodeTypes}
+                colorMode={theme}
                 fitView
+                fitViewOptions={{ padding: 0.25 }}
+                minZoom={0.2}
+                maxZoom={2}
+                zoomOnScroll
+                zoomOnPinch
+                panOnDrag
+                panOnScroll={false}
+                nodesDraggable
+                nodesConnectable={false}
                 proOptions={{ hideAttribution: true }}
               >
-                <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-                <Controls />
-                <MiniMap pannable zoomable />
+                <Background
+                  variant={BackgroundVariant.Dots}
+                  gap={20}
+                  size={1}
+                  color={theme === "dark" ? "hsl(var(--muted-foreground) / 0.25)" : "hsl(var(--muted-foreground) / 0.35)"}
+                />
+                <Controls showInteractive={false} />
+                <MiniMap
+                  pannable
+                  zoomable
+                  nodeColor={(n) => {
+                    const ev = (n.data as TraceNodeData).ev;
+                    if (ev.type === "tool_use" || ev.type === "tool_call") return "hsl(var(--warning))";
+                    if (ev.type === "tool_result" || ev.type === "result") return "hsl(var(--success))";
+                    if (ev.type === "thinking") return "hsl(var(--purple))";
+                    if (ev.type === "assistant_text" || ev.type === "assistant_message") return "hsl(var(--info))";
+                    return "hsl(var(--muted-foreground))";
+                  }}
+                  maskColor={theme === "dark" ? "hsl(var(--background) / 0.7)" : "hsl(var(--background) / 0.7)"}
+                  style={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                  }}
+                />
               </ReactFlow>
             </div>
           )}
@@ -286,24 +337,38 @@ export function FlowGraph({ selectedRunId }: Props) {
           <CardContent className="space-y-0 pt-2">
             <MetricRow
               label="진행 시간"
-              value={duration === null ? "—" : fmtMs(duration)}
-              sub={isRunning ? "(진행 중)" : undefined}
+              value={duration === null ? (isRunning ? "(시작 전)" : "—") : fmtMs(duration)}
+              sub={isRunning && duration !== null ? "(진행 중)" : undefined}
             />
             <MetricRow
               label="프롬프트 토큰"
-              value={r?.promptTokens === null || r === undefined ? "—" : r.promptTokens.toLocaleString()}
+              value={
+                r?.promptTokens === null || r === undefined
+                  ? isRunning
+                    ? "(집계 대기)"
+                    : "—"
+                  : r.promptTokens.toLocaleString()
+              }
             />
             <MetricRow
               label="응답 토큰"
               value={
                 r?.completionTokens === null || r === undefined
-                  ? "—"
+                  ? isRunning
+                    ? "(집계 대기)"
+                    : "—"
                   : r.completionTokens.toLocaleString()
               }
             />
             <MetricRow
               label="비용"
-              value={r?.costUsd === null || r === undefined ? "—" : `$${r.costUsd.toFixed(4)}`}
+              value={
+                r?.costUsd === null || r === undefined
+                  ? isRunning
+                    ? "(집계 대기)"
+                    : "—"
+                  : `$${r.costUsd.toFixed(4)}`
+              }
             />
             <MetricRow label="trace event 총" value={String(metrics.totalEvents)} />
             <MetricRow label="thinking" value={String(metrics.byType.thinking ?? 0)} />
