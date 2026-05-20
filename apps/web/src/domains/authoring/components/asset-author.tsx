@@ -13,6 +13,7 @@ import {
   serializeFrontmatter,
   validateFrontmatter,
 } from "../lib/frontmatter";
+import s from "./asset-author.module.css";
 
 interface Props {
   projectId: string;
@@ -20,14 +21,6 @@ interface Props {
 }
 
 const MODEL_OPTIONS: ModelChoice[] = ["inherit", "sonnet", "opus", "haiku"];
-
-const fieldStyle = {
-  width: "100%",
-  padding: 6,
-  marginBottom: 6,
-  boxSizing: "border-box" as const,
-};
-const labelStyle = { fontSize: 12, color: "#57606a", marginTop: 6, marginBottom: 2 };
 
 // OPSP-19 척추 + OPSP-26 공식 스펙 반영: 자유 textarea 대신 kind별 구조화 폼.
 // frontmatter는 키별 필드로 입력 → 저장 시 단순 YAML로 직렬화해 본문 앞에 붙임.
@@ -91,7 +84,6 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
   const setField = (key: string, value: string) => setFm((prev) => ({ ...prev, [key]: value }));
 
   const applyTemplate = () => {
-    // name·description은 사용자가 채우게 두고, 본문만 정확본으로.
     setBody(bodyTemplate(kind, name));
   };
 
@@ -110,9 +102,9 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
           },
         );
       }}
-      style={{ border: "1px solid #8250df", borderRadius: 6, padding: 12, marginTop: 12 }}
+      className={s.form}
     >
-      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
+      <div className={s.title}>
         {isEdit ? `자산 수정 → 새 버전: ${editing.kind}/${editing.name}` : "새 자산 작성"}
         <InfoMark
           label="자산 저작"
@@ -120,53 +112,39 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
         />
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
-        <select
-          value={kind}
-          onChange={(e) => setKind(e.target.value as AssetKind)}
-          disabled={isEdit}
-          style={{ padding: 6 }}
-        >
+      <div className={s.kindRow}>
+        <select value={kind} onChange={(e) => setKind(e.target.value as AssetKind)} disabled={isEdit}>
           <option value="agent">agent</option>
           <option value="skill">skill</option>
           <option value="command">command</option>
         </select>
-        <a
-          href={DOCS_URL[kind]}
-          target="_blank"
-          rel="noreferrer noopener"
-          style={{ fontSize: 12, color: "#0969da" }}
-        >
+        <a href={DOCS_URL[kind]} target="_blank" rel="noreferrer noopener" className={s.docsLink}>
           공식 스펙 ↗
         </a>
         {!isEdit && (
-          <button type="button" onClick={applyTemplate} style={{ marginLeft: "auto" }}>
+          <button type="button" onClick={applyTemplate} className={s.templateBtn}>
             본문 템플릿
           </button>
         )}
       </div>
 
-      {/* kind별 frontmatter 입력 */}
       {KIND_KEYS[kind].map((k) => {
         const key = k as string;
         const meta = KEY_META[key] ?? { label: key, help: "" };
         const value = fm[key] ?? "";
-        const common = {
-          value,
-          onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-            setField(key, e.target.value),
-          disabled: isEdit && key === "name",
-          style: fieldStyle,
-        };
         return (
           <div key={key}>
-            <div style={labelStyle}>
+            <div className={s.fieldLabel}>
               {meta.label}
-              {meta.required && <span style={{ color: "#cf222e" }}> *</span>}
+              {meta.required && <span className={s.required}> *</span>}
               <InfoMark label={meta.label} help={meta.help} />
             </div>
             {key === "model" ? (
-              <select {...common}>
+              <select
+                value={value}
+                onChange={(e) => setField(key, e.target.value)}
+                className={s.field}
+              >
                 {MODEL_OPTIONS.map((m) => (
                   <option key={m} value={m === "inherit" ? "" : m}>
                     {m}
@@ -176,15 +154,18 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
             ) : (
               <input
                 type="text"
-                {...common}
+                value={value}
+                onChange={(e) => setField(key, e.target.value)}
+                disabled={isEdit && key === "name"}
                 placeholder={meta.placeholder}
+                className={s.field}
               />
             )}
           </div>
         );
       })}
 
-      <div style={labelStyle}>
+      <div className={s.fieldLabel}>
         본문 (markdown)
         <InfoMark
           label="본문"
@@ -196,51 +177,35 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
         onChange={(e) => setBody(e.target.value)}
         rows={10}
         placeholder="본문(markdown). 위의 ‘본문 템플릿’ 버튼으로 kind별 기본 골격을 얻을 수 있습니다."
-        style={{ ...fieldStyle, fontFamily: "monospace", fontSize: 12 }}
+        className={s.bodyArea}
       />
 
       <details
-        style={{ marginBottom: 6 }}
+        className={s.preview}
         open={showRaw}
         onToggle={(e) => setShowRaw((e.target as HTMLDetailsElement).open)}
       >
-        <summary style={{ fontSize: 12, color: "#57606a", cursor: "pointer" }}>
-          저장될 파일 미리보기
-        </summary>
-        <pre
-          style={{
-            background: "#f6f8fa",
-            border: "1px solid #d0d7de",
-            borderRadius: 4,
-            padding: 8,
-            fontSize: 11,
-            overflowX: "auto",
-            margin: "4px 0",
-          }}
-        >
-          {serialized}
-        </pre>
+        <summary className={s.previewSummary}>저장될 파일 미리보기</summary>
+        <pre className={s.previewPre}>{serialized}</pre>
       </details>
 
       <input
         value={changeSummary}
         onChange={(e) => setChangeSummary(e.target.value)}
         placeholder="변경 요약 — 무엇을 바꿨나 (필수, 커밋에 강제 기록)"
-        style={fieldStyle}
+        className={s.field}
       />
       <input
         value={rationale}
         onChange={(e) => setRationale(e.target.value)}
         placeholder="이유 — 왜 (선택)"
-        style={fieldStyle}
+        className={s.field}
       />
 
-      {validationError !== null && (
-        <p style={{ color: "#cf222e", fontSize: 12, margin: "4px 0" }}>{validationError}</p>
-      )}
+      {validationError !== null && <p className={s.validationError}>{validationError}</p>}
 
       {/* OPSP-27 A: 저장 전 로컬 Claude 검수. 자동 적용 X — 사용자가 보고 결정. */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "6px 0" }}>
+      <div className={s.reviewRow}>
         <button
           type="button"
           disabled={review.isPending || name.trim() === "" || body.trim() === ""}
@@ -255,25 +220,9 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
         />
         {review.isError && <InlineError error={review.error} />}
       </div>
-      {review.isSuccess && (
-        <div
-          style={{
-            border: "1px solid #8250df",
-            background: "#faf5ff",
-            color: "#3b1f70",
-            borderRadius: 6,
-            padding: "8px 10px",
-            margin: "4px 0 8px",
-            fontSize: 12,
-            lineHeight: 1.5,
-            whiteSpace: "pre-wrap",
-          }}
-        >
-          {review.data}
-        </div>
-      )}
+      {review.isSuccess && <div className={s.reviewPanel}>{review.data}</div>}
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div className={s.submitRow}>
         <button type="submit" disabled={author.isPending || !canSubmit}>
           {author.isPending ? (
             <Loading label="커밋 중…" />
@@ -284,7 +233,7 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
           )}
         </button>
         {author.isSuccess && (
-          <span style={{ color: "green", fontSize: 12 }}>
+          <span className={s.successText}>
             커밋 {author.data.committed.slice(0, 8)} · 버전 +{author.data.scanned.versions}
           </span>
         )}

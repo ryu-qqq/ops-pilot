@@ -1,0 +1,76 @@
+/* OPSP-28: 회귀 셋 (초록 톤). */
+
+.card {
+  border: 1px solid var(--color-success-emphasis);
+  background: var(--color-success-bg);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.title {
+  font-size: var(--font-size-base);
+  color: var(--color-success-fg);
+}
+.count {
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  color: var(--color-success-fg);
+}
+
+.list {
+  max-height: 140px;
+  overflow-y: auto;
+  padding-right: var(--space-1);
+}
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  padding: 2px 0;
+}
+.itemName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.itemDesc {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+}
+
+.warn {
+  font-size: var(--font-size-xs);
+  color: var(--color-warning-fg);
+  margin: var(--space-1) 0 0;
+}
+
+.actionRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+.cwd {
+  flex: 1;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+}
+
+.loadingP {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-sm);
+}
+
+.errorWrap {
+  margin: var(--space-2) 0 0;
+}

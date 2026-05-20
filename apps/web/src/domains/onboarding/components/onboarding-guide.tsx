@@ -1,6 +1,7 @@
 import { useProjects } from "../../project/use-project";
 import { useRuns } from "../../run/use-run";
 import { useOnboardingDismissed } from "../use-onboarding";
+import s from "./onboarding-guide.module.css";
 
 type Tab = "registry" | "runs";
 
@@ -39,20 +40,8 @@ export function OnboardingGuide({ tab, onSwitchTab }: Props) {
   // 가이드 끈 상태에선 우상단에 "가이드 보기" 토글만.
   if (dismissed) {
     return (
-      <div style={{ textAlign: "right", marginBottom: 8 }}>
-        <button
-          type="button"
-          onClick={reopen}
-          style={{
-            background: "transparent",
-            border: "1px solid #d0d7de",
-            borderRadius: 4,
-            padding: "2px 8px",
-            fontSize: 12,
-            color: "#57606a",
-            cursor: "pointer",
-          }}
-        >
+      <div className={s.dismissedBar}>
+        <button type="button" onClick={reopen} className={s.reopenBtn}>
           가이드 보기
         </button>
       </div>
@@ -97,52 +86,22 @@ export function OnboardingGuide({ tab, onSwitchTab }: Props) {
   const c = copy[step];
 
   return (
-    <div
-      style={{
-        border: "1px solid #0969da",
-        background: "#ddf4ff",
-        color: "#0a3069",
-        borderRadius: 6,
-        padding: "10px 12px",
-        marginBottom: 12,
-        fontSize: 13,
-        lineHeight: 1.5,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-        <strong style={{ fontSize: 13 }}>{c.title}</strong>
+    <div className={s.banner}>
+      <div className={s.header}>
+        <strong className={s.title}>{c.title}</strong>
         <button
           type="button"
           onClick={dismiss}
-          style={{
-            marginLeft: "auto",
-            background: "transparent",
-            border: "none",
-            color: "#0969da",
-            cursor: "pointer",
-            fontSize: 12,
-          }}
+          className={s.dismissBtn}
           title="이 가이드를 닫습니다 (우상단 ‘가이드 보기’로 다시 열 수 있음)"
         >
           닫기
         </button>
       </div>
-      <div style={{ marginTop: 4 }}>{c.body}</div>
+      <div className={s.body}>{c.body}</div>
       {c.action && (
-        <div style={{ marginTop: 8 }}>
-          <button
-            type="button"
-            onClick={c.action.onClick}
-            style={{
-              background: "#0969da",
-              color: "white",
-              border: "none",
-              borderRadius: 4,
-              padding: "4px 10px",
-              cursor: "pointer",
-              fontSize: 12,
-            }}
-          >
+        <div className={s.actionBar}>
+          <button type="button" onClick={c.action.onClick} className={s.actionBtn}>
             {c.action.label}
           </button>
         </div>

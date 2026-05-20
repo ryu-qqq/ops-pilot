@@ -1,19 +1,10 @@
-import type { CSSProperties } from "react";
 import { EmptyState, ErrorNotice, Loading } from "../../../lib/ui";
 import type { RunDiffFileView } from "../api";
 import { useRun, useRunDiff } from "../use-run";
+import s from "./diff-view.module.css";
 
 // OPSP-30: worktree base 커밋↔실행 후 git diff 결과 패널.
 // 격리 worktree 구조의 차별점 — 에이전트가 만진 파일·라인이 정확히 잡힘.
-// fixture/실행중/no-diff 상태별 카피로 "왜 비었나"를 항상 분명히.
-
-const statusColor: Record<RunDiffFileView["status"], string> = {
-  added: "#1a7f37",
-  modified: "#9a6700",
-  deleted: "#cf222e",
-  renamed: "#8250df",
-  binary: "#6e7781",
-};
 
 const statusLabel: Record<RunDiffFileView["status"], string> = {
   added: "추가",
@@ -23,33 +14,20 @@ const statusLabel: Record<RunDiffFileView["status"], string> = {
   binary: "바이너리",
 };
 
-const summaryStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  padding: "4px 6px",
-  cursor: "pointer",
-  fontSize: 12,
+const ss = s as Record<string, string | undefined>;
+const badgeClass: Record<RunDiffFileView["status"], string> = {
+  added: ss.badgeAdded ?? "",
+  modified: ss.badgeModified ?? "",
+  deleted: ss.badgeDeleted ?? "",
+  renamed: ss.badgeRenamed ?? "",
+  binary: ss.badgeBinary ?? "",
 };
 
-const badge = (color: string): CSSProperties => ({
-  display: "inline-block",
-  padding: "1px 6px",
-  borderRadius: 3,
-  background: color,
-  color: "white",
-  fontSize: 10,
-  fontWeight: 700,
-  minWidth: 40,
-  textAlign: "center",
-});
-
-// 색 입힌 patch — +/- 행만 가볍게.
-function colorPatchLine(line: string): CSSProperties {
-  if (line.startsWith("+") && !line.startsWith("+++")) return { background: "#d2f8d7" };
-  if (line.startsWith("-") && !line.startsWith("---")) return { background: "#ffd7d5" };
-  if (line.startsWith("@@")) return { color: "#0969da" };
-  return {};
+function patchLineClass(line: string): string {
+  if (line.startsWith("+") && !line.startsWith("+++")) return ss.patchAdd ?? "";
+  if (line.startsWith("-") && !line.startsWith("---")) return ss.patchDel ?? "";
+  if (line.startsWith("@@")) return ss.patchHunk ?? "";
+  return "";
 }
 
 interface Props {
@@ -64,7 +42,7 @@ export function DiffView({ runId }: Props) {
   if (runId === null) return null;
   if (isPending)
     return (
-      <p style={{ color: "#57606a" }}>
+      <p className={s.loading}>
         <Loading label="변경 불러오는 중…" />
       </p>
     );
@@ -73,7 +51,7 @@ export function DiffView({ runId }: Props) {
   if (files.length === 0) {
     if (running)
       return (
-        <p style={{ color: "#9a6700" }}>
+        <p className={s.loadingRunning}>
           <Loading label="변경 수집 대기 (실행 종료 후 worktree에서 diff 추출)…" />
         </p>
       );
@@ -99,49 +77,36 @@ export function DiffView({ runId }: Props) {
 
   return (
     <div>
-      <div style={{ fontSize: 12, color: "#57606a", marginBottom: 4 }}>
-        파일 {files.length} · <span style={{ color: "#1a7f37" }}>+{totals.add}</span> ·{" "}
-        <span style={{ color: "#cf222e" }}>−{totals.del}</span>
-        {run?.runner === "fixture" && <span style={{ marginLeft: 6 }}>(fixture)</span>}
+      <div className={s.summary}>
+        파일 {files.length} · <span className={s.summaryAdd}>+{totals.add}</span> ·{" "}
+        <span className={s.summaryDel}>−{totals.del}</span>
+        {run?.runner === "fixture" && <span className={s.summaryFix}>(fixture)</span>}
       </div>
       {files.map((f) => (
-        <details key={f.id} style={{ border: "1px solid #d0d7de", borderRadius: 4, marginBottom: 4 }}>
-          <summary style={summaryStyle}>
-            <span style={badge(statusColor[f.status])}>{statusLabel[f.status]}</span>
-            <code style={{ flex: 1, fontSize: 12 }}>{f.filePath}</code>
+        <details key={f.id} className={s.file}>
+          <summary className={s.fileSummary}>
+            <span className={`${s.badge} ${badgeClass[f.status]}`}>{statusLabel[f.status]}</span>
+            <code className={s.path}>{f.filePath}</code>
             {!f.binary && (
               <>
-                <span style={{ color: "#1a7f37" }}>+{f.additions}</span>
-                <span style={{ color: "#cf222e" }}>−{f.deletions}</span>
+                <span className={s.addCount}>+{f.additions}</span>
+                <span className={s.delCount}>−{f.deletions}</span>
               </>
             )}
             {f.truncated && (
-              <span style={{ fontSize: 10, color: "#9a6700" }} title="큰 patch 라 잘렸습니다">
+              <span className={s.truncated} title="큰 patch 라 잘렸습니다">
                 truncated
               </span>
             )}
           </summary>
           {f.binary ? (
-            <p style={{ padding: "4px 8px", fontSize: 12, color: "#57606a", margin: 0 }}>
-              바이너리 파일 — patch 생략.
-            </p>
+            <p className={s.message}>바이너리 파일 — patch 생략.</p>
           ) : f.patch === null ? (
-            <p style={{ padding: "4px 8px", fontSize: 12, color: "#57606a", margin: 0 }}>
-              patch 수집 실패(파일 권한·인코딩 등).
-            </p>
+            <p className={s.message}>patch 수집 실패(파일 권한·인코딩 등).</p>
           ) : (
-            <pre
-              style={{
-                margin: 0,
-                padding: "6px 8px",
-                fontSize: 11,
-                overflowX: "auto",
-                background: "#f6f8fa",
-                borderTop: "1px solid #eee",
-              }}
-            >
+            <pre className={s.patch}>
               {f.patch.split("\n").map((line, i) => (
-                <div key={i} style={colorPatchLine(line)}>
+                <div key={i} className={patchLineClass(line)}>
                   {line}
                 </div>
               ))}
