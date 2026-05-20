@@ -1,21 +1,37 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AssetKind } from "@opspilot/shared-types";
 import { useAssets } from "../../registry/use-registry";
 import { InfoMark, InlineError, Loading } from "../../../lib/ui";
 import { useAssetContent, useAuthorAsset } from "../use-authoring";
+import {
+  DOCS_URL,
+  KEY_META,
+  KIND_KEYS,
+  type ModelChoice,
+  bodyTemplate,
+  parseFile,
+  serializeFrontmatter,
+  validateFrontmatter,
+} from "../lib/frontmatter";
 
 interface Props {
   projectId: string;
   selectedAssetId: string | null;
 }
 
-function template(kind: AssetKind, name: string): string {
-  const fm = `---\nname: ${name || "이름"}\ndescription: 한 줄 설명 (언제 트리거되는지)\n---\n\n`;
-  return `${fm}# ${name || "Asset"}\n\n프롬프트 본문을 여기에.\n`;
-}
+const MODEL_OPTIONS: ModelChoice[] = ["inherit", "sonnet", "opus", "haiku"];
 
-// OPSP-19 척추: OpsPilot에서 자산 작성/수정 → 저장 시 클론 .claude 에 쓰고
-// 강제 구조화 커밋(=새 버전). 변경 요약 없이는 저장 불가.
+const fieldStyle = {
+  width: "100%",
+  padding: 6,
+  marginBottom: 6,
+  boxSizing: "border-box" as const,
+};
+const labelStyle = { fontSize: 12, color: "#57606a", marginTop: 6, marginBottom: 2 };
+
+// OPSP-19 척추 + OPSP-26 공식 스펙 반영: 자유 textarea 대신 kind별 구조화 폼.
+// frontmatter는 키별 필드로 입력 → 저장 시 단순 YAML로 직렬화해 본문 앞에 붙임.
+// edit 모드는 기존 content를 parseFile로 분해해 prefill.
 export function AssetAuthor({ projectId, selectedAssetId }: Props) {
   const { data: assets } = useAssets(projectId);
   const editing = (assets ?? []).find((a) => a.id === selectedAssetId) ?? null;
@@ -23,31 +39,68 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
   const author = useAuthorAsset(projectId);
 
   const [kind, setKind] = useState<AssetKind>("agent");
-  const [name, setName] = useState("");
-  const [content, setContent] = useState("");
+  const [fm, setFm] = useState<Record<string, string>>({});
+  const [body, setBody] = useState("");
   const [changeSummary, setChangeSummary] = useState("");
   const [rationale, setRationale] = useState("");
+  const [showRaw, setShowRaw] = useState(false);
 
-  // 기존 자산 선택 시 그 종류/이름/본문으로 prefill (→ 저장하면 v_n+1)
+  const isEdit = editing !== null;
+  const name = fm.name ?? "";
+
+  // 새 자산: kind 변경 시 폼 키 셋만 유지하고 빈 값으로 정리.
+  useEffect(() => {
+    if (isEdit) return;
+    setFm((prev) => {
+      const next: Record<string, string> = {};
+      for (const k of KIND_KEYS[kind]) {
+        if (typeof prev[k] === "string") next[k] = prev[k];
+      }
+      return next;
+    });
+  }, [kind, isEdit]);
+
+  // edit 모드 prefill — 자산이 바뀌면 kind/name 고정, content 파싱해 폼 채움.
   useEffect(() => {
     if (editing) {
       setKind(editing.kind);
-      setName(editing.name);
     }
   }, [editing]);
   useEffect(() => {
-    if (editing && loadedContent !== undefined) setContent(loadedContent);
+    if (editing && loadedContent !== undefined) {
+      const parsed = parseFile(loadedContent);
+      setFm({ ...parsed.frontmatter, name: editing.name });
+      setBody(parsed.body);
+    }
   }, [editing, loadedContent]);
 
-  const isEdit = editing !== null;
-  const canSubmit = name.trim() !== "" && content.trim() !== "" && changeSummary.trim() !== "";
+  // 저장 직전 합성: frontmatter YAML + 본문.
+  const serialized = useMemo(() => {
+    const fmOnly: Record<string, string> = {};
+    for (const k of KIND_KEYS[kind]) {
+      const v = fm[k as string];
+      if (typeof v === "string" && v.trim() !== "") fmOnly[k as string] = v.trim();
+    }
+    return serializeFrontmatter(fmOnly) + body;
+  }, [fm, body, kind]);
+
+  const validationError = useMemo(() => validateFrontmatter(kind, fm), [kind, fm]);
+  const canSubmit = validationError === null && body.trim() !== "" && changeSummary.trim() !== "";
+
+  const setField = (key: string, value: string) => setFm((prev) => ({ ...prev, [key]: value }));
+
+  const applyTemplate = () => {
+    // name·description은 사용자가 채우게 두고, 본문만 정확본으로.
+    setBody(bodyTemplate(kind, name));
+  };
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
+        if (!canSubmit) return;
         author.mutate(
-          { projectId, kind, name: name.trim(), content, changeSummary, rationale },
+          { projectId, kind, name: name.trim(), content: serialized, changeSummary, rationale },
           {
             onSuccess: () => {
               setChangeSummary("");
@@ -65,7 +118,8 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
           help="작성/저장은 클론의 .claude 에 파일을 쓰고 ‘ops(kind/name): 변경요약 [opspilot authored]’ 구조화 커밋을 만들며, 그 커밋이 곧 새 자산 버전이 됩니다. 변경 요약이 없으면 저장이 거부됩니다(추적 불가 방지)."
         />
       </div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
         <select
           value={kind}
           onChange={(e) => setKind(e.target.value as AssetKind)}
@@ -76,38 +130,114 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
           <option value="skill">skill</option>
           <option value="command">command</option>
         </select>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          disabled={isEdit}
-          placeholder="이름 (영숫자/._-)"
-          style={{ flex: 1, padding: 6 }}
-        />
+        <a
+          href={DOCS_URL[kind]}
+          target="_blank"
+          rel="noreferrer noopener"
+          style={{ fontSize: 12, color: "#0969da" }}
+        >
+          공식 스펙 ↗
+        </a>
         {!isEdit && (
-          <button type="button" onClick={() => setContent(template(kind, name))}>
-            템플릿
+          <button type="button" onClick={applyTemplate} style={{ marginLeft: "auto" }}>
+            본문 템플릿
           </button>
         )}
       </div>
+
+      {/* kind별 frontmatter 입력 */}
+      {KIND_KEYS[kind].map((k) => {
+        const key = k as string;
+        const meta = KEY_META[key] ?? { label: key, help: "" };
+        const value = fm[key] ?? "";
+        const common = {
+          value,
+          onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+            setField(key, e.target.value),
+          disabled: isEdit && key === "name",
+          style: fieldStyle,
+        };
+        return (
+          <div key={key}>
+            <div style={labelStyle}>
+              {meta.label}
+              {meta.required && <span style={{ color: "#cf222e" }}> *</span>}
+              <InfoMark label={meta.label} help={meta.help} />
+            </div>
+            {key === "model" ? (
+              <select {...common}>
+                {MODEL_OPTIONS.map((m) => (
+                  <option key={m} value={m === "inherit" ? "" : m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                {...common}
+                placeholder={meta.placeholder}
+              />
+            )}
+          </div>
+        );
+      })}
+
+      <div style={labelStyle}>
+        본문 (markdown)
+        <InfoMark
+          label="본문"
+          help="에이전트/스킬/커맨드의 실제 지시문. frontmatter 위에 자동으로 합쳐져 파일로 저장됩니다."
+        />
+      </div>
       <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
         rows={10}
-        placeholder="자산 본문 (frontmatter 포함)"
-        style={{ width: "100%", padding: 6, fontFamily: "monospace", fontSize: 12, boxSizing: "border-box" }}
+        placeholder="본문(markdown). 위의 ‘본문 템플릿’ 버튼으로 kind별 기본 골격을 얻을 수 있습니다."
+        style={{ ...fieldStyle, fontFamily: "monospace", fontSize: 12 }}
       />
+
+      <details
+        style={{ marginBottom: 6 }}
+        open={showRaw}
+        onToggle={(e) => setShowRaw((e.target as HTMLDetailsElement).open)}
+      >
+        <summary style={{ fontSize: 12, color: "#57606a", cursor: "pointer" }}>
+          저장될 파일 미리보기
+        </summary>
+        <pre
+          style={{
+            background: "#f6f8fa",
+            border: "1px solid #d0d7de",
+            borderRadius: 4,
+            padding: 8,
+            fontSize: 11,
+            overflowX: "auto",
+            margin: "4px 0",
+          }}
+        >
+          {serialized}
+        </pre>
+      </details>
+
       <input
         value={changeSummary}
         onChange={(e) => setChangeSummary(e.target.value)}
         placeholder="변경 요약 — 무엇을 바꿨나 (필수, 커밋에 강제 기록)"
-        style={{ width: "100%", padding: 6, margin: "6px 0", boxSizing: "border-box" }}
+        style={fieldStyle}
       />
       <input
         value={rationale}
         onChange={(e) => setRationale(e.target.value)}
         placeholder="이유 — 왜 (선택)"
-        style={{ width: "100%", padding: 6, marginBottom: 6, boxSizing: "border-box" }}
+        style={fieldStyle}
       />
+
+      {validationError !== null && (
+        <p style={{ color: "#cf222e", fontSize: 12, margin: "4px 0" }}>{validationError}</p>
+      )}
+
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <button type="submit" disabled={author.isPending || !canSubmit}>
           {author.isPending ? (
