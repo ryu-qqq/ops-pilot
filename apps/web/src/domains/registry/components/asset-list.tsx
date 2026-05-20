@@ -10,7 +10,8 @@ import { useAssets } from "../use-registry";
 interface Props {
   projectId: string | null;
   selectedId: string | null;
-  onSelect: (id: string) => void;
+  // null 을 받으면 선택 해제(같은 자산 다시 클릭한 경우). 호출처가 처리.
+  onSelect: (id: string | null) => void;
 }
 
 const KIND_ORDER: AssetKind[] = ["skill", "command", "agent"];
@@ -91,13 +92,14 @@ export function AssetList({ projectId, selectedId, onSelect }: Props) {
                   <li key={a.id}>
                     <button
                       type="button"
-                      onClick={() => onSelect(a.id)}
+                      onClick={() => onSelect(a.id === selectedId ? null : a.id)}
                       className={cn(
                         "w-full rounded-md px-2 py-1.5 text-left text-sm transition-colors",
                         a.id === selectedId
                           ? "bg-primary text-primary-foreground"
                           : "hover:bg-accent hover:text-accent-foreground",
                       )}
+                      title={a.id === selectedId ? "다시 클릭하면 선택 해제" : ""}
                     >
                       {a.name}
                     </button>
