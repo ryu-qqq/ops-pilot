@@ -10,6 +10,7 @@ import {
   launchRun,
   runKeys,
   scenarioKeys,
+  suggestScenario,
 } from "./api";
 
 export function useRuns() {
@@ -47,6 +48,11 @@ export function useRunTrace(runId: string | null, isRunning: boolean) {
     enabled: runId !== null,
     refetchInterval: isRunning ? 1200 : false,
   });
+}
+
+// OPSP-27 B: 자산 + hint 로 시나리오 폼 초안 받기.
+export function useSuggestScenario() {
+  return useMutation({ mutationFn: suggestScenario });
 }
 
 export function useLaunchRun() {

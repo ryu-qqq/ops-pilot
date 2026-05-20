@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { AssetKind } from "@opspilot/shared-types";
 import { useAssets } from "../../registry/use-registry";
 import { InfoMark, InlineError, Loading } from "../../../lib/ui";
-import { useAssetContent, useAuthorAsset } from "../use-authoring";
+import { useAssetContent, useAuthorAsset, useReviewAuthoring } from "../use-authoring";
 import {
   DOCS_URL,
   KEY_META,
@@ -37,6 +37,7 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
   const editing = (assets ?? []).find((a) => a.id === selectedAssetId) ?? null;
   const { data: loadedContent } = useAssetContent(editing ? selectedAssetId : null);
   const author = useAuthorAsset(projectId);
+  const review = useReviewAuthoring();
 
   const [kind, setKind] = useState<AssetKind>("agent");
   const [fm, setFm] = useState<Record<string, string>>({});
@@ -236,6 +237,40 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
 
       {validationError !== null && (
         <p style={{ color: "#cf222e", fontSize: 12, margin: "4px 0" }}>{validationError}</p>
+      )}
+
+      {/* OPSP-27 A: 저장 전 로컬 Claude 검수. 자동 적용 X — 사용자가 보고 결정. */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "6px 0" }}>
+        <button
+          type="button"
+          disabled={review.isPending || name.trim() === "" || body.trim() === ""}
+          onClick={() => review.mutate({ kind, name: name.trim(), content: serialized })}
+          title="로컬 Claude 가 초안의 의도·개선점을 한국어로 짧게 평가합니다 (실 토큰 소모, ~10-30초)"
+        >
+          {review.isPending ? <Loading label="Claude 검수 중…" /> : "🤖 AI 검수 (의도·개선)"}
+        </button>
+        <InfoMark
+          label="AI 검수"
+          help="저장 전 초안을 로컬 Claude 에 보내 ‘어떤 의도로 읽히는가 + 개선 제안’을 받습니다. 자동 적용 X — 결과를 보고 사용자가 직접 수정·저장. 실 토큰 소모."
+        />
+        {review.isError && <InlineError error={review.error} />}
+      </div>
+      {review.isSuccess && (
+        <div
+          style={{
+            border: "1px solid #8250df",
+            background: "#faf5ff",
+            color: "#3b1f70",
+            borderRadius: 6,
+            padding: "8px 10px",
+            margin: "4px 0 8px",
+            fontSize: 12,
+            lineHeight: 1.5,
+            whiteSpace: "pre-wrap",
+          }}
+        >
+          {review.data}
+        </div>
       )}
 
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

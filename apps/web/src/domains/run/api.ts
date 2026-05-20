@@ -95,6 +95,20 @@ export async function createHumanScore(v: NewHumanScore) {
   );
 }
 
+// OPSP-27 B: 자산 본문 기반 시나리오 폼 초안. 사용자 hint(자연어) 옵션.
+const scenarioSuggestionResponse = z.object({
+  name: z.string(),
+  purpose: z.string(),
+  input: z.string(),
+  expectedBehavior: z.string(),
+  successCriteria: z.array(z.string()),
+});
+export type ScenarioSuggestion = z.infer<typeof scenarioSuggestionResponse>;
+
+export async function suggestScenario(v: { assetId: string; hint?: string }) {
+  return apiPost("/api/assist/scenario-suggest", v, scenarioSuggestionResponse);
+}
+
 // 시나리오 구체화: 목적/입력/기대 동작/성공조건 → description + expectation 매핑.
 export interface LaunchInput {
   assetId: string;
