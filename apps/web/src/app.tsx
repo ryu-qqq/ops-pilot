@@ -3,14 +3,15 @@ import { Moon, Sun } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { useTheme } from "./lib/use-theme";
+import { Dashboard } from "./domains/dashboard/components/dashboard";
 import { OnboardingGuide } from "./domains/onboarding/components/onboarding-guide";
 import { RegistryView } from "./domains/registry/components/registry-view";
 import { RunsView } from "./domains/run/components/runs-view";
 
-type Tab = "registry" | "runs";
+type Tab = "dashboard" | "registry" | "runs";
 
 export function App() {
-  const [tab, setTab] = useState<Tab>("registry");
+  const [tab, setTab] = useState<Tab>("dashboard");
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [compareRunIds, setCompareRunIds] = useState<string[]>([]);
   const [benchmarkRunIds, setBenchmarkRunIds] = useState<string[]>([]);
@@ -49,10 +50,19 @@ export function App() {
       </header>
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="space-y-4">
         <TabsList>
+          <TabsTrigger value="dashboard">대시보드</TabsTrigger>
           <TabsTrigger value="registry">레지스트리</TabsTrigger>
           <TabsTrigger value="runs">실행 / 트레이스</TabsTrigger>
         </TabsList>
-        <OnboardingGuide tab={tab} onSwitchTab={setTab} />
+        <OnboardingGuide tab={tab === "dashboard" ? "registry" : tab} onSwitchTab={(t) => setTab(t)} />
+        <TabsContent value="dashboard" className="mt-0">
+          <Dashboard
+            onSelectRun={(id) => {
+              setSelectedRunId(id);
+              setTab("runs");
+            }}
+          />
+        </TabsContent>
         <TabsContent value="registry" className="mt-0">
           <RegistryView
             onRunCreated={handleRunCreated}
