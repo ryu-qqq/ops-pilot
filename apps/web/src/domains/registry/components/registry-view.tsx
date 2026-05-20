@@ -8,6 +8,7 @@ import { AssetAuthor } from "../../authoring/components/asset-author";
 import { BenchmarkLauncher } from "../../run/components/benchmark-launcher";
 import { RegressionLauncher } from "../../run/components/regression-launcher";
 import { RunLauncher } from "../../run/components/run-launcher";
+import { ScenarioManager } from "../../run/components/scenario-manager";
 import { AssetList } from "./asset-list";
 import { VersionTimeline } from "./version-timeline";
 
@@ -99,6 +100,8 @@ export function RegistryView({ onRunCreated, onBenchmarkStarted }: Props) {
       {project !== null && (
         <AssetAuthor projectId={project.id} selectedAssetId={assetId} />
       )}
+      {/* OPSP-34: 자산 선택 시 그 자산의 시나리오 목록·본문·편집·삭제 */}
+      {assetId !== null && project !== null && <ScenarioManager assetId={assetId} />}
       {assetId !== null && versionId !== null && project !== null && (
         <>
           <RunLauncher

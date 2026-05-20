@@ -56,3 +56,17 @@ export async function apiPost<T>(path: string, body: unknown, schema: ZodType<T>
   });
   return parseOrThrow(res, schema);
 }
+
+// OPSP-34: 시나리오 등 부분 update / 삭제용.
+export async function apiPatch<T>(path: string, body: unknown, schema: ZodType<T>): Promise<T> {
+  const res = await fetch(path, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return parseOrThrow(res, schema);
+}
+
+export async function apiDelete<T>(path: string, schema: ZodType<T>): Promise<T> {
+  return parseOrThrow(await fetch(path, { method: "DELETE" }), schema);
+}

@@ -6,8 +6,9 @@ import {
   scenarioSchema,
   scoreSchema,
   traceEventTypeSchema,
+  type expectationSchema,
 } from "@opspilot/shared-types";
-import { apiGet, apiPost } from "../../lib/api-client";
+import { apiDelete, apiGet, apiPatch, apiPost } from "../../lib/api-client";
 
 export const runListItemSchema = z.object({
   id: z.string().uuid(),
@@ -59,6 +60,7 @@ export async function getRunDiff(runId: string) {
 export const scenarioKeys = {
   all: ["scenarios"] as const,
   detail: (id: string) => [...scenarioKeys.all, "detail", id] as const,
+  forAsset: (assetId: string) => [...scenarioKeys.all, "for-asset", assetId] as const,
 };
 
 export async function getRuns() {
@@ -75,6 +77,33 @@ export async function getRunTrace(runId: string) {
 
 export async function getScenario(id: string) {
   return apiGet(`/api/scenarios/${id}`, scenarioSchema);
+}
+
+// OPSP-34: 자산별 시나리오 관리 목록 (본문 + 사용 횟수). 회귀/벤치마크의 select 와는 별개 흐름.
+const scenarioWithCountsSchema = scenarioSchema.extend({
+  runCount: z.number().int().nonnegative(),
+});
+export type ScenarioWithCounts = z.infer<typeof scenarioWithCountsSchema>;
+const scenariosForAssetResponse = z.object({ scenarios: z.array(scenarioWithCountsSchema) });
+export async function getScenariosForAsset(assetId: string) {
+  return (await apiGet(`/api/scenarios?assetId=${assetId}`, scenariosForAssetResponse)).scenarios;
+}
+
+// OPSP-34: 시나리오 부분 update (immutable 깨짐 경고는 UI 책임).
+export interface UpdateScenarioInput {
+  name?: string;
+  description?: string | null;
+  input?: string;
+  expectation?: z.infer<typeof expectationSchema>;
+}
+export async function updateScenario(id: string, patch: UpdateScenarioInput) {
+  return apiPatch(`/api/scenarios/${id}`, patch, scenarioSchema);
+}
+
+// OPSP-34: 시나리오 삭제 (cascade — run/trace/score 동반 삭제).
+const deleteScenarioResponse = z.object({ deletedRuns: z.number().int().nonnegative() });
+export async function deleteScenario(id: string) {
+  return apiDelete(`/api/scenarios/${id}`, deleteScenarioResponse);
 }
 
 const scoresResponse = z.object({ scores: z.array(scoreSchema) });
