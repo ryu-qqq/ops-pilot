@@ -4,9 +4,11 @@ import {
   getRun,
   getRunDiff,
   getRuns,
+  getRunsCompare,
   getRunTrace,
   getScenario,
   getScores,
+  launchBatchRun,
   launchRun,
   runKeys,
   scenarioKeys,
@@ -60,6 +62,25 @@ export function useLaunchRun() {
   return useMutation({
     mutationFn: launchRun,
     onSuccess: () => qc.invalidateQueries({ queryKey: runKeys.all }),
+  });
+}
+
+// OPSP-10: 같은 시나리오 + 자산 버전 N개 → 한 번에 N run 시작.
+export function useLaunchBatchRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: launchBatchRun,
+    onSuccess: () => qc.invalidateQueries({ queryKey: runKeys.all }),
+  });
+}
+
+// OPSP-10: 비교 패널용 N개 run 요약. 실행 중이면 폴링.
+export function useRunsCompare(ids: string[], anyRunning: boolean) {
+  return useQuery({
+    queryKey: runKeys.compare(ids),
+    queryFn: () => getRunsCompare(ids),
+    enabled: ids.length > 0,
+    refetchInterval: anyRunning ? 1500 : false,
   });
 }
 

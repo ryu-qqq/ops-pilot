@@ -9,10 +9,14 @@ export function App() {
   // 탭·선택 run 은 UI 로컬 상태 (CONVENTIONS.md 2). 서버데이터는 Query.
   const [tab, setTab] = useState<Tab>("registry");
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  // OPSP-10: 비교 모드 — 동시 실행한 N개 run id. 길이 2+ 면 비교 패널 활성.
+  const [compareRunIds, setCompareRunIds] = useState<string[]>([]);
 
   // E2E 흐름: 레지스트리에서 실행 → run 생성되면 트레이스 탭으로 자동 이동.
-  const handleRunCreated = (runId: string) => {
-    setSelectedRunId(runId);
+  // 길이 1 = 단일 실행, 2+ = 비교 모드.
+  const handleRunCreated = (runIds: string[]) => {
+    setSelectedRunId(runIds[0] ?? null);
+    setCompareRunIds(runIds.length >= 2 ? runIds : []);
     setTab("runs");
   };
 
@@ -44,7 +48,12 @@ export function App() {
       {tab === "registry" ? (
         <RegistryView onRunCreated={handleRunCreated} />
       ) : (
-        <RunsView selectedRunId={selectedRunId} onSelectRun={setSelectedRunId} />
+        <RunsView
+          selectedRunId={selectedRunId}
+          onSelectRun={setSelectedRunId}
+          compareRunIds={compareRunIds}
+          onClearCompare={() => setCompareRunIds([])}
+        />
       )}
     </main>
   );
