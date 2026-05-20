@@ -76,8 +76,13 @@ export function useLaunchBatchRun() {
 }
 
 // OPSP-10 follow-up: 비교 판정(AI judge). 사용자 명시 클릭 시만.
+// OPSP-20: 판정 결과를 score 저장 → 비교 뷰 judge 행 채워지려면 compare 캐시 무효화.
 export function useJudgeRuns() {
-  return useMutation({ mutationFn: judgeRuns });
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: judgeRuns,
+    onSuccess: () => qc.invalidateQueries({ queryKey: runKeys.all }),
+  });
 }
 
 // OPSP-10: 비교 패널용 N개 run 요약. 실행 중이면 폴링.

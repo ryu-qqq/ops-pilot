@@ -11,7 +11,7 @@ import {
   listRuns,
   listTrace,
 } from "../../domains/run/repository.js";
-import { createScore, listScores } from "../../domains/score/repository.js";
+import { createScore, listScores, listScoresForRuns } from "../../domains/score/repository.js";
 
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
 
@@ -92,7 +92,7 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
   );
 
   // OPSP-10: 비교 뷰용 N개 run 요약 한꺼번에(N+1 회피).
-  // run + diff file count + last assistant text(미리보기). score 는 별도 호출.
+  // OPSP-20: assertion / llm_judge / human score 를 같이 합쳐 컬럼 데이터로.
   fastify.get(
     "/runs/compare",
     {
@@ -105,6 +105,9 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
                 run: runSchema,
                 diffFileCount: z.number().int().nonnegative(),
                 lastAssistantText: z.string().nullable(),
+                assertionScore: scoreSchema.nullable(),
+                judgeScore: scoreSchema.nullable(),
+                humanScore: scoreSchema.nullable(),
               }),
             ),
           }),
@@ -118,13 +121,23 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(400).send({ error: "BadRequest", detail: "ids 1~10개" });
       }
       const runs = ids.map((id) => getRun(id)).filter((r): r is NonNullable<typeof r> => r !== undefined);
-      const diffCounts = listRunDiffCounts(runs.map((r) => r.id));
-      const lastTexts = listLastAssistantTexts(runs.map((r) => r.id));
+      const runIds = runs.map((r) => r.id);
+      const diffCounts = listRunDiffCounts(runIds);
+      const lastTexts = listLastAssistantTexts(runIds);
+      const scoresByRun = listScoresForRuns(runIds);
+      // 한 run 에 같은 scorer 가 여러 행이면 가장 최근(createdAt 오름차순이므로 마지막).
+      const pickLatest = (runId: string, scorer: "assertion" | "llm_judge" | "human") => {
+        const list = (scoresByRun[runId] ?? []).filter((s) => s.scorer === scorer);
+        return list.length === 0 ? null : list[list.length - 1] ?? null;
+      };
       return {
         items: runs.map((run) => ({
           run,
           diffFileCount: diffCounts[run.id] ?? 0,
           lastAssistantText: lastTexts[run.id] ?? null,
+          assertionScore: pickLatest(run.id, "assertion"),
+          judgeScore: pickLatest(run.id, "llm_judge"),
+          humanScore: pickLatest(run.id, "human"),
         })),
       };
     },
