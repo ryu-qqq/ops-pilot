@@ -23,6 +23,16 @@ export function RegistryView({ onRunCreated, onBenchmarkStarted }: Props) {
   const { data: projects } = useProjects();
 
   const project = (projects ?? []).find((p) => p.id === projectId) ?? null;
+  // OPSP-33 (b): 다음 스텝 시각 가이드 — 단계별로 *한 곳*만 펄스.
+  const nextStep: "project" | "asset" | "version" | "benchmark" =
+    project === null
+      ? "project"
+      : assetId === null
+        ? "asset"
+        : versionId === null
+          ? "version"
+          : "benchmark";
+  const pulse = (step: typeof nextStep) => (step === nextStep ? "opspilot-next-step" : "");
 
   const handleSelectAsset = (id: string | null) => {
     setAssetId(id);
@@ -31,17 +41,19 @@ export function RegistryView({ onRunCreated, onBenchmarkStarted }: Props) {
 
   return (
     <div className="space-y-4">
-      <ProjectBar
-        selectedProjectId={projectId}
-        onSelect={(id) => {
-          setProjectId(id);
-          setAssetId(null);
-          setVersionId(null);
-        }}
-      />
+      <div className={pulse("project")}>
+        <ProjectBar
+          selectedProjectId={projectId}
+          onSelect={(id) => {
+            setProjectId(id);
+            setAssetId(null);
+            setVersionId(null);
+          }}
+        />
+      </div>
       {/* 첫 줄: 자산 패널 + git 버전 타임라인 — 같은 grid row 에서 동일 높이 stretch */}
       <div className="grid items-stretch gap-4 lg:grid-cols-[320px_1fr]">
-        <Card className="flex flex-col p-4">
+        <Card className={`flex flex-col p-4 ${pulse("asset")}`}>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-muted-foreground">
               자산 (agents · skills · commands)
@@ -71,7 +83,7 @@ export function RegistryView({ onRunCreated, onBenchmarkStarted }: Props) {
             />
           </div>
         </Card>
-        <Card className="flex flex-col p-4">
+        <Card className={`flex flex-col p-4 ${pulse("version")}`}>
           <h2 className="mb-3 text-sm font-semibold text-muted-foreground">git 버전 타임라인</h2>
           <div className="flex-1 overflow-y-auto">
             <VersionTimeline
@@ -101,12 +113,14 @@ export function RegistryView({ onRunCreated, onBenchmarkStarted }: Props) {
             defaultCwd={project.clonePath}
             onLaunched={onRunCreated}
           />
-          <BenchmarkLauncher
-            assetId={assetId}
-            assetVersionId={versionId}
-            defaultCwd={project.clonePath}
-            onLaunched={onBenchmarkStarted}
-          />
+          <div className={pulse("benchmark")}>
+            <BenchmarkLauncher
+              assetId={assetId}
+              assetVersionId={versionId}
+              defaultCwd={project.clonePath}
+              onLaunched={onBenchmarkStarted}
+            />
+          </div>
         </>
       )}
     </div>

@@ -89,3 +89,20 @@
     transform: rotate(360deg);
   }
 }
+
+/* OPSP-33 (b): 다음 스텝 시각 가이드 — 부드러운 글로우 펄스.
+   현재 상태에서 *다음 액션 위치* 가 희미하게 깜박여 흐름을 보여준다.
+   너무 튀지 않게 — opacity 낮고 주기 길게(2.4s). */
+@keyframes opspilot-pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 8px hsl(var(--primary) / 0);
+  }
+}
+.opspilot-next-step {
+  animation: opspilot-pulse-glow 2.4s ease-in-out infinite;
+  border-radius: var(--radius);
+}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AssetKind } from "@opspilot/shared-types";
-import { ExternalLink, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, Plus, Sparkles } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "../../../components/ui/alert";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../../components/ui/card";
@@ -48,6 +48,12 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
   const [fm, setFm] = useState<Record<string, string>>({});
   const [body, setBody] = useState("");
   const [changeSummary, setChangeSummary] = useState("");
+  // OPSP-33 (a): 평시 닫힘. "수정" / "새로 만들기" 명시 클릭에서만 펼침.
+  // 자산 변경 시 자동 닫힘(컨텍스트 흐릿하지 않게).
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    setOpen(false);
+  }, [selectedAssetId]);
   const [rationale, setRationale] = useState("");
   const [showRaw, setShowRaw] = useState(false);
 
@@ -103,13 +109,14 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
               onSuccess: () => {
                 setChangeSummary("");
                 setRationale("");
+                setOpen(false); // 작성 성공 후 닫고 새 버전 타임라인이 가시되게.
               },
             },
           );
         }}
       >
-        <CardHeader className="border-b">
-          <div className="flex items-center justify-between">
+        <CardHeader className={open ? "border-b" : ""}>
+          <div className="flex items-center justify-between gap-2">
             <CardTitle className="flex items-center gap-2 text-base">
               {isEdit ? `자산 수정 → 새 버전: ${editing.kind}/${editing.name}` : "새 자산 작성"}
               <InfoMark
@@ -118,31 +125,66 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
               />
             </CardTitle>
             <div className="flex items-center gap-2">
-              <Select value={kind} onValueChange={(v) => !isEdit && setKind(v as AssetKind)} disabled={isEdit}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="agent">agent</SelectItem>
-                  <SelectItem value="skill">skill</SelectItem>
-                  <SelectItem value="command">command</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button asChild variant="ghost" size="sm">
-                <a href={DOCS_URL[kind]} target="_blank" rel="noreferrer noopener">
-                  공식 스펙
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </Button>
-              {!isEdit && (
-                <Button type="button" variant="outline" size="sm" onClick={applyTemplate}>
-                  본문 템플릿
+              {open ? (
+                <>
+                  <Select value={kind} onValueChange={(v) => !isEdit && setKind(v as AssetKind)} disabled={isEdit}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="agent">agent</SelectItem>
+                      <SelectItem value="skill">skill</SelectItem>
+                      <SelectItem value="command">command</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button asChild variant="ghost" size="sm">
+                    <a href={DOCS_URL[kind]} target="_blank" rel="noreferrer noopener">
+                      공식 스펙
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </Button>
+                  {!isEdit && (
+                    <Button type="button" variant="outline" size="sm" onClick={applyTemplate}>
+                      본문 템플릿
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setOpen(false)}
+                    aria-label="자산 폼 접기"
+                  >
+                    <ChevronUp className="h-3.5 w-3.5" />
+                    접기
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setOpen(true)}
+                  aria-label={isEdit ? "이 자산 수정" : "새 자산 작성"}
+                >
+                  {isEdit ? (
+                    <>
+                      <ChevronDown className="h-3.5 w-3.5" />
+                      이 자산 수정
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-3.5 w-3.5" />
+                      새 자산 작성
+                    </>
+                  )}
                 </Button>
               )}
             </div>
           </div>
         </CardHeader>
 
+        {open && (
         <CardContent className="space-y-3 pt-4">
           {/* OPSP-27 follow-up: 컨셉 한 줄 → 폼 전체 자동 채움. 새 작성 모드에만 노출. */}
           {!isEdit && (
@@ -322,7 +364,9 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
             </Alert>
           )}
         </CardContent>
+        )}
 
+        {open && (
         <CardFooter className="flex items-center justify-end gap-3 border-t pt-3">
           {author.isSuccess && (
             <span className="text-xs text-success">
@@ -340,6 +384,7 @@ export function AssetAuthor({ projectId, selectedAssetId }: Props) {
             )}
           </Button>
         </CardFooter>
+        )}
       </form>
     </Card>
   );
