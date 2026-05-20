@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  benchmarkAggregateSchema,
   runDiffFileSchema,
   runSchema,
   scenarioSchema,
@@ -45,6 +46,7 @@ export const runKeys = {
   scores: (runId: string) => [...runKeys.all, "scores", runId] as const,
   diff: (runId: string) => [...runKeys.all, "diff", runId] as const,
   compare: (ids: string[]) => [...runKeys.all, "compare", [...ids].sort().join(",")] as const,
+  benchmark: (ids: string[]) => [...runKeys.all, "benchmark", [...ids].sort().join(",")] as const,
 };
 
 const diffResponse = z.object({ files: z.array(runDiffFileSchema) });
@@ -182,6 +184,26 @@ export async function launchBatchScenarios(v: BatchScenariosInput) {
     batchScenariosResponse,
   );
 }
+
+// OPSP-31: 같은 (asset_version × scenario) 를 N회 일괄 실행 + 집계.
+export interface BenchmarkInput {
+  assetVersionId: string;
+  scenarioId: string;
+  cwd: string;
+  source: "fixture" | "local-claude";
+  n: number; // 2~10
+}
+
+const benchmarkResponse = z.object({ runs: z.array(runSchema) });
+
+export async function launchBenchmark(v: BenchmarkInput) {
+  return apiPost("/api/runs/benchmark", v, benchmarkResponse);
+}
+
+export async function getBenchmarkAggregate(ids: string[]) {
+  return apiGet(`/api/runs/benchmark-aggregate?ids=${ids.join(",")}`, benchmarkAggregateSchema);
+}
+export type BenchmarkAggregate = z.infer<typeof benchmarkAggregateSchema>;
 
 // OPSP-10 비교 모드: 시나리오 1개 + 자산 버전 N개 → 한 번에 N run 시작.
 // 시나리오는 RunLauncher 의 폼 입력으로 새로 만들고(=launchRun 과 같이), runs/batch 한 호출.

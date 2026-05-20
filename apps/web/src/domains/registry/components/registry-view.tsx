@@ -5,6 +5,7 @@ import { Card } from "../../../components/ui/card";
 import { ProjectBar } from "../../project/components/project-bar";
 import { useProjects } from "../../project/use-project";
 import { AssetAuthor } from "../../authoring/components/asset-author";
+import { BenchmarkLauncher } from "../../run/components/benchmark-launcher";
 import { RegressionLauncher } from "../../run/components/regression-launcher";
 import { RunLauncher } from "../../run/components/run-launcher";
 import { AssetList } from "./asset-list";
@@ -12,9 +13,10 @@ import { VersionTimeline } from "./version-timeline";
 
 interface Props {
   onRunCreated: (runIds: string[]) => void;
+  onBenchmarkStarted: (runIds: string[]) => void;
 }
 
-export function RegistryView({ onRunCreated }: Props) {
+export function RegistryView({ onRunCreated, onBenchmarkStarted }: Props) {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [assetId, setAssetId] = useState<string | null>(null);
   const [versionId, setVersionId] = useState<string | null>(null);
@@ -98,6 +100,12 @@ export function RegistryView({ onRunCreated }: Props) {
             assetVersionId={versionId}
             defaultCwd={project.clonePath}
             onLaunched={onRunCreated}
+          />
+          <BenchmarkLauncher
+            assetId={assetId}
+            assetVersionId={versionId}
+            defaultCwd={project.clonePath}
+            onLaunched={onBenchmarkStarted}
           />
         </>
       )}

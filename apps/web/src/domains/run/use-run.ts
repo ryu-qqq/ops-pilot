@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createHumanScore,
+  getBenchmarkAggregate,
   getRun,
   getRunDiff,
   getRuns,
@@ -11,6 +12,7 @@ import {
   judgeRuns,
   launchBatchRun,
   launchBatchScenarios,
+  launchBenchmark,
   launchRun,
   runKeys,
   scenarioKeys,
@@ -129,5 +131,24 @@ export function useCreateHumanScore(runId: string) {
   return useMutation({
     mutationFn: createHumanScore,
     onSuccess: () => qc.invalidateQueries({ queryKey: runKeys.scores(runId) }),
+  });
+}
+
+// OPSP-31: 같은 (자산버전 × 시나리오) N회 실행 시작.
+export function useLaunchBenchmark() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: launchBenchmark,
+    onSuccess: () => qc.invalidateQueries({ queryKey: runKeys.all }),
+  });
+}
+
+// OPSP-31: N개 run 통계 집계 — 실행 중이면 폴링.
+export function useBenchmarkAggregate(ids: string[], anyRunning: boolean) {
+  return useQuery({
+    queryKey: runKeys.benchmark(ids),
+    queryFn: () => getBenchmarkAggregate(ids),
+    enabled: ids.length >= 2,
+    refetchInterval: anyRunning ? 1500 : false,
   });
 }

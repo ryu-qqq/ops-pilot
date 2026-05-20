@@ -154,3 +154,32 @@ export const scoreSchema = z.object({
   createdAt: ts,
 });
 export type Score = z.infer<typeof scoreSchema>;
+
+// OPSP-31: 같은 (asset_version × scenario) 를 N회 실행한 결과의 집계.
+// 비결정 자산이 얼마나 일관되게 작동하는지 — 통과율/평균/표준편차 한눈에.
+const numericStatsSchema = z.object({
+  mean: z.number(),
+  stdDev: z.number().nonnegative(),
+  min: z.number(),
+  max: z.number(),
+});
+
+export const benchmarkAggregateSchema = z.object({
+  count: z.number().int().nonnegative(),
+  statusCounts: z.object({
+    succeeded: z.number().int().nonnegative(),
+    failed: z.number().int().nonnegative(),
+    running: z.number().int().nonnegative(),
+    pending: z.number().int().nonnegative(),
+  }),
+  passRate: z.number().min(0).max(1), // succeeded / count (terminated 기준 — running/pending 제외)
+  durationMs: numericStatsSchema.nullable(),
+  promptTokens: numericStatsSchema.nullable(),
+  completionTokens: numericStatsSchema.nullable(),
+  costUsd: numericStatsSchema.nullable(),
+  // assertion 자동 평가(OPSP-20) 점수 분포 — 없으면 null.
+  assertion: numericStatsSchema.extend({ passN: z.number().int().nonnegative() }).nullable(),
+  // LLM judge(OPSP-10 follow-up) — 있으면.
+  judge: numericStatsSchema.nullable(),
+});
+export type BenchmarkAggregate = z.infer<typeof benchmarkAggregateSchema>;
