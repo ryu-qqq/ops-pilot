@@ -4,24 +4,26 @@ import { Button } from "./components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { useTheme } from "./lib/use-theme";
 import { Dashboard } from "./domains/dashboard/components/dashboard";
-import { FlowGraph } from "./domains/dashboard/components/flow-graph";
 import { OnboardingGuide } from "./domains/onboarding/components/onboarding-guide";
 import { RegistryView } from "./domains/registry/components/registry-view";
-import { RunsView } from "./domains/run/components/runs-view";
+import { RunsView, type RunViewMode } from "./domains/run/components/runs-view";
 
-type Tab = "dashboard" | "graph" | "registry" | "runs";
+type Tab = "dashboard" | "registry" | "runs";
 
 export function App() {
   const [tab, setTab] = useState<Tab>("dashboard");
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [compareRunIds, setCompareRunIds] = useState<string[]>([]);
   const [benchmarkRunIds, setBenchmarkRunIds] = useState<string[]>([]);
+  // OPSP-37 (2): "실행" 탭 안의 트레이스 리스트 ⇄ 흐름 그래프 뷰.
+  const [runViewMode, setRunViewMode] = useState<RunViewMode>("list");
   const { theme, toggle } = useTheme();
 
   const handleRunCreated = (runIds: string[]) => {
     setSelectedRunId(runIds[0] ?? null);
     setCompareRunIds(runIds.length >= 2 ? runIds : []);
     setBenchmarkRunIds([]);
+    setRunViewMode("list");
     setTab("runs");
   };
   // OPSP-31: 벤치마크는 *같은 입력 N회* 라 compare 와 의미 다름 → 별도 패널.
@@ -29,6 +31,13 @@ export function App() {
     setSelectedRunId(runIds[0] ?? null);
     setBenchmarkRunIds(runIds);
     setCompareRunIds([]);
+    setRunViewMode("list");
+    setTab("runs");
+  };
+  // OPSP-37 (2): 대시보드 점 클릭 → "실행" 탭 + 흐름 그래프 모드.
+  const handleSelectRunToGraph = (id: string) => {
+    setSelectedRunId(id);
+    setRunViewMode("graph");
     setTab("runs");
   };
 
@@ -52,24 +61,15 @@ export function App() {
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="space-y-4">
         <TabsList>
           <TabsTrigger value="dashboard">대시보드</TabsTrigger>
-          <TabsTrigger value="graph">흐름 그래프</TabsTrigger>
           <TabsTrigger value="registry">레지스트리</TabsTrigger>
-          <TabsTrigger value="runs">실행 / 트레이스</TabsTrigger>
+          <TabsTrigger value="runs">실행</TabsTrigger>
         </TabsList>
         <OnboardingGuide
-          tab={tab === "dashboard" || tab === "graph" ? "registry" : tab}
+          tab={tab === "dashboard" ? "registry" : tab}
           onSwitchTab={(t) => setTab(t)}
         />
         <TabsContent value="dashboard" className="mt-0">
-          <Dashboard
-            onSelectRun={(id) => {
-              setSelectedRunId(id);
-              setTab("graph");
-            }}
-          />
-        </TabsContent>
-        <TabsContent value="graph" className="mt-0">
-          <FlowGraph selectedRunId={selectedRunId} onSelectRun={setSelectedRunId} />
+          <Dashboard onSelectRun={handleSelectRunToGraph} />
         </TabsContent>
         <TabsContent value="registry" className="mt-0">
           <RegistryView
@@ -85,6 +85,8 @@ export function App() {
             onClearCompare={() => setCompareRunIds([])}
             benchmarkRunIds={benchmarkRunIds}
             onClearBenchmark={() => setBenchmarkRunIds([])}
+            viewMode={runViewMode}
+            onViewModeChange={setRunViewMode}
           />
         </TabsContent>
       </Tabs>

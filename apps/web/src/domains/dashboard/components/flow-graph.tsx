@@ -38,6 +38,8 @@ import type { TraceEventView } from "../../run/api";
 interface Props {
   selectedRunId: string | null;
   onSelectRun: (id: string) => void;
+  // OPSP-37 (2): "실행" 탭 안에 들어갈 땐 RunList 가 run 선택을 담당 → 드롭다운 숨김.
+  showRunSelect?: boolean;
 }
 
 // fixture(normalize)와 실 local-claude 둘 다 커버하는 type 매핑.
@@ -201,7 +203,7 @@ function DistRow({ label, items }: { label: string; items: [string, number][] })
   );
 }
 
-export function FlowGraph({ selectedRunId, onSelectRun }: Props) {
+export function FlowGraph({ selectedRunId, onSelectRun, showRunSelect = true }: Props) {
   const { theme } = useTheme();
   const runs = useRuns();
   const run = useRun(selectedRunId);
@@ -241,9 +243,9 @@ export function FlowGraph({ selectedRunId, onSelectRun }: Props) {
     return out;
   }, [trace.data, isRunning]);
 
-  // 항상 보이는 run select 바. 최근 run 을 라벨 친화적으로.
+  // run select 바. "실행" 탭 안에선 RunList 가 담당 → showRunSelect=false 면 숨김.
   const runOptions = runs.data ?? [];
-  const runSelectBar = (
+  const runSelectBar = !showRunSelect ? null : (
     <Card>
       <CardContent className="flex flex-wrap items-center gap-2 p-3">
         <span className="text-sm text-muted-foreground">run 선택</span>
