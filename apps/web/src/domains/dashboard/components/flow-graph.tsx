@@ -5,7 +5,6 @@ import {
   Controls,
   type Edge,
   Handle,
-  MiniMap,
   type Node,
   type NodeProps,
   Position,
@@ -354,23 +353,6 @@ export function FlowGraph({ selectedRunId, onSelectRun }: Props) {
                   color={theme === "dark" ? "hsl(var(--muted-foreground) / 0.25)" : "hsl(var(--muted-foreground) / 0.35)"}
                 />
                 <Controls showInteractive={false} />
-                <MiniMap
-                  pannable
-                  zoomable
-                  nodeColor={(n) => {
-                    const ev = (n.data as TraceNodeData).ev;
-                    if (ev.type === "tool_use" || ev.type === "tool_call") return "hsl(var(--warning))";
-                    if (ev.type === "tool_result" || ev.type === "result") return "hsl(var(--success))";
-                    if (ev.type === "thinking") return "hsl(var(--purple))";
-                    if (ev.type === "assistant_text" || ev.type === "assistant_message") return "hsl(var(--info))";
-                    return "hsl(var(--muted-foreground))";
-                  }}
-                  maskColor={theme === "dark" ? "hsl(var(--background) / 0.7)" : "hsl(var(--background) / 0.7)"}
-                  style={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                  }}
-                />
               </ReactFlow>
             </div>
           )}
