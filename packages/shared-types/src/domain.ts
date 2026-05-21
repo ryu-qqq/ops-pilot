@@ -210,3 +210,35 @@ export const settingsUpdateSchema = z.object({
   }),
 });
 export type SettingsUpdate = z.infer<typeof settingsUpdateSchema>;
+
+// OPSP-43: 지라/노션 → 시나리오 import.
+// 실제 업무(지라 이슈·노션 페이지)를 가져와 시나리오 폼을 채운다.
+// 목록(Summary)은 가볍게 — 메타만. 1건 선택 시 상세(Detail)에서 본문을 받는다.
+
+export const jiraIssueSummarySchema = z.object({
+  key: z.string(),
+  summary: z.string(),
+  status: z.string(),
+});
+export type JiraIssueSummary = z.infer<typeof jiraIssueSummarySchema>;
+
+export const jiraIssueDetailSchema = z.object({
+  key: z.string(),
+  summary: z.string(), // → 시나리오 name
+  body: z.string(), // → 시나리오 input (ADF 를 평탄화한 plaintext)
+});
+export type JiraIssueDetail = z.infer<typeof jiraIssueDetailSchema>;
+
+export const notionPageSummarySchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  url: z.string(),
+});
+export type NotionPageSummary = z.infer<typeof notionPageSummarySchema>;
+
+export const notionPageDetailSchema = z.object({
+  id: z.string(),
+  title: z.string(), // → 시나리오 name
+  body: z.string(), // → 시나리오 input (블록 텍스트를 평탄화)
+});
+export type NotionPageDetail = z.infer<typeof notionPageDetailSchema>;
