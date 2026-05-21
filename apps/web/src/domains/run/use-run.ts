@@ -3,6 +3,7 @@ import {
   cancelRun,
   createHumanScore,
   deleteScenario,
+  rerunRun,
   getBenchmarkAggregate,
   getRun,
   getRunDiff,
@@ -144,6 +145,18 @@ export function useCancelRun() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: cancelRun,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: runKeys.all });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
+// OPSP-37: 같은 조건 다시 실행. 성공 시 run·대시보드 캐시 무효화.
+export function useRerunRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: rerunRun,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: runKeys.all });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
