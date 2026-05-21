@@ -21,6 +21,8 @@ import {
 } from "../../domains/run/repository.js";
 import { aggregateBenchmark } from "../../domains/run/benchmark.js";
 import { versionExecContext } from "../../domains/registry/repository.js";
+import { getAnalysis, startAnalysis } from "../../domains/assist/analysis-store.js";
+import { traceAnalysisSchema } from "../../domains/assist/analyze-trace.js";
 import { createScore, listScores, listScoresForRuns } from "../../domains/score/repository.js";
 
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
@@ -350,6 +352,48 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ error: "NotFound", detail: "run not found" });
       }
       return { cancelled: cancelRun(req.params.id) };
+    },
+  );
+
+  // OPSP-39: AI 트레이스 분석 — 비동기 시작 + DB 캐시. run 의 startRun 패턴.
+  fastify.post(
+    "/runs/:id/analyze",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: {
+          200: z.object({ started: z.boolean(), reason: z.string().optional() }),
+          404: errorSchema,
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!getRun(req.params.id)) {
+        return reply.status(404).send({ error: "NotFound", detail: "run not found" });
+      }
+      return startAnalysis(req.params.id);
+    },
+  );
+
+  // OPSP-39: 분석 상태+결과 조회 — running 이면 클라가 폴링, done 이면 캐시된 결과.
+  fastify.get(
+    "/runs/:id/analysis",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: {
+          200: z.object({
+            status: z.enum(["running", "done", "failed", "none"]),
+            result: traceAnalysisSchema.nullable(),
+            error: z.string().nullable(),
+          }),
+        },
+      },
+    },
+    async (req) => {
+      const a = getAnalysis(req.params.id);
+      if (!a) return { status: "none" as const, result: null, error: null };
+      return { status: a.status, result: a.result, error: a.error };
     },
   );
 

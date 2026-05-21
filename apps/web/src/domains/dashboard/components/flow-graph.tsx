@@ -25,10 +25,16 @@ import {
 } from "lucide-react";
 import { Badge } from "../../../components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../../../components/ui/dialog";
 import { EmptyState, InlineError, Loading } from "../../../lib/ui";
 import { useTheme } from "../../../lib/use-theme";
 import { Button } from "../../../components/ui/button";
-import { useAnalyzeTrace, useRun, useRuns, useRunTrace } from "../../run/use-run";
+import { useRun, useRunAnalysis, useRuns, useRunTrace, useStartAnalysis } from "../../run/use-run";
 import type { TraceEventView } from "../../run/api";
 
 // OPSP-35 (b 재작성): 선택된 *1개 run* 의 trace event 흐름을 그래프로 +
@@ -211,11 +217,15 @@ export function FlowGraph({ selectedRunId, onSelectRun, showRunSelect = true }: 
   const run = useRun(selectedRunId);
   const isRunning = run.data?.status === "running";
   const trace = useRunTrace(selectedRunId, isRunning);
-  const analyze = useAnalyzeTrace();
+  // OPSP-39: AI 분석 — 비동기 작업 + DB 캐시. 화면 이동해도 유실 X.
+  const analysis = useRunAnalysis(selectedRunId);
+  const startAnalysisMut = useStartAnalysis(selectedRunId ?? "");
   // OPSP-36 (2): 그래프 노드 클릭 → 우측 raw event 패널.
   const [selectedSeq, setSelectedSeq] = useState<number | null>(null);
   // OPSP-37 (4): 그래프가 길어 압축 토글 — 기본 압축.
   const [compact, setCompact] = useState(true);
+  // OPSP-39: AI 분석 결과 모달.
+  const [analysisOpen, setAnalysisOpen] = useState(false);
 
   const flowNodes = useMemo<Node<TraceNodeData>[]>(() => {
     const events = trace.data ?? [];
@@ -304,6 +314,7 @@ export function FlowGraph({ selectedRunId, onSelectRun, showRunSelect = true }: 
 
   const traceData = trace.data ?? [];
   const metrics = computeMetrics(traceData);
+  const analysisStatus = analysis.data?.status ?? "none";
   const r = run.data;
   const selectedEvent = traceData.find((e) => e.seq === selectedSeq) ?? null;
   const duration =
@@ -391,77 +402,71 @@ export function FlowGraph({ selectedRunId, onSelectRun, showRunSelect = true }: 
       </Card>
 
       <div className="space-y-3">
-        {/* OPSP-37 (3): AI 트레이스 분석 — 긴 trace 에서 주목 지점 짚어줌 */}
+        {/* OPSP-39: AI 트레이스 분석 — 비동기·DB 캐시. 결과는 모달로. */}
         <Card className="border-purple/40">
           <CardHeader className="border-b">
             <CardTitle className="flex items-center gap-2 text-sm">
               <Sparkles className="h-4 w-4 text-purple" />
               AI 트레이스 분석
+              {analysisStatus === "done" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto"
+                  onClick={() => setAnalysisOpen(true)}
+                >
+                  결과 보기
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="ml-auto"
-                disabled={analyze.isPending || traceData.length === 0}
-                onClick={() => analyze.mutate(selectedRunId)}
+                className={analysisStatus === "done" ? "" : "ml-auto"}
+                disabled={analysisStatus === "running" || traceData.length === 0 || startAnalysisMut.isPending}
+                onClick={() => startAnalysisMut.mutate()}
               >
-                {analyze.isPending ? <Loading label="분석 중…" /> : "분석 실행"}
+                {analysisStatus === "running" ? (
+                  <Loading label="분석 중…" />
+                ) : analysisStatus === "done" || analysisStatus === "failed" ? (
+                  "다시 분석"
+                ) : (
+                  "분석 실행"
+                )}
               </Button>
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-2">
-            {analyze.isError && <InlineError error={analyze.error} />}
-            {analyze.data === undefined && !analyze.isPending && !analyze.isError && (
-              <p className="text-xs text-muted-foreground">
-                긴 trace 를 다 안 읽어도 됩니다 — AI 가 요약·주목 지점·분포 해석을 짚어줍니다. 실 토큰 호출.
+          <CardContent className="pt-2 text-xs">
+            {startAnalysisMut.data?.started === false && (
+              <p className="mb-1 text-warning">{startAnalysisMut.data.reason}</p>
+            )}
+            {analysisStatus === "none" && (
+              <p className="text-muted-foreground">
+                긴 trace 를 다 안 읽어도 됩니다 — AI 가 요약·주목 지점·분포 해석을 짚어줍니다. 실 토큰 호출,
+                ~30초. 시작하면 화면을 옮겨도 백그라운드로 계속됩니다.
               </p>
             )}
-            {analyze.data !== undefined && (
-              <div className="space-y-3 text-xs">
-                <div>
-                  <div className="text-muted-foreground">요약</div>
-                  <p className="mt-0.5 whitespace-pre-wrap break-words">{analyze.data.summary}</p>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">주목 지점</div>
-                  <div className="mt-1 space-y-1">
-                    {analyze.data.highlights.map((h, i) => (
-                      <div
-                        key={i}
-                        className={`rounded-md border p-1.5 ${
-                          h.severity === "critical"
-                            ? "border-destructive/40 bg-destructive/5"
-                            : h.severity === "warn"
-                              ? "border-warning/40 bg-warning/5"
-                              : "border-border bg-muted/30"
-                        }`}
-                      >
-                        <span className="font-mono opacity-70">
-                          {h.seq === null ? "—" : `#${String(h.seq)}`} · {h.severity}
-                        </span>
-                        <p className="break-words">{h.note}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">분포 해석</div>
-                  <p className="mt-0.5 whitespace-pre-wrap break-words">
-                    {analyze.data.distributionInsight}
-                  </p>
-                </div>
-                {analyze.data.evalPoints.length > 0 && (
-                  <div>
-                    <div className="text-muted-foreground">평가 포인트</div>
-                    <ul className="mt-0.5 list-disc space-y-0.5 pl-4">
-                      {analyze.data.evalPoints.map((p, i) => (
-                        <li key={i} className="break-words">
-                          {p}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+            {analysisStatus === "running" && (
+              <p className="text-muted-foreground">
+                <Loading label="분석 중… 다른 화면으로 가도 백그라운드로 계속되고, 돌아오면 결과가 보입니다." />
+              </p>
+            )}
+            {analysisStatus === "failed" && (
+              <p className="text-destructive">
+                분석 실패: {analysis.data?.error ?? "알 수 없는 오류"}
+              </p>
+            )}
+            {analysisStatus === "done" && analysis.data?.result != null && (
+              <div>
+                <div className="text-muted-foreground">요약</div>
+                <p className="mt-0.5 line-clamp-3 whitespace-pre-wrap break-words">
+                  {analysis.data.result.summary}
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  주목 지점 {analysis.data.result.highlights.length}건 · 평가 포인트{" "}
+                  {analysis.data.result.evalPoints.length}건 — ‘결과 보기’로 전체 확인
+                </p>
               </div>
             )}
           </CardContent>
@@ -581,6 +586,68 @@ export function FlowGraph({ selectedRunId, onSelectRun, showRunSelect = true }: 
         </Card>
       </div>
       </div>
+
+      {/* OPSP-39: AI 분석 결과 모달 — 고정 크기 + 내부 스크롤 */}
+      {analysisOpen && analysis.data?.result != null && (
+        <Dialog open onOpenChange={(o) => !o && setAnalysisOpen(false)}>
+          <DialogContent className="flex h-[78vh] max-w-3xl flex-col gap-0">
+            <DialogHeader className="shrink-0 pb-3">
+              <DialogTitle className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-purple" />
+                AI 트레이스 분석 — {selectedRunId.slice(0, 8)}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 space-y-3 overflow-y-auto pr-1 text-sm">
+              <div>
+                <div className="text-xs font-semibold text-muted-foreground">요약</div>
+                <p className="mt-0.5 whitespace-pre-wrap break-words">
+                  {analysis.data.result.summary}
+                </p>
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-muted-foreground">주목 지점</div>
+                <div className="mt-1 space-y-1">
+                  {analysis.data.result.highlights.map((h, i) => (
+                    <div
+                      key={i}
+                      className={`rounded-md border p-2 text-xs ${
+                        h.severity === "critical"
+                          ? "border-destructive/40 bg-destructive/5"
+                          : h.severity === "warn"
+                            ? "border-warning/40 bg-warning/5"
+                            : "border-border bg-muted/30"
+                      }`}
+                    >
+                      <span className="font-mono opacity-70">
+                        {h.seq === null ? "—" : `#${String(h.seq)}`} · {h.severity}
+                      </span>
+                      <p className="mt-0.5 break-words">{h.note}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-muted-foreground">분포 해석</div>
+                <p className="mt-0.5 whitespace-pre-wrap break-words text-xs">
+                  {analysis.data.result.distributionInsight}
+                </p>
+              </div>
+              {analysis.data.result.evalPoints.length > 0 && (
+                <div>
+                  <div className="text-xs font-semibold text-muted-foreground">평가 포인트</div>
+                  <ul className="mt-0.5 list-disc space-y-0.5 pl-4 text-xs">
+                    {analysis.data.result.evalPoints.map((p, i) => (
+                      <li key={i} className="break-words">
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

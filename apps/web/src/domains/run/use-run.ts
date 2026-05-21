@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  analyzeTrace,
   cancelRun,
   createHumanScore,
   deleteScenario,
+  getRunAnalysis,
   rerunRun,
+  startAnalysis,
   getBenchmarkAggregate,
   getRun,
   getRunDiff,
@@ -153,9 +154,27 @@ export function useCancelRun() {
   });
 }
 
-// OPSP-37 (3): run trace AI 분석. 사용자 명시 버튼 클릭 시만 (실 토큰).
-export function useAnalyzeTrace() {
-  return useMutation({ mutationFn: analyzeTrace });
+// OPSP-39: AI 분석 시작 (비동기). 성공 시 analysis 캐시 무효화 → 폴링 시작.
+export function useStartAnalysis(runId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => startAnalysis(runId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: runKeys.analysis(runId) });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
+// OPSP-39: AI 분석 상태+결과 — running 이면 2초 폴링, done/failed/none 이면 멈춤.
+// 화면 이동 후 다시 와도 DB 캐시라 결과 그대로 보임.
+export function useRunAnalysis(runId: string | null) {
+  return useQuery({
+    queryKey: runKeys.analysis(runId ?? "none"),
+    queryFn: () => getRunAnalysis(runId ?? ""),
+    enabled: runId !== null,
+    refetchInterval: (q) => (q.state.data?.status === "running" ? 2000 : false),
+  });
 }
 
 // OPSP-37: 같은 조건 다시 실행. 성공 시 run·대시보드 캐시 무효화.

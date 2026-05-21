@@ -6,6 +6,10 @@ export function useStatsOverview() {
   return useQuery({
     queryKey: dashboardKeys.overview(),
     queryFn: getStatsOverview,
-    refetchInterval: (q) => (q.state.data?.runs.running ? 2000 : false),
+    // 진행 중 run 또는 진행 중 AI 분석이 있으면 폴링.
+    refetchInterval: (q) => {
+      const d = q.state.data;
+      return d && (d.runs.running > 0 || d.runningAnalyses > 0) ? 2000 : false;
+    },
   });
 }

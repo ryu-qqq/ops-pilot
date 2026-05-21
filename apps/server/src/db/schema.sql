@@ -112,3 +112,17 @@ CREATE TABLE IF NOT EXISTS run_diff_file (
   UNIQUE (run_id, file_path)
 );
 CREATE INDEX IF NOT EXISTS idx_run_diff_file_run ON run_diff_file (run_id);
+
+-- OPSP-39: AI 트레이스 분석 결과. run 종속 캐시 + 비동기 작업 상태.
+-- run 당 1개(UNIQUE) — 재분석은 덮어쓰기. 화면 이동해도 결과 유실 안 되게 DB 보존.
+CREATE TABLE IF NOT EXISTS trace_analysis (
+  id         TEXT PRIMARY KEY,
+  run_id     TEXT NOT NULL REFERENCES run (id) ON DELETE CASCADE,
+  status     TEXT NOT NULL CHECK (status IN ('running', 'done', 'failed')),
+  result     TEXT,
+  error      TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE (run_id)
+);
+CREATE INDEX IF NOT EXISTS idx_trace_analysis_run ON trace_analysis (run_id);

@@ -43,6 +43,7 @@ export interface StatsOverview {
   };
   recentRuns: RecentRun[]; // 최근 20개 — 시간 축 점·드릴다운
   runningRuns: RecentRun[]; // 진행 중 (status=running)
+  runningAnalyses: number; // OPSP-39: 진행 중인 AI 트레이스 분석 수
 }
 
 export function computeOverview(): StatsOverview {
@@ -106,6 +107,10 @@ export function computeOverview(): StatsOverview {
     .prepare(`${recentQuery} WHERE r.status = 'running' ORDER BY r.started_at DESC`)
     .all() as RecentRun[];
 
+  const analysisRow = db
+    .prepare("SELECT COUNT(*) AS c FROM trace_analysis WHERE status = 'running'")
+    .get() as { c: number };
+
   return {
     assets,
     scenarios,
@@ -119,5 +124,6 @@ export function computeOverview(): StatsOverview {
     },
     recentRuns,
     runningRuns,
+    runningAnalyses: analysisRow.c,
   };
 }

@@ -2,7 +2,6 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { assetKindSchema } from "@opspilot/shared-types";
 import { ClaudeAssistError } from "../../domains/assist/claude.js";
-import { analyzeTrace, traceAnalysisSchema } from "../../domains/assist/analyze-trace.js";
 import { reviewAuthoringDraft } from "../../domains/assist/authoring-review.js";
 import { draftAsset, draftAssetSchema } from "../../domains/assist/draft-asset.js";
 import { judgeResultSchema, judgeRuns } from "../../domains/assist/judge-runs.js";
@@ -77,27 +76,6 @@ const assist: FastifyPluginAsyncZod = async (fastify) => {
     async (req, reply) => {
       try {
         return await judgeRuns(req.body.runIds);
-      } catch (e) {
-        if (e instanceof ClaudeAssistError) {
-          return reply.status(400).send({ error: "AssistError", detail: e.message });
-        }
-        throw e;
-      }
-    },
-  );
-
-  // OPSP-37 (3): 한 run trace AI 분석 — 요약·주목 지점·분포 해석·평가 포인트.
-  fastify.post(
-    "/assist/analyze-trace",
-    {
-      schema: {
-        body: z.object({ runId: z.string().uuid() }),
-        response: { 200: traceAnalysisSchema, 400: errorSchema },
-      },
-    },
-    async (req, reply) => {
-      try {
-        return await analyzeTrace(req.body.runId);
       } catch (e) {
         if (e instanceof ClaudeAssistError) {
           return reply.status(400).send({ error: "AssistError", detail: e.message });
