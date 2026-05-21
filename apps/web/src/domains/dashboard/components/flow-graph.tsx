@@ -85,7 +85,9 @@ const TYPE_COLUMN: Record<string, number> = {
   tool_call: 260,
   tool_result: 390,
 };
-const ROW_HEIGHT = 95; // 70 → 95 — 노드 간격 더 여유
+// OPSP-37 (4): 노드 세로 간격 — 압축/넉넉 토글.
+const ROW_HEIGHT_LOOSE = 95;
+const ROW_HEIGHT_COMPACT = 56;
 
 // OPSP-37 (1): 노드 라벨 짤림 방지 — type 를 짧게.
 const TYPE_SHORT: Record<string, string> = {
@@ -214,19 +216,22 @@ export function FlowGraph({ selectedRunId, onSelectRun, showRunSelect = true }: 
   const analyze = useAnalyzeTrace();
   // OPSP-36 (2): 그래프 노드 클릭 → 우측 raw event 패널.
   const [selectedSeq, setSelectedSeq] = useState<number | null>(null);
+  // OPSP-37 (4): 그래프가 길어 압축 토글 — 기본 압축.
+  const [compact, setCompact] = useState(true);
 
   const flowNodes = useMemo<Node<TraceNodeData>[]>(() => {
     const events = trace.data ?? [];
-    return events.map<Node<TraceNodeData>>((ev) => ({
+    const rowHeight = compact ? ROW_HEIGHT_COMPACT : ROW_HEIGHT_LOOSE;
+    return events.map<Node<TraceNodeData>>((ev, idx) => ({
       id: `ev:${String(ev.seq)}`,
       type: "trace",
       position: {
         x: TYPE_COLUMN[ev.type] ?? 0,
-        y: ev.seq * ROW_HEIGHT,
+        y: idx * rowHeight,
       },
       data: { ev },
     }));
-  }, [trace.data]);
+  }, [trace.data, compact]);
 
   const flowEdges = useMemo<Edge[]>(() => {
     const events = trace.data ?? [];
@@ -340,6 +345,15 @@ export function FlowGraph({ selectedRunId, onSelectRun, showRunSelect = true }: 
               variant="outline"
               size="sm"
               className="ml-auto"
+              onClick={() => setCompact((c) => !c)}
+              title="노드 세로 간격 압축/넉넉 전환"
+            >
+              {compact ? "넉넉히 보기" : "압축 보기"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
               disabled={rerun.isPending}
               onClick={() =>
                 rerun.mutate(selectedRunId, {
