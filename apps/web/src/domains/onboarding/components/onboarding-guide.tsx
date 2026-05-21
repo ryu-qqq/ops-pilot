@@ -31,18 +31,10 @@ function pickStep(args: { projects: number; runs: number; tab: Tab }): Step {
 export function OnboardingGuide({ tab, onSwitchTab }: Props) {
   const { data: projects } = useProjects();
   const { data: runs } = useRuns();
-  const { dismissed, dismiss, reopen } = useOnboardingDismissed();
+  const { dismissed, dismiss } = useOnboardingDismissed();
 
-  if (dismissed) {
-    return (
-      <div className="flex justify-end">
-        <Button variant="ghost" size="sm" onClick={reopen} className="text-xs text-muted-foreground">
-          <Lightbulb className="h-3.5 w-3.5" />
-          가이드 보기
-        </Button>
-      </div>
-    );
-  }
+  // OPSP-38 (1): dismissed 상태의 "가이드 보기" 버튼은 App 헤더로 이동 — 여기선 숨김.
+  if (dismissed) return null;
 
   const projectCount = projects?.length ?? null;
   const runCount = runs?.length ?? null;
