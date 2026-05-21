@@ -117,8 +117,9 @@ function EventModal({
   const next = idx < trace.length - 1 ? trace[idx + 1] : undefined;
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
+      {/* OPSP-38 follow-up: 고정 크기 모달 — event 종류 무관 동일 박스 + 내부 스크롤 */}
+      <DialogContent className="flex h-[78vh] max-w-3xl flex-col gap-0">
+        <DialogHeader className="shrink-0 pb-3">
           <DialogTitle className="flex items-center gap-2">
             <span className="text-muted-foreground">#{ev.seq}</span>
             <span className={meta.tone.split(" ")[0]}>{meta.label}</span>
@@ -127,7 +128,8 @@ function EventModal({
             )}
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
+        {/* 본문만 스크롤 — 헤더는 고정 */}
+        <div className="flex-1 space-y-3 overflow-y-auto pr-1">
           {/* 이건 뭐하는 놈인지 */}
           <div className="rounded-md border border-info/30 bg-info/5 p-2.5 text-sm">
             <div className="text-xs font-semibold text-info">이 단계는 무엇인가</div>
@@ -144,11 +146,11 @@ function EventModal({
               </p>
             )}
           </div>
-          {/* input / output */}
+          {/* input / output — max-h 없이 자연 길이, 스크롤은 부모(본문)가 담당 */}
           {ev.input !== null && ev.input !== undefined && (
             <div>
               <div className="text-xs text-muted-foreground">input</div>
-              <pre className="mt-1 max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border bg-muted/50 p-2 font-mono text-xs">
+              <pre className="mt-1 whitespace-pre-wrap break-words rounded-md border bg-muted/50 p-2 font-mono text-xs">
                 {pretty(ev.input)}
               </pre>
             </div>
@@ -156,10 +158,13 @@ function EventModal({
           {ev.output !== null && ev.output !== undefined && (
             <div>
               <div className="text-xs text-muted-foreground">output</div>
-              <pre className="mt-1 max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border bg-muted/50 p-2 font-mono text-xs">
+              <pre className="mt-1 whitespace-pre-wrap break-words rounded-md border bg-muted/50 p-2 font-mono text-xs">
                 {pretty(ev.output)}
               </pre>
             </div>
+          )}
+          {ev.input === null && ev.output === null && (
+            <p className="text-xs text-muted-foreground">이 단계에는 input/output 데이터가 없습니다.</p>
           )}
         </div>
       </DialogContent>
