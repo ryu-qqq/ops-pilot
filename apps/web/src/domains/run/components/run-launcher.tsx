@@ -9,8 +9,12 @@ import { Label } from "../../../components/ui/label";
 import { RadioGroup, RadioGroupItem } from "../../../components/ui/radio-group";
 import { Textarea } from "../../../components/ui/textarea";
 import { InfoMark, InlineError, Loading } from "../../../lib/ui";
+import { ScenarioImport } from "../../integration/components/scenario-import";
 import { useAssetVersions } from "../../registry/use-registry";
 import { useLaunchBatchRun, useLaunchRun, useSuggestScenario } from "../use-run";
+
+// OPSP-43: 시나리오 출처 — 직접 작성 / 지라에서 / 노션에서.
+type ScenarioSource = "manual" | "jira" | "notion";
 
 interface Props {
   assetId: string;
@@ -28,6 +32,7 @@ export function RunLauncher({ assetId, assetVersionId, defaultCwd, onLaunched }:
   const [cwd, setCwd] = useState(defaultCwd);
   const [source, setSource] = useState<"fixture" | "local-claude">("fixture");
   const [hint, setHint] = useState("");
+  const [scenarioSource, setScenarioSource] = useState<ScenarioSource>("manual");
   const [compare, setCompare] = useState(false);
   const [compareIds, setCompareIds] = useState<Set<string>>(() => new Set([assetVersionId]));
   const launch = useLaunchRun();
@@ -90,7 +95,48 @@ export function RunLauncher({ assetId, assetVersionId, defaultCwd, onLaunched }:
         </CardHeader>
 
         <CardContent className="space-y-3 pt-4">
-          {/* OPSP-27 B: AI 시나리오 초안 */}
+          {/* OPSP-43: 시나리오 출처 — 직접 작성 / 지라에서 / 노션에서 */}
+          <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+            <Label className="flex items-center gap-1">
+              시나리오 출처
+              <InfoMark
+                label="시나리오 출처"
+                help="직접 작성하거나, 지라 이슈·노션 페이지를 가져와 폼을 채울 수 있습니다. 실제 업무를 그대로 시나리오로 — 제목이 이름, 본문이 입력이 됩니다. 성공조건은 비워둡니다(실제 업무는 키워드 채점이 부적합 — 사람 점수·LLM 판정으로 평가)."
+              />
+            </Label>
+            <RadioGroup
+              value={scenarioSource}
+              onValueChange={(v) => setScenarioSource(v as ScenarioSource)}
+              className="flex items-center gap-4"
+            >
+              <label className="flex items-center gap-1.5 text-sm">
+                <RadioGroupItem value="manual" />
+                직접 작성
+              </label>
+              <label className="flex items-center gap-1.5 text-sm">
+                <RadioGroupItem value="jira" />
+                지라에서
+              </label>
+              <label className="flex items-center gap-1.5 text-sm">
+                <RadioGroupItem value="notion" />
+                노션에서
+              </label>
+            </RadioGroup>
+          </div>
+
+          {/* 지라/노션 import — 선택 시 name·input 폼을 채운다(assertion 은 비움) */}
+          {scenarioSource !== "manual" && (
+            <ScenarioImport
+              source={scenarioSource}
+              onImport={(importedName, importedInput) => {
+                setName(importedName);
+                setInput(importedInput);
+              }}
+            />
+          )}
+
+          {/* OPSP-27 B: AI 시나리오 초안 — 직접 작성 모드에서만 */}
+          {scenarioSource === "manual" && (
           <Alert variant="info">
             <Sparkles className="h-4 w-4" />
             <AlertTitle className="flex items-center gap-1">
@@ -136,6 +182,7 @@ export function RunLauncher({ assetId, assetVersionId, defaultCwd, onLaunched }:
               </div>
             </AlertDescription>
           </Alert>
+          )}
 
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1">
