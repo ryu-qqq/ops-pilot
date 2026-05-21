@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { Activity, BarChart3, Bot, FileText, Loader2, Repeat, TrendingUp } from "lucide-react";
+import { Activity, BarChart3, Bot, FileText, Loader2, Repeat, TrendingUp, XCircle } from "lucide-react";
 import { Badge } from "../../../components/ui/badge";
+import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { EmptyState, InlineError, Loading } from "../../../lib/ui";
+import { useCancelRun } from "../../run/use-run";
 import { useStatsOverview } from "../use-dashboard";
 import type { DashboardRun } from "../api";
 
@@ -73,13 +75,19 @@ function RunningRunRow({ run, onSelect }: { run: DashboardRun; onSelect: () => v
     const id = setInterval(() => force((n) => n + 1), 1000);
     return () => clearInterval(id);
   }, []);
+  const cancel = useCancelRun();
   const elapsed = elapsedSince(run.startedAt);
+  // OPSP-36: 30분 넘게 running 이면 좀비 의심 — 강조.
+  const suspectZombie = elapsed !== null && elapsed > 30 * 60 * 1000;
   return (
-    <button
-      onClick={onSelect}
-      className="flex w-full items-center justify-between gap-2 rounded-md border border-warning/30 bg-warning/5 p-2 text-left hover:bg-warning/10"
+    <div
+      className={`flex w-full items-center justify-between gap-2 rounded-md border p-2 ${
+        suspectZombie
+          ? "border-destructive/40 bg-destructive/5"
+          : "border-warning/30 bg-warning/5"
+      }`}
     >
-      <div className="flex min-w-0 items-center gap-2">
+      <button onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-2 text-left">
         <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-warning" />
         <div className="min-w-0">
           <div className="truncate text-sm">
@@ -91,13 +99,28 @@ function RunningRunRow({ run, onSelect }: { run: DashboardRun; onSelect: () => v
             {run.startedAt !== null
               ? `시작 ${new Date(run.startedAt).toLocaleTimeString()}`
               : "대기 중"}
+            {suspectZombie && (
+              <span className="ml-1 text-destructive">· 30분 초과 — 좀비 의심</span>
+            )}
           </div>
         </div>
-      </div>
+      </button>
       <Badge variant="outline" className="font-mono">
         {elapsed === null ? "—" : `${(elapsed / 1000).toFixed(0)}s`}
       </Badge>
-    </button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="text-destructive"
+        disabled={cancel.isPending}
+        onClick={() => cancel.mutate(run.id)}
+        title="이 run 을 강제 종료 (failed 마킹)"
+      >
+        <XCircle className="h-3.5 w-3.5" />
+        강제 종료
+      </Button>
+    </div>
   );
 }
 

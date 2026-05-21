@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -27,7 +27,7 @@ import { Badge } from "../../../components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { EmptyState, InlineError, Loading } from "../../../lib/ui";
 import { useTheme } from "../../../lib/use-theme";
-import { useRun, useRunTrace } from "../../run/use-run";
+import { useRun, useRuns, useRunTrace } from "../../run/use-run";
 import type { TraceEventView } from "../../run/api";
 
 // OPSP-35 (b 재작성): 선택된 *1개 run* 의 trace event 흐름을 그래프로 +
@@ -36,6 +36,7 @@ import type { TraceEventView } from "../../run/api";
 
 interface Props {
   selectedRunId: string | null;
+  onSelectRun: (id: string) => void;
 }
 
 // fixture(normalize)와 실 local-claude 둘 다 커버하는 type 매핑.
@@ -185,11 +186,14 @@ function DistRow({ label, items }: { label: string; items: [string, number][] })
   );
 }
 
-export function FlowGraph({ selectedRunId }: Props) {
+export function FlowGraph({ selectedRunId, onSelectRun }: Props) {
   const { theme } = useTheme();
+  const runs = useRuns();
   const run = useRun(selectedRunId);
   const isRunning = run.data?.status === "running";
   const trace = useRunTrace(selectedRunId, isRunning);
+  // OPSP-36 (2): 그래프 노드 클릭 → 우측 raw event 패널.
+  const [selectedSeq, setSelectedSeq] = useState<number | null>(null);
 
   const flowNodes = useMemo<Node<TraceNodeData>[]>(() => {
     const events = trace.data ?? [];
@@ -221,25 +225,64 @@ export function FlowGraph({ selectedRunId }: Props) {
     return out;
   }, [trace.data, isRunning]);
 
+  // 항상 보이는 run select 바. 최근 run 을 라벨 친화적으로.
+  const runOptions = runs.data ?? [];
+  const runSelectBar = (
+    <Card>
+      <CardContent className="flex flex-wrap items-center gap-2 p-3">
+        <span className="text-sm text-muted-foreground">run 선택</span>
+        <select
+          value={selectedRunId ?? ""}
+          onChange={(e) => {
+            if (e.target.value !== "") {
+              onSelectRun(e.target.value);
+              setSelectedSeq(null);
+            }
+          }}
+          className="min-w-[320px] flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+        >
+          <option value="">— 선택 —</option>
+          {runOptions.map((ro) => (
+            <option key={ro.id} value={ro.id}>
+              [{ro.status}] {ro.assetKind}/{ro.assetName} · {ro.scenarioName} ·{" "}
+              {new Date(ro.createdAt).toLocaleString()}
+            </option>
+          ))}
+        </select>
+      </CardContent>
+    </Card>
+  );
+
   if (selectedRunId === null) {
     return (
-      <Card>
-        <CardContent className="p-4">
-          <EmptyState
-            title="run 을 선택하세요"
-            hint="대시보드 탭의 ‘진행 중’ 또는 ‘최근 run’ 점을 클릭하거나, 실행/트레이스 탭의 run 리스트에서 고르면 그 run 의 trace 흐름이 여기 그래프로 펼쳐집니다."
-          />
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        {runSelectBar}
+        <Card>
+          <CardContent className="p-4">
+            <EmptyState
+              title="run 을 선택하세요"
+              hint="위 드롭다운에서 고르거나, 대시보드 탭의 ‘진행 중’·‘최근 run’ 점을 클릭하면 그 run 의 trace 흐름이 그래프로 펼쳐집니다."
+            />
+          </CardContent>
+        </Card>
+      </div>
     );
   }
-  if (run.isPending || trace.isPending) return <Loading label="run trace 로딩 중…" />;
+  if (run.isPending || trace.isPending) {
+    return (
+      <div className="space-y-4">
+        {runSelectBar}
+        <Loading label="run trace 로딩 중…" />
+      </div>
+    );
+  }
   if (run.isError) return <InlineError error={run.error} />;
   if (trace.isError) return <InlineError error={trace.error} />;
 
   const traceData = trace.data ?? [];
   const metrics = computeMetrics(traceData);
   const r = run.data;
+  const selectedEvent = traceData.find((e) => e.seq === selectedSeq) ?? null;
   const duration =
     r?.startedAt && r.finishedAt
       ? Date.parse(r.finishedAt) - Date.parse(r.startedAt)
@@ -248,7 +291,9 @@ export function FlowGraph({ selectedRunId }: Props) {
         : null;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
+    <div className="space-y-4">
+      {runSelectBar}
+      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
       <Card>
         <CardHeader className="border-b">
           <CardTitle className="flex items-center gap-2 text-base">
@@ -270,6 +315,9 @@ export function FlowGraph({ selectedRunId }: Props) {
             >
               {r?.status}
             </Badge>
+            <span className="ml-auto text-xs font-normal text-muted-foreground">
+              노드 클릭 → 우측에 상세
+            </span>
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -294,6 +342,9 @@ export function FlowGraph({ selectedRunId }: Props) {
                 panOnScroll={false}
                 nodesDraggable
                 nodesConnectable={false}
+                onNodeClick={(_, node) => {
+                  setSelectedSeq((node.data as TraceNodeData).ev.seq);
+                }}
                 proOptions={{ hideAttribution: true }}
               >
                 <Background
@@ -327,6 +378,42 @@ export function FlowGraph({ selectedRunId }: Props) {
       </Card>
 
       <div className="space-y-3">
+        {/* OPSP-36: 노드 클릭 시 그 trace event 의 raw input/output */}
+        {selectedEvent !== null && (
+          <Card className="border-info/40">
+            <CardHeader className="border-b">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <FileText className="h-4 w-4 text-info" />
+                event #{selectedEvent.seq} · {selectedEvent.type}
+                {selectedEvent.name !== null && (
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {selectedEvent.name}
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 pt-2">
+              <div>
+                <div className="text-xs text-muted-foreground">input</div>
+                <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border bg-muted/50 p-2 font-mono text-[11px]">
+                  {selectedEvent.input === null || selectedEvent.input === undefined
+                    ? "(없음)"
+                    : JSON.stringify(selectedEvent.input, null, 2)}
+                </pre>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">output</div>
+                <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border bg-muted/50 p-2 font-mono text-[11px]">
+                  {selectedEvent.output === null || selectedEvent.output === undefined
+                    ? "(없음)"
+                    : typeof selectedEvent.output === "string"
+                      ? selectedEvent.output
+                      : JSON.stringify(selectedEvent.output, null, 2)}
+                </pre>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         <Card>
           <CardHeader className="border-b">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -403,6 +490,7 @@ export function FlowGraph({ selectedRunId }: Props) {
             <DistRow label="" items={Object.entries(metrics.byTool).sort((a, b) => b[1] - a[1])} />
           </CardContent>
         </Card>
+      </div>
       </div>
     </div>
   );

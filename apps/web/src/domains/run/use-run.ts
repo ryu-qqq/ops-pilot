@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  cancelRun,
   createHumanScore,
   deleteScenario,
   getBenchmarkAggregate,
@@ -135,6 +136,18 @@ export function useCreateHumanScore(runId: string) {
   return useMutation({
     mutationFn: createHumanScore,
     onSuccess: () => qc.invalidateQueries({ queryKey: runKeys.scores(runId) }),
+  });
+}
+
+// OPSP-36: 강제 종료. 성공 시 run·대시보드 캐시 무효화.
+export function useCancelRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: cancelRun,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: runKeys.all });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
   });
 }
 

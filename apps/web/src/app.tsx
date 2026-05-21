@@ -64,12 +64,12 @@ export function App() {
           <Dashboard
             onSelectRun={(id) => {
               setSelectedRunId(id);
-              setTab("runs");
+              setTab("graph");
             }}
           />
         </TabsContent>
         <TabsContent value="graph" className="mt-0">
-          <FlowGraph selectedRunId={selectedRunId} />
+          <FlowGraph selectedRunId={selectedRunId} onSelectRun={setSelectedRunId} />
         </TabsContent>
         <TabsContent value="registry" className="mt-0">
           <RegistryView

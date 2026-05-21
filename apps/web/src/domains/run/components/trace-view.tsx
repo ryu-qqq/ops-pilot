@@ -37,8 +37,11 @@ function TraceRow({ e }: { e: TraceEventView }) {
       </div>
       {body !== null && body !== undefined && (
         <details className="mt-1">
-          <summary className="cursor-pointer text-sm hover:text-primary">{preview(body)}</summary>
-          <pre className="mt-2 max-h-72 overflow-auto rounded-md border bg-muted/50 p-2 font-mono text-xs">
+          <summary className="cursor-pointer break-words text-sm hover:text-primary">
+            {preview(body)}
+          </summary>
+          {/* OPSP-36 (3): 가로 무한 스크롤 → wrap. 긴 내용은 세로 스크롤만. */}
+          <pre className="mt-2 max-h-72 max-w-full overflow-y-auto whitespace-pre-wrap break-words rounded-md border bg-muted/50 p-2 font-mono text-xs">
             {e.input != null && `input:\n${pretty(e.input)}\n\n`}
             {e.output != null && `output:\n${pretty(e.output)}`}
           </pre>
