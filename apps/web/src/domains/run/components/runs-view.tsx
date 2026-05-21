@@ -1,4 +1,4 @@
-import { FileDiff, GitCompare, Repeat, X } from "lucide-react";
+import { FileDiff, GitCompare, ListTree, Repeat, Share2, X } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import {
@@ -8,6 +8,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../../../components/ui/dialog";
+import { FlowGraph } from "../../dashboard/components/flow-graph";
 import { BenchmarkSummary } from "./benchmark-summary";
 import { ComparisonView } from "./comparison-view";
 import { DiffView } from "./diff-view";
@@ -17,6 +18,8 @@ import { ScenarioPanel } from "./scenario-panel";
 import { HumanScore } from "./human-score";
 import { InfoMark } from "../../../lib/ui";
 
+export type RunViewMode = "list" | "graph";
+
 interface Props {
   selectedRunId: string | null;
   onSelectRun: (id: string) => void;
@@ -24,6 +27,8 @@ interface Props {
   onClearCompare: () => void;
   benchmarkRunIds: string[];
   onClearBenchmark: () => void;
+  viewMode: RunViewMode;
+  onViewModeChange: (m: RunViewMode) => void;
 }
 
 export function RunsView({
@@ -33,6 +38,8 @@ export function RunsView({
   onClearCompare,
   benchmarkRunIds,
   onClearBenchmark,
+  viewMode,
+  onViewModeChange,
 }: Props) {
   const compareActive = compareRunIds.length >= 2;
   const benchmarkActive = benchmarkRunIds.length >= 1;
@@ -89,32 +96,62 @@ export function RunsView({
           </Card>
         )}
 
-        <Card>
-          <CardHeader className="flex flex-row items-baseline justify-between border-b pb-3">
-            <CardTitle className="text-base">트레이스 — 왜 그렇게 행동했나</CardTitle>
-            {selectedRunId !== null && (
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <FileDiff className="h-3.5 w-3.5" />
-                    변경 보기
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-5xl">
-                  <DialogHeader>
-                    <DialogTitle>변경 (파일 diff)</DialogTitle>
-                  </DialogHeader>
-                  <DiffView runId={selectedRunId} />
-                </DialogContent>
-              </Dialog>
-            )}
-          </CardHeader>
-          <CardContent className="space-y-3 pt-4">
-            <ScenarioPanel runId={selectedRunId} />
-            <HumanScore runId={selectedRunId} />
-            <TraceView runId={selectedRunId} />
-          </CardContent>
-        </Card>
+        {/* OPSP-37 (2): 트레이스 리스트 ⇄ 흐름 그래프 뷰 토글 + 변경 보기 */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex rounded-md border p-0.5">
+            <Button
+              variant={viewMode === "list" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => onViewModeChange("list")}
+            >
+              <ListTree className="h-3.5 w-3.5" />
+              트레이스 리스트
+            </Button>
+            <Button
+              variant={viewMode === "graph" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => onViewModeChange("graph")}
+            >
+              <Share2 className="h-3.5 w-3.5" />
+              흐름 그래프
+            </Button>
+          </div>
+          {selectedRunId !== null && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <FileDiff className="h-3.5 w-3.5" />
+                  변경 보기
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-5xl">
+                <DialogHeader>
+                  <DialogTitle>변경 (파일 diff)</DialogTitle>
+                </DialogHeader>
+                <DiffView runId={selectedRunId} />
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+
+        {viewMode === "graph" ? (
+          <FlowGraph
+            selectedRunId={selectedRunId}
+            onSelectRun={onSelectRun}
+            showRunSelect={false}
+          />
+        ) : (
+          <Card>
+            <CardHeader className="border-b pb-3">
+              <CardTitle className="text-base">트레이스 — 왜 그렇게 행동했나</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-4">
+              <ScenarioPanel runId={selectedRunId} />
+              <HumanScore runId={selectedRunId} />
+              <TraceView runId={selectedRunId} />
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
