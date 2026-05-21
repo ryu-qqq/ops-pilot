@@ -20,6 +20,7 @@ import {
   listTrace,
 } from "../../domains/run/repository.js";
 import { aggregateBenchmark } from "../../domains/run/benchmark.js";
+import { versionExecContext } from "../../domains/registry/repository.js";
 import { createScore, listScores, listScoresForRuns } from "../../domains/score/repository.js";
 
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
@@ -297,6 +298,38 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
       const run = getRun(req.params.id);
       if (!run) return reply.status(404).send({ error: "NotFound", detail: "run not found" });
       return run;
+    },
+  );
+
+  // OPSP-37 (1): 실패/완료한 run 을 같은 조건으로 다시 실행.
+  fastify.post(
+    "/runs/:id/rerun",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: { 200: runSchema, 400: errorSchema, 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      const old = getRun(req.params.id);
+      if (!old) return reply.status(404).send({ error: "NotFound", detail: "run not found" });
+      const ctx = versionExecContext(old.assetVersionId);
+      if (!ctx) {
+        return reply.status(400).send({ error: "BadRequest", detail: "asset version not found" });
+      }
+      try {
+        return startRun({
+          assetVersionId: old.assetVersionId,
+          scenarioId: old.scenarioId,
+          cwd: ctx.clonePath,
+          source: old.runner === "fixture" ? fixtureSource(DEMO_FIXTURE) : localClaudeSource(),
+        });
+      } catch (e) {
+        if (e instanceof RunInputError) {
+          return reply.status(400).send({ error: "BadRequest", detail: e.message });
+        }
+        throw e;
+      }
     },
   );
 

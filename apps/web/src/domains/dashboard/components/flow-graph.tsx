@@ -19,6 +19,7 @@ import {
   Cog,
   FileText,
   MessageSquare,
+  RotateCw,
   TrendingUp,
   Wrench,
 } from "lucide-react";
@@ -26,7 +27,8 @@ import { Badge } from "../../../components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { EmptyState, InlineError, Loading } from "../../../lib/ui";
 import { useTheme } from "../../../lib/use-theme";
-import { useRun, useRuns, useRunTrace } from "../../run/use-run";
+import { Button } from "../../../components/ui/button";
+import { useRerunRun, useRun, useRuns, useRunTrace } from "../../run/use-run";
 import type { TraceEventView } from "../../run/api";
 
 // OPSP-35 (b 재작성): 선택된 *1개 run* 의 trace event 흐름을 그래프로 +
@@ -82,6 +84,20 @@ const TYPE_COLUMN: Record<string, number> = {
 };
 const ROW_HEIGHT = 95; // 70 → 95 — 노드 간격 더 여유
 
+// OPSP-37 (1): 노드 라벨 짤림 방지 — type 를 짧게.
+const TYPE_SHORT: Record<string, string> = {
+  assistant_text: "assistant",
+  assistant_message: "assistant",
+  tool_use: "tool",
+  tool_call: "tool",
+  tool_result: "result",
+  result: "result",
+  thinking: "thinking",
+  system: "system",
+  init: "system",
+  user_message: "user",
+};
+
 interface TraceNodeData extends Record<string, unknown> {
   ev: TraceEventView;
 }
@@ -93,14 +109,14 @@ function TraceEventNode({ data }: NodeProps<Node<TraceNodeData>>) {
   const icon = TYPE_ICON[ev.type] ?? <FileText className="h-3 w-3" />;
   return (
     <div
-      className={`min-w-[140px] rounded-md border-2 px-2 py-1.5 text-xs text-foreground shadow-sm ${cls} ${isTaskTool ? "ring-2 ring-purple/60" : ""}`}
+      className={`min-w-[168px] rounded-md border-2 px-2 py-1.5 text-xs text-foreground shadow-sm ${cls} ${isTaskTool ? "ring-2 ring-purple/60" : ""}`}
     >
       <Handle type="target" position={Position.Top} className="!bg-foreground/40" />
       <Handle type="source" position={Position.Bottom} className="!bg-foreground/40" />
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 whitespace-nowrap">
         {icon}
         <span className="font-mono text-[10px] opacity-70">#{ev.seq}</span>
-        <span className="font-mono text-[10px] opacity-80">{ev.type}</span>
+        <span className="font-mono text-[10px] opacity-80">{TYPE_SHORT[ev.type] ?? ev.type}</span>
       </div>
       {ev.name !== null && (
         <div className={`max-w-[180px] truncate text-[11px] font-medium ${isTaskTool ? "text-purple-foreground" : ""}`}>
@@ -191,6 +207,7 @@ export function FlowGraph({ selectedRunId, onSelectRun }: Props) {
   const run = useRun(selectedRunId);
   const isRunning = run.data?.status === "running";
   const trace = useRunTrace(selectedRunId, isRunning);
+  const rerun = useRerunRun();
   // OPSP-36 (2): 그래프 노드 클릭 → 우측 raw event 패널.
   const [selectedSeq, setSelectedSeq] = useState<number | null>(null);
 
@@ -314,9 +331,22 @@ export function FlowGraph({ selectedRunId, onSelectRun }: Props) {
             >
               {r?.status}
             </Badge>
-            <span className="ml-auto text-xs font-normal text-muted-foreground">
-              노드 클릭 → 우측에 상세
-            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="ml-auto"
+              disabled={rerun.isPending}
+              onClick={() =>
+                rerun.mutate(selectedRunId, {
+                  onSuccess: (newRun) => onSelectRun(newRun.id),
+                })
+              }
+              title="같은 자산버전·시나리오·소스로 새 run 시작"
+            >
+              <RotateCw className={`h-3.5 w-3.5 ${rerun.isPending ? "animate-spin" : ""}`} />
+              다시 실행
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">

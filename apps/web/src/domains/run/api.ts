@@ -184,6 +184,11 @@ export async function cancelRun(id: string) {
   return apiPost(`/api/runs/${id}/cancel`, {}, z.object({ cancelled: z.boolean() }));
 }
 
+// OPSP-37: 같은 조건으로 다시 실행 → 새 run.
+export async function rerunRun(id: string) {
+  return apiPost(`/api/runs/${id}/rerun`, {}, runSchema);
+}
+
 // 시나리오 구체화: 목적/입력/기대 동작/성공조건 → description + expectation 매핑.
 export interface LaunchInput {
   assetId: string;
