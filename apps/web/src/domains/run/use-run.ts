@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  analyzeTrace,
   cancelRun,
   createHumanScore,
   deleteScenario,
@@ -150,6 +151,11 @@ export function useCancelRun() {
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
+}
+
+// OPSP-37 (3): run trace AI 분석. 사용자 명시 버튼 클릭 시만 (실 토큰).
+export function useAnalyzeTrace() {
+  return useMutation({ mutationFn: analyzeTrace });
 }
 
 // OPSP-37: 같은 조건 다시 실행. 성공 시 run·대시보드 캐시 무효화.
