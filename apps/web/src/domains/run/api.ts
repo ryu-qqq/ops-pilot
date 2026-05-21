@@ -179,6 +179,11 @@ export async function getRunsCompare(ids: string[]) {
   return (await apiGet(`/api/runs/compare?ids=${ids.join(",")}`, compareResponse)).items;
 }
 
+// OPSP-36: 강제 종료 (running/pending → failed).
+export async function cancelRun(id: string) {
+  return apiPost(`/api/runs/${id}/cancel`, {}, z.object({ cancelled: z.boolean() }));
+}
+
 // 시나리오 구체화: 목적/입력/기대 동작/성공조건 → description + expectation 매핑.
 export interface LaunchInput {
   assetId: string;

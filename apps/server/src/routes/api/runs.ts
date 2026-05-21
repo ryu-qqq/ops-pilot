@@ -10,6 +10,7 @@ import {
 import { RunInputError, startRun } from "../../domains/run/service.js";
 import { DEMO_FIXTURE, fixtureSource, localClaudeSource } from "../../domains/run/source.js";
 import {
+  cancelRun,
   getRun,
   listLastAssistantTexts,
   listRunDiff,
@@ -296,6 +297,26 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
       const run = getRun(req.params.id);
       if (!run) return reply.status(404).send({ error: "NotFound", detail: "run not found" });
       return run;
+    },
+  );
+
+  // OPSP-36 (1): 사용자 명시 강제 종료 — running/pending → failed.
+  fastify.post(
+    "/runs/:id/cancel",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: {
+          200: z.object({ cancelled: z.boolean() }),
+          404: errorSchema,
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!getRun(req.params.id)) {
+        return reply.status(404).send({ error: "NotFound", detail: "run not found" });
+      }
+      return { cancelled: cancelRun(req.params.id) };
     },
   );
 

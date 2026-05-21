@@ -61,6 +61,32 @@ export function finishRun(
     });
 }
 
+// OPSP-36 (1): 서버 부팅 시 좀비 정리 — 컴퓨터 sleep/종료로 자식 프로세스가
+// 끊겼는데 status 가 running 으로 남은 run 을 failed 로 마킹. 임계 시간 초과분만.
+export function cleanupZombieRuns(thresholdMinutes: number): number {
+  const cutoff = new Date(Date.now() - thresholdMinutes * 60_000).toISOString();
+  const result = getDb()
+    .prepare(
+      `UPDATE run
+          SET status='failed', finished_at=@now,
+              error='서버 재시작 시 좀비 정리 — 실행이 비정상 종료된 것으로 추정'
+        WHERE status='running' AND created_at < @cutoff`,
+    )
+    .run({ now: nowIso(), cutoff });
+  return result.changes;
+}
+
+// OPSP-36 (1): 사용자 명시 강제 종료.
+export function cancelRun(id: string): boolean {
+  const result = getDb()
+    .prepare(
+      `UPDATE run SET status='failed', finished_at=@now, error='사용자가 강제 종료'
+        WHERE id=@id AND status IN ('running','pending')`,
+    )
+    .run({ id, now: nowIso() });
+  return result.changes > 0;
+}
+
 export function getRun(id: string): Run | undefined {
   return getDb()
     .prepare(
