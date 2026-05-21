@@ -20,6 +20,7 @@ import {
   FileText,
   MessageSquare,
   RotateCw,
+  Sparkles,
   TrendingUp,
   Wrench,
 } from "lucide-react";
@@ -28,7 +29,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui
 import { EmptyState, InlineError, Loading } from "../../../lib/ui";
 import { useTheme } from "../../../lib/use-theme";
 import { Button } from "../../../components/ui/button";
-import { useRerunRun, useRun, useRuns, useRunTrace } from "../../run/use-run";
+import { useAnalyzeTrace, useRerunRun, useRun, useRuns, useRunTrace } from "../../run/use-run";
 import type { TraceEventView } from "../../run/api";
 
 // OPSP-35 (b 재작성): 선택된 *1개 run* 의 trace event 흐름을 그래프로 +
@@ -210,6 +211,7 @@ export function FlowGraph({ selectedRunId, onSelectRun, showRunSelect = true }: 
   const isRunning = run.data?.status === "running";
   const trace = useRunTrace(selectedRunId, isRunning);
   const rerun = useRerunRun();
+  const analyze = useAnalyzeTrace();
   // OPSP-36 (2): 그래프 노드 클릭 → 우측 raw event 패널.
   const [selectedSeq, setSelectedSeq] = useState<number | null>(null);
 
@@ -392,6 +394,82 @@ export function FlowGraph({ selectedRunId, onSelectRun, showRunSelect = true }: 
       </Card>
 
       <div className="space-y-3">
+        {/* OPSP-37 (3): AI 트레이스 분석 — 긴 trace 에서 주목 지점 짚어줌 */}
+        <Card className="border-purple/40">
+          <CardHeader className="border-b">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Sparkles className="h-4 w-4 text-purple" />
+              AI 트레이스 분석
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="ml-auto"
+                disabled={analyze.isPending || traceData.length === 0}
+                onClick={() => analyze.mutate(selectedRunId)}
+              >
+                {analyze.isPending ? <Loading label="분석 중…" /> : "분석 실행"}
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-2">
+            {analyze.isError && <InlineError error={analyze.error} />}
+            {analyze.data === undefined && !analyze.isPending && !analyze.isError && (
+              <p className="text-xs text-muted-foreground">
+                긴 trace 를 다 안 읽어도 됩니다 — AI 가 요약·주목 지점·분포 해석을 짚어줍니다. 실 토큰 호출.
+              </p>
+            )}
+            {analyze.data !== undefined && (
+              <div className="space-y-3 text-xs">
+                <div>
+                  <div className="text-muted-foreground">요약</div>
+                  <p className="mt-0.5 whitespace-pre-wrap break-words">{analyze.data.summary}</p>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">주목 지점</div>
+                  <div className="mt-1 space-y-1">
+                    {analyze.data.highlights.map((h, i) => (
+                      <div
+                        key={i}
+                        className={`rounded-md border p-1.5 ${
+                          h.severity === "critical"
+                            ? "border-destructive/40 bg-destructive/5"
+                            : h.severity === "warn"
+                              ? "border-warning/40 bg-warning/5"
+                              : "border-border bg-muted/30"
+                        }`}
+                      >
+                        <span className="font-mono opacity-70">
+                          {h.seq === null ? "—" : `#${String(h.seq)}`} · {h.severity}
+                        </span>
+                        <p className="break-words">{h.note}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">분포 해석</div>
+                  <p className="mt-0.5 whitespace-pre-wrap break-words">
+                    {analyze.data.distributionInsight}
+                  </p>
+                </div>
+                {analyze.data.evalPoints.length > 0 && (
+                  <div>
+                    <div className="text-muted-foreground">평가 포인트</div>
+                    <ul className="mt-0.5 list-disc space-y-0.5 pl-4">
+                      {analyze.data.evalPoints.map((p, i) => (
+                        <li key={i} className="break-words">
+                          {p}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* OPSP-36: 노드 클릭 시 그 trace event 의 raw input/output */}
         {selectedEvent !== null && (
           <Card className="border-info/40">

@@ -175,6 +175,25 @@ export async function judgeRuns(runIds: string[]) {
   return apiPost("/api/assist/judge-runs", { runIds }, judgeResultSchema);
 }
 
+// OPSP-37 (3): 한 run trace AI 분석.
+const traceAnalysisSchema = z.object({
+  summary: z.string(),
+  highlights: z.array(
+    z.object({
+      seq: z.number().int().nullable(),
+      severity: z.enum(["info", "warn", "critical"]),
+      note: z.string(),
+    }),
+  ),
+  distributionInsight: z.string(),
+  evalPoints: z.array(z.string()),
+});
+export type TraceAnalysis = z.infer<typeof traceAnalysisSchema>;
+
+export async function analyzeTrace(runId: string) {
+  return apiPost("/api/assist/analyze-trace", { runId }, traceAnalysisSchema);
+}
+
 export async function getRunsCompare(ids: string[]) {
   return (await apiGet(`/api/runs/compare?ids=${ids.join(",")}`, compareResponse)).items;
 }
