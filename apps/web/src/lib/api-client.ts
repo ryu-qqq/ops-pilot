@@ -70,3 +70,13 @@ export async function apiPatch<T>(path: string, body: unknown, schema: ZodType<T
 export async function apiDelete<T>(path: string, schema: ZodType<T>): Promise<T> {
   return parseOrThrow(await fetch(path, { method: "DELETE" }), schema);
 }
+
+// OPSP-42: 전역 설정 등 전체 교체용.
+export async function apiPut<T>(path: string, body: unknown, schema: ZodType<T>): Promise<T> {
+  const res = await fetch(path, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return parseOrThrow(res, schema);
+}

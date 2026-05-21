@@ -126,3 +126,11 @@ CREATE TABLE IF NOT EXISTS trace_analysis (
   UNIQUE (run_id)
 );
 CREATE INDEX IF NOT EXISTS idx_trace_analysis_run ON trace_analysis (run_id);
+
+-- OPSP-42: 전역 설정 (key-value). 지라/노션 인증 등 OpsPilot 인스턴스 전역값.
+-- 프로젝트 무관 — 인증은 인스턴스에 한 번만 넣는다.
+CREATE TABLE IF NOT EXISTS setting (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);

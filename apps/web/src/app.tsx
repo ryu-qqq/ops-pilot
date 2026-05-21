@@ -8,6 +8,7 @@ import { OnboardingGuide } from "./domains/onboarding/components/onboarding-guid
 import { useOnboardingDismissed } from "./domains/onboarding/use-onboarding";
 import { RegistryView } from "./domains/registry/components/registry-view";
 import { RunsView, type RunViewMode } from "./domains/run/components/runs-view";
+import { SettingsDialog } from "./domains/settings/components/settings-dialog";
 
 type Tab = "dashboard" | "registry" | "runs";
 
@@ -63,6 +64,7 @@ export function App() {
               가이드 보기
             </Button>
           )}
+          <SettingsDialog />
           <Button
             variant="ghost"
             size="icon"

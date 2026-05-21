@@ -183,3 +183,30 @@ export const benchmarkAggregateSchema = z.object({
   judge: numericStatsSchema.nullable(),
 });
 export type BenchmarkAggregate = z.infer<typeof benchmarkAggregateSchema>;
+
+// OPSP-42: 전역 설정 — 지라/노션 인증. OpsPilot 인스턴스 전역값.
+// 토큰은 write-only — 조회 응답엔 설정 여부(*Set)만 싣고 평문은 내보내지 않는다.
+export const settingsViewSchema = z.object({
+  jira: z.object({
+    siteUrl: z.string(),
+    email: z.string(),
+    apiTokenSet: z.boolean(),
+  }),
+  notion: z.object({
+    tokenSet: z.boolean(),
+  }),
+});
+export type SettingsView = z.infer<typeof settingsViewSchema>;
+
+// 갱신 입력. 토큰 필드는 optional — 미지정/빈 문자열이면 기존 토큰을 유지한다.
+export const settingsUpdateSchema = z.object({
+  jira: z.object({
+    siteUrl: z.string(),
+    email: z.string(),
+    apiToken: z.string().optional(),
+  }),
+  notion: z.object({
+    token: z.string().optional(),
+  }),
+});
+export type SettingsUpdate = z.infer<typeof settingsUpdateSchema>;
