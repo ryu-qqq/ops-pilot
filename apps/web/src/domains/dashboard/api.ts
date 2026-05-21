@@ -42,6 +42,7 @@ const overviewSchema = z.object({
   }),
   recentRuns: z.array(recentRunSchema),
   runningRuns: z.array(recentRunSchema),
+  runningAnalyses: z.number().int().nonnegative(),
 });
 export type StatsOverview = z.infer<typeof overviewSchema>;
 

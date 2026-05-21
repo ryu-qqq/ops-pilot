@@ -45,15 +45,23 @@ JSON 한 객체만 출력하라. 코드펜스/설명 텍스트 금지.
 - 추측 금지. trace 에 없는 내용 지어내지 마라.
 - 한국어로.`;
 
+// trace 가 크면(수백 event) prompt·응답이 폭주해 AI 의 JSON 이 깨진다.
+// system/init 같은 반복 event 는 헤더만, 나머지는 input/output 을 짧게 컷.
 function summarizeTrace(trace: ReturnType<typeof listTrace>): string {
+  const big = trace.length > 120;
+  const cut = big ? 120 : 240;
   return trace
     .map((e) => {
+      // 반복적이고 정보 적은 system/init 은 헤더만.
+      if (e.type === "system" || e.type === "init") {
+        return `#${String(e.seq)} ${e.type}`;
+      }
       const inp =
-        e.input === null ? "" : ` input=${JSON.stringify(e.input).slice(0, 300)}`;
+        e.input === null ? "" : ` input=${JSON.stringify(e.input).slice(0, cut)}`;
       const out =
         e.output === null
           ? ""
-          : ` output=${(typeof e.output === "string" ? e.output : JSON.stringify(e.output)).slice(0, 300)}`;
+          : ` output=${(typeof e.output === "string" ? e.output : JSON.stringify(e.output)).slice(0, cut)}`;
       return `#${String(e.seq)} ${e.type}${e.name === null ? "" : `(${e.name})`}${inp}${out}`;
     })
     .join("\n");
@@ -82,13 +90,19 @@ export async function analyzeTrace(runId: string): Promise<TraceAnalysis> {
     "--- trace events ---",
     summarizeTrace(trace),
   ];
-  const raw = await runClaudeOnce(parts.join("\n"), { timeoutMs: 90_000 });
-  const obj = extractJsonObject(raw);
-  const parsed = traceAnalysisSchema.safeParse(obj);
-  if (!parsed.success) {
-    throw new ClaudeAssistError(
-      `분석 JSON 스키마 불일치: ${parsed.error.issues.map((i) => i.path.join(".") + " " + i.message).join("; ")}`,
-    );
+  const prompt = parts.join("\n");
+  // 큰 trace 는 AI 가 만든 JSON 이 가끔 깨진다 — 1회 재시도(비결정 모델 방어).
+  let lastErr = "";
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const raw = await runClaudeOnce(prompt, { timeoutMs: 90_000 });
+    try {
+      const obj = extractJsonObject(raw);
+      const parsed = traceAnalysisSchema.safeParse(obj);
+      if (parsed.success) return parsed.data;
+      lastErr = `JSON 스키마 불일치: ${parsed.error.issues.map((i) => i.path.join(".") + " " + i.message).join("; ")}`;
+    } catch (e) {
+      lastErr = e instanceof Error ? e.message : String(e);
+    }
   }
-  return parsed.data;
+  throw new ClaudeAssistError(`분석 결과 파싱 실패(2회 시도): ${lastErr}`);
 }

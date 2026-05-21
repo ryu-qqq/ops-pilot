@@ -48,6 +48,7 @@ export const runKeys = {
   diff: (runId: string) => [...runKeys.all, "diff", runId] as const,
   compare: (ids: string[]) => [...runKeys.all, "compare", [...ids].sort().join(",")] as const,
   benchmark: (ids: string[]) => [...runKeys.all, "benchmark", [...ids].sort().join(",")] as const,
+  analysis: (runId: string) => [...runKeys.all, "analysis", runId] as const,
 };
 
 const diffResponse = z.object({ files: z.array(runDiffFileSchema) });
@@ -175,7 +176,7 @@ export async function judgeRuns(runIds: string[]) {
   return apiPost("/api/assist/judge-runs", { runIds }, judgeResultSchema);
 }
 
-// OPSP-37 (3): 한 run trace AI 분석.
+// OPSP-37 (3): 한 run trace AI 분석. OPSP-39: 비동기 작업화 + DB 캐시.
 const traceAnalysisSchema = z.object({
   summary: z.string(),
   highlights: z.array(
@@ -190,8 +191,25 @@ const traceAnalysisSchema = z.object({
 });
 export type TraceAnalysis = z.infer<typeof traceAnalysisSchema>;
 
-export async function analyzeTrace(runId: string) {
-  return apiPost("/api/assist/analyze-trace", { runId }, traceAnalysisSchema);
+// OPSP-39: 분석 시작 (비동기) — 즉시 반환. 이미 진행 중이면 started=false.
+export async function startAnalysis(runId: string) {
+  return apiPost(
+    `/api/runs/${runId}/analyze`,
+    {},
+    z.object({ started: z.boolean(), reason: z.string().optional() }),
+  );
+}
+
+// OPSP-39: 분석 상태+결과 — running 이면 폴링, done 이면 캐시 결과.
+const analysisResponseSchema = z.object({
+  status: z.enum(["running", "done", "failed", "none"]),
+  result: traceAnalysisSchema.nullable(),
+  error: z.string().nullable(),
+});
+export type RunAnalysis = z.infer<typeof analysisResponseSchema>;
+
+export async function getRunAnalysis(runId: string) {
+  return apiGet(`/api/runs/${runId}/analysis`, analysisResponseSchema);
 }
 
 export async function getRunsCompare(ids: string[]) {

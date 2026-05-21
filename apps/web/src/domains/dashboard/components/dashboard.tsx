@@ -220,9 +220,10 @@ export function Dashboard({ onSelectRun }: Props) {
         <CardHeader className="border-b">
           <CardTitle className="flex items-center gap-2 text-base">
             <Loader2
-              className={`h-4 w-4 ${d.runningRuns.length > 0 ? "animate-spin text-warning" : "text-muted-foreground"}`}
+              className={`h-4 w-4 ${d.runningRuns.length > 0 || d.runningAnalyses > 0 ? "animate-spin text-warning" : "text-muted-foreground"}`}
             />
-            진행 중 ({d.runningRuns.length})
+            진행 중 ({d.runningRuns.length} run
+            {d.runningAnalyses > 0 && ` · AI 분석 ${d.runningAnalyses}`})
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-4">
