@@ -19,7 +19,6 @@ import {
   Cog,
   FileText,
   MessageSquare,
-  RotateCw,
   Sparkles,
   TrendingUp,
   Wrench,
@@ -29,7 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui
 import { EmptyState, InlineError, Loading } from "../../../lib/ui";
 import { useTheme } from "../../../lib/use-theme";
 import { Button } from "../../../components/ui/button";
-import { useAnalyzeTrace, useRerunRun, useRun, useRuns, useRunTrace } from "../../run/use-run";
+import { useAnalyzeTrace, useRun, useRuns, useRunTrace } from "../../run/use-run";
 import type { TraceEventView } from "../../run/api";
 
 // OPSP-35 (b 재작성): 선택된 *1개 run* 의 trace event 흐름을 그래프로 +
@@ -212,7 +211,6 @@ export function FlowGraph({ selectedRunId, onSelectRun, showRunSelect = true }: 
   const run = useRun(selectedRunId);
   const isRunning = run.data?.status === "running";
   const trace = useRunTrace(selectedRunId, isRunning);
-  const rerun = useRerunRun();
   const analyze = useAnalyzeTrace();
   // OPSP-36 (2): 그래프 노드 클릭 → 우측 raw event 패널.
   const [selectedSeq, setSelectedSeq] = useState<number | null>(null);
@@ -349,21 +347,6 @@ export function FlowGraph({ selectedRunId, onSelectRun, showRunSelect = true }: 
               title="노드 세로 간격 압축/넉넉 전환"
             >
               {compact ? "넉넉히 보기" : "압축 보기"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={rerun.isPending}
-              onClick={() =>
-                rerun.mutate(selectedRunId, {
-                  onSuccess: (newRun) => onSelectRun(newRun.id),
-                })
-              }
-              title="같은 자산버전·시나리오·소스로 새 run 시작"
-            >
-              <RotateCw className={`h-3.5 w-3.5 ${rerun.isPending ? "animate-spin" : ""}`} />
-              다시 실행
             </Button>
           </CardTitle>
         </CardHeader>

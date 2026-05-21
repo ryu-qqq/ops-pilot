@@ -1,4 +1,4 @@
-import { FileDiff, GitCompare, ListTree, Repeat, Share2, X } from "lucide-react";
+import { FileDiff, GitCompare, ListTree, Repeat, RotateCw, Share2, X } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import {
@@ -17,6 +17,7 @@ import { TraceView } from "./trace-view";
 import { ScenarioPanel } from "./scenario-panel";
 import { HumanScore } from "./human-score";
 import { InfoMark } from "../../../lib/ui";
+import { useRerunRun } from "../use-run";
 
 export type RunViewMode = "list" | "graph";
 
@@ -43,6 +44,7 @@ export function RunsView({
 }: Props) {
   const compareActive = compareRunIds.length >= 2;
   const benchmarkActive = benchmarkRunIds.length >= 1;
+  const rerun = useRerunRun();
   return (
     <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
       <Card className="p-4 space-y-3">
@@ -117,20 +119,37 @@ export function RunsView({
             </Button>
           </div>
           {selectedRunId !== null && (
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <FileDiff className="h-3.5 w-3.5" />
-                  변경 보기
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-5xl">
-                <DialogHeader>
-                  <DialogTitle>변경 (파일 diff)</DialogTitle>
-                </DialogHeader>
-                <DiffView runId={selectedRunId} />
-              </DialogContent>
-            </Dialog>
+            <>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <FileDiff className="h-3.5 w-3.5" />
+                    변경 보기
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-5xl">
+                  <DialogHeader>
+                    <DialogTitle>변경 (파일 diff)</DialogTitle>
+                  </DialogHeader>
+                  <DiffView runId={selectedRunId} />
+                </DialogContent>
+              </Dialog>
+              {/* OPSP-38 follow-up: 다시 실행 — run 액션이라 그래프 밖, 뷰 무관 위치로 */}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={rerun.isPending}
+                onClick={() =>
+                  rerun.mutate(selectedRunId, {
+                    onSuccess: (newRun) => onSelectRun(newRun.id),
+                  })
+                }
+                title="같은 자산버전·시나리오·소스로 새 run 시작"
+              >
+                <RotateCw className={`h-3.5 w-3.5 ${rerun.isPending ? "animate-spin" : ""}`} />
+                다시 실행
+              </Button>
+            </>
           )}
         </div>
 
