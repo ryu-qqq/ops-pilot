@@ -18,6 +18,7 @@ import {
   listRunScenarioNames,
   listRuns,
   listTrace,
+  setRunRetro,
 } from "../../domains/run/repository.js";
 import { aggregateBenchmark } from "../../domains/run/benchmark.js";
 import { getAnalysis, startAnalysis } from "../../domains/assist/analysis-store.js";
@@ -292,6 +293,23 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
       const run = getRun(req.params.id);
       if (!run) return reply.status(404).send({ error: "NotFound", detail: "run not found" });
       return run;
+    },
+  );
+
+  // OPSP-46: run 회고 메모 — 선택적 "왜" 서술. 빈 문자열이면 메모 삭제.
+  fastify.patch(
+    "/runs/:id/retro",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        body: z.object({ retro: z.string() }),
+        response: { 200: runSchema, 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      const updated = setRunRetro(req.params.id, req.body.retro);
+      if (!updated) return reply.status(404).send({ error: "NotFound", detail: "run not found" });
+      return updated;
     },
   );
 

@@ -97,6 +97,7 @@ export const runSchema = z.object({
   promptTokens: z.number().int().nonnegative().nullable(),
   completionTokens: z.number().int().nonnegative().nullable(),
   costUsd: z.number().nonnegative().nullable(),
+  retro: z.string().nullable(), // OPSP-46: 선택적 회고 메모
   createdAt: ts,
 });
 export type Run = z.infer<typeof runSchema>;

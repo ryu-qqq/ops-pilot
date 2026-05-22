@@ -93,10 +93,17 @@ export function getRun(id: string): Run | undefined {
       `SELECT id, asset_version_id AS assetVersionId, scenario_id AS scenarioId, status, runner,
               model, started_at AS startedAt, finished_at AS finishedAt, error,
               prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
-              cost_usd AS costUsd, created_at AS createdAt
+              cost_usd AS costUsd, retro, created_at AS createdAt
        FROM run WHERE id = ?`,
     )
     .get(id) as Run | undefined;
+}
+
+// OPSP-46: run 회고 메모 갱신 (선택적 "왜"). 빈 문자열이면 NULL 로 비운다.
+export function setRunRetro(id: string, retro: string): Run | undefined {
+  const value = retro.trim() === "" ? null : retro;
+  getDb().prepare("UPDATE run SET retro = ? WHERE id = ?").run(value, id);
+  return getRun(id);
 }
 
 export interface RunListItem {

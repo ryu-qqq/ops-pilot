@@ -22,6 +22,7 @@ import {
   launchRun,
   runKeys,
   scenarioKeys,
+  setRunRetro,
   suggestScenario,
   updateScenario,
   type UpdateScenarioInput,
@@ -44,6 +45,15 @@ export function useRun(runId: string | null) {
     enabled: runId !== null,
     // OPSP-29: 실행 중이면 폴링(실시간), 종료되면 멈춤
     refetchInterval: (q) => (q.state.data?.status === "running" ? 1200 : false),
+  });
+}
+
+// OPSP-46: run 회고 메모 저장 → 해당 run 상세 무효화.
+export function useSetRunRetro(runId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (retro: string) => setRunRetro(runId, retro),
+    onSuccess: () => qc.invalidateQueries({ queryKey: runKeys.detail(runId) }),
   });
 }
 

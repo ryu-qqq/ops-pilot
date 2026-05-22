@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS run (
   prompt_tokens     INTEGER,
   completion_tokens INTEGER,
   cost_usd          REAL,
+  retro             TEXT,                       -- OPSP-46: 선택적 회고 메모 ("왜")
   created_at        TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_run_asset_version ON run (asset_version_id);

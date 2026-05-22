@@ -8,6 +8,16 @@ export function migrate(dbPath?: string): void {
   const sql = readFileSync(join(import.meta.dirname, "schema.sql"), "utf8");
   db.exec(sql);
   reconcileScoreCheck(db);
+  reconcileRunRetro(db);
+}
+
+// OPSP-46: 기존 DB 에 run.retro 컬럼 추가. CREATE TABLE IF NOT EXISTS 는
+// 기존 테이블에 컬럼을 더하지 않으므로 ALTER 가 필요. 멱등(있으면 skip).
+function reconcileRunRetro(db: ReturnType<typeof getDb>): void {
+  const cols = db.prepare("SELECT name FROM pragma_table_info('run')").all() as { name: string }[];
+  if (!cols.some((c) => c.name === "retro")) {
+    db.exec("ALTER TABLE run ADD COLUMN retro TEXT");
+  }
 }
 
 // OPSP-17: score.scorer CHECK 에 'human' 추가. 기존 DB는 CREATE IF NOT EXISTS 로
