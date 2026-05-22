@@ -46,8 +46,20 @@ export interface StatsOverview {
   runningAnalyses: number; // OPSP-39: 진행 중인 AI 트레이스 분석 수
 }
 
-export function computeOverview(): StatsOverview {
+// OPSP-47: run 집계 기간 — '7d'/'30d' 는 run.created_at 으로 필터, 'all' 은 전체.
+export type StatsPeriod = "7d" | "30d" | "all";
+
+export function computeOverview(period: StatsPeriod = "all"): StatsOverview {
   const db = getDb();
+  // OPSP-47: run 집계(카운트·통과율·평균)만 기간으로 필터한다. 자산·시나리오 카운트와
+  // 최근/진행 중 run 은 기간과 무관(레지스트리 크기·"지금")이라 그대로 둔다.
+  const sinceMod = period === "7d" ? "-7 days" : period === "30d" ? "-30 days" : null;
+  const runWhere =
+    sinceMod === null ? "" : "WHERE strftime('%s', created_at) >= strftime('%s', 'now', ?)";
+  const runAnd =
+    sinceMod === null ? "" : "AND strftime('%s', created_at) >= strftime('%s', 'now', ?)";
+  const periodParams: string[] = sinceMod === null ? [] : [sinceMod];
+
   const assetByKind = db
     .prepare("SELECT kind, COUNT(*) AS c FROM asset GROUP BY kind")
     .all() as { kind: string; c: number }[];
@@ -63,8 +75,8 @@ export function computeOverview(): StatsOverview {
   const scenarios = scenariosRow.c;
 
   const runByStatus = db
-    .prepare("SELECT status, COUNT(*) AS c FROM run GROUP BY status")
-    .all() as { status: string; c: number }[];
+    .prepare(`SELECT status, COUNT(*) AS c FROM run ${runWhere} GROUP BY status`)
+    .all(...periodParams) as { status: string; c: number }[];
   const runs: RunCounts = { total: 0, succeeded: 0, failed: 0, running: 0, pending: 0 };
   for (const r of runByStatus) {
     if (r.status === "succeeded") runs.succeeded = r.c;
@@ -83,9 +95,9 @@ export function computeOverview(): StatsOverview {
                        THEN (CAST(strftime('%s', finished_at) AS INTEGER) -
                              CAST(strftime('%s', started_at) AS INTEGER)) * 1000
                        ELSE NULL END) AS d
-         FROM run WHERE status = 'succeeded'`,
+         FROM run WHERE status = 'succeeded' ${runAnd}`,
     )
-    .get() as { p: number | null; c: number | null; u: number | null; d: number | null };
+    .get(...periodParams) as { p: number | null; c: number | null; u: number | null; d: number | null };
 
   const recentQuery = `
     SELECT r.id, r.status, r.created_at AS createdAt, r.started_at AS startedAt, r.finished_at AS finishedAt,

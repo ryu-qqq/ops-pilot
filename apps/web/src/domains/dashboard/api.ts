@@ -46,12 +46,15 @@ const overviewSchema = z.object({
 });
 export type StatsOverview = z.infer<typeof overviewSchema>;
 
+// OPSP-47: run 집계 기간 필터.
+export type DashboardPeriod = "7d" | "30d" | "all";
+
 export const dashboardKeys = {
   all: ["dashboard"] as const,
-  overview: () => [...dashboardKeys.all, "overview"] as const,
+  overview: (period: DashboardPeriod) => [...dashboardKeys.all, "overview", period] as const,
 };
 
-export async function getStatsOverview() {
-  return apiGet("/api/stats/overview", overviewSchema);
+export async function getStatsOverview(period: DashboardPeriod) {
+  return apiGet(`/api/stats/overview?period=${period}`, overviewSchema);
 }
 
