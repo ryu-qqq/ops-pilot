@@ -17,7 +17,6 @@ function sysEvent(name: string, output: unknown): NormalizedEvent {
 interface RunParams {
   assetVersionId: string;
   scenarioId: string;
-  cwd: string;
   source: RunnerSource;
 }
 
@@ -25,12 +24,13 @@ interface RunParams {
 async function runLoop(runId: string, scenarioInput: string, params: RunParams): Promise<void> {
   let seq = 0;
   let usage: RunUsage | null = null;
-  let cwd = params.cwd;
   let cleanup: (() => void) | null = null;
   try {
+    // OPSP-44: 실행 cwd 는 프로젝트 clonePath 에서 자동 유도 — 사용자 입력 제거.
+    const ctx = versionExecContext(params.assetVersionId);
+    if (!ctx) throw new Error("실행 컨텍스트(clonePath/commit) 조회 실패");
+    let cwd = ctx.clonePath;
     if (params.source.kind === "local-claude") {
-      const ctx = versionExecContext(params.assetVersionId);
-      if (!ctx) throw new Error("실행 컨텍스트(clonePath/commit) 조회 실패");
       const wt = createWorktree(ctx.clonePath, ctx.gitCommit, runId);
       cwd = wt;
       // OPSP-30: worktree 폐기 직전 diff 수집 — 격리라 base↔실행 후가 곧 에이전트 작업.

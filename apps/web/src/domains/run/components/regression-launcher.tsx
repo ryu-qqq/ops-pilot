@@ -3,7 +3,6 @@ import { Play, Target } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Checkbox } from "../../../components/ui/checkbox";
-import { Input } from "../../../components/ui/input";
 import { RadioGroup, RadioGroupItem } from "../../../components/ui/radio-group";
 import { EmptyState, InfoMark, InlineError, Loading } from "../../../lib/ui";
 import { useAssetScenarios } from "../../registry/use-registry";
@@ -12,15 +11,13 @@ import { useLaunchBatchScenarios } from "../use-run";
 interface Props {
   assetId: string;
   assetVersionId: string;
-  defaultCwd: string;
   onLaunched: (runIds: string[]) => void;
 }
 
-export function RegressionLauncher({ assetId, assetVersionId, defaultCwd, onLaunched }: Props) {
+export function RegressionLauncher({ assetId, assetVersionId, onLaunched }: Props) {
   const scenarios = useAssetScenarios(assetId);
   const launch = useLaunchBatchScenarios();
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
-  const [cwd, setCwd] = useState(defaultCwd);
   const [source, setSource] = useState<"fixture" | "local-claude">("fixture");
 
   const list = scenarios.data ?? [];
@@ -98,11 +95,10 @@ export function RegressionLauncher({ assetId, assetVersionId, defaultCwd, onLaun
         )}
       </CardContent>
       <CardFooter className="border-t border-success/20 pt-3">
-        <Input value={cwd} onChange={(e) => setCwd(e.target.value)} className="flex-1 font-mono text-xs" />
         <RadioGroup
           value={source}
           onValueChange={(v) => setSource(v as "fixture" | "local-claude")}
-          className="flex items-center gap-3 ml-2 mr-2"
+          className="flex items-center gap-3"
         >
           <label className="flex items-center gap-1 text-xs">
             <RadioGroupItem value="fixture" />
@@ -113,26 +109,28 @@ export function RegressionLauncher({ assetId, assetVersionId, defaultCwd, onLaun
             local-claude
           </label>
         </RadioGroup>
-        <Button
-          type="button"
-          disabled={launch.isPending || !canSubmit}
-          onClick={() =>
-            launch.mutate(
-              { assetVersionId, scenarioIds: [...selected], cwd, source },
-              { onSuccess: (res) => onLaunched(res.runs.map((r) => r.id)) },
-            )
-          }
-        >
-          {launch.isPending ? (
-            <Loading label={`${String(count)}개 회귀 실행 중…`} />
-          ) : (
-            <>
-              <Play className="h-3.5 w-3.5" />
-              {`${String(count)} 시나리오 일괄 실행`}
-            </>
-          )}
-        </Button>
-        {launch.isError && <InlineError error={launch.error} />}
+        <div className="ml-auto flex items-center gap-3">
+          {launch.isError && <InlineError error={launch.error} />}
+          <Button
+            type="button"
+            disabled={launch.isPending || !canSubmit}
+            onClick={() =>
+              launch.mutate(
+                { assetVersionId, scenarioIds: [...selected], source },
+                { onSuccess: (res) => onLaunched(res.runs.map((r) => r.id)) },
+              )
+            }
+          >
+            {launch.isPending ? (
+              <Loading label={`${String(count)}개 회귀 실행 중…`} />
+            ) : (
+              <>
+                <Play className="h-3.5 w-3.5" />
+                {`${String(count)} 시나리오 일괄 실행`}
+              </>
+            )}
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   );

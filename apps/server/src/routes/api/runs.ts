@@ -20,7 +20,6 @@ import {
   listTrace,
 } from "../../domains/run/repository.js";
 import { aggregateBenchmark } from "../../domains/run/benchmark.js";
-import { versionExecContext } from "../../domains/registry/repository.js";
 import { getAnalysis, startAnalysis } from "../../domains/assist/analysis-store.js";
 import { traceAnalysisSchema } from "../../domains/assist/analyze-trace.js";
 import { createScore, listScores, listScoresForRuns } from "../../domains/score/repository.js";
@@ -30,7 +29,6 @@ const errorSchema = z.object({ error: z.string(), detail: z.string() });
 const runBody = z.object({
   assetVersionId: z.string().uuid(),
   scenarioId: z.string().uuid(),
-  cwd: z.string().min(1),
   source: z.enum(["fixture", "local-claude"]).default("local-claude"),
   fixtureEvents: z.array(z.unknown()).optional(), // source=fixture 일 때 재생할 이벤트
 });
@@ -72,7 +70,6 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
         body: z.object({
           assetVersionIds: z.array(z.string().uuid()).min(2).max(5),
           scenarioId: z.string().uuid(),
-          cwd: z.string().min(1),
           source: z.enum(["fixture", "local-claude"]).default("local-claude"),
           fixtureEvents: z.array(z.unknown()).optional(),
         }),
@@ -80,13 +77,12 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
       },
     },
     async (req, reply) => {
-      const { assetVersionIds, scenarioId, cwd, source, fixtureEvents } = req.body;
+      const { assetVersionIds, scenarioId, source, fixtureEvents } = req.body;
       try {
         const runs = assetVersionIds.map((assetVersionId) =>
           startRun({
             assetVersionId,
             scenarioId,
-            cwd,
             source:
               source === "fixture"
                 ? fixtureSource(fixtureEvents ?? DEMO_FIXTURE)
@@ -112,7 +108,6 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
         body: z.object({
           assetVersionId: z.string().uuid(),
           scenarioIds: z.array(z.string().uuid()).min(2).max(10),
-          cwd: z.string().min(1),
           source: z.enum(["fixture", "local-claude"]).default("local-claude"),
           fixtureEvents: z.array(z.unknown()).optional(),
         }),
@@ -120,13 +115,12 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
       },
     },
     async (req, reply) => {
-      const { assetVersionId, scenarioIds, cwd, source, fixtureEvents } = req.body;
+      const { assetVersionId, scenarioIds, source, fixtureEvents } = req.body;
       try {
         const runs = scenarioIds.map((scenarioId) =>
           startRun({
             assetVersionId,
             scenarioId,
-            cwd,
             source:
               source === "fixture"
                 ? fixtureSource(fixtureEvents ?? DEMO_FIXTURE)
@@ -152,7 +146,6 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
         body: z.object({
           assetVersionId: z.string().uuid(),
           scenarioId: z.string().uuid(),
-          cwd: z.string().min(1),
           source: z.enum(["fixture", "local-claude"]).default("local-claude"),
           n: z.number().int().min(1).max(10),
           fixtureEvents: z.array(z.unknown()).optional(),
@@ -161,13 +154,12 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
       },
     },
     async (req, reply) => {
-      const { assetVersionId, scenarioId, cwd, source, n, fixtureEvents } = req.body;
+      const { assetVersionId, scenarioId, source, n, fixtureEvents } = req.body;
       try {
         const runs = Array.from({ length: n }, () =>
           startRun({
             assetVersionId,
             scenarioId,
-            cwd,
             source:
               source === "fixture"
                 ? fixtureSource(fixtureEvents ?? DEMO_FIXTURE)
@@ -265,14 +257,14 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
     "/runs",
     { schema: { body: runBody, response: { 200: runSchema, 400: errorSchema } } },
     async (req, reply) => {
-      const { assetVersionId, scenarioId, cwd, source, fixtureEvents } = req.body;
+      const { assetVersionId, scenarioId, source, fixtureEvents } = req.body;
       const runnerSource =
         source === "fixture"
           ? fixtureSource(fixtureEvents ?? DEMO_FIXTURE)
           : localClaudeSource();
       try {
         // 즉시 반환(status=running). 실제 실행은 백그라운드 → 클라가 폴링.
-        return startRun({ assetVersionId, scenarioId, cwd, source: runnerSource });
+        return startRun({ assetVersionId, scenarioId, source: runnerSource });
       } catch (e) {
         if (e instanceof RunInputError) {
           return reply.status(400).send({ error: "BadRequest", detail: e.message });
@@ -315,15 +307,11 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
     async (req, reply) => {
       const old = getRun(req.params.id);
       if (!old) return reply.status(404).send({ error: "NotFound", detail: "run not found" });
-      const ctx = versionExecContext(old.assetVersionId);
-      if (!ctx) {
-        return reply.status(400).send({ error: "BadRequest", detail: "asset version not found" });
-      }
       try {
+        // OPSP-44: cwd 는 서버가 assetVersionId → clonePath 로 자동 유도 — 별도 조회 불필요.
         return startRun({
           assetVersionId: old.assetVersionId,
           scenarioId: old.scenarioId,
-          cwd: ctx.clonePath,
           source: old.runner === "fixture" ? fixtureSource(DEMO_FIXTURE) : localClaudeSource(),
         });
       } catch (e) {

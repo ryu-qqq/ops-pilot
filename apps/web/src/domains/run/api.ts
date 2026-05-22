@@ -230,7 +230,6 @@ export async function rerunRun(id: string) {
 export interface LaunchInput {
   assetId: string;
   assetVersionId: string;
-  cwd: string;
   source: "fixture" | "local-claude";
   name: string;
   purpose: string; // 왜 — description
@@ -244,7 +243,6 @@ const batchScenariosResponse = z.object({ runs: z.array(runSchema) });
 export interface BatchScenariosInput {
   assetVersionId: string;
   scenarioIds: string[];
-  cwd: string;
   source: "fixture" | "local-claude";
 }
 
@@ -254,7 +252,6 @@ export async function launchBatchScenarios(v: BatchScenariosInput) {
     {
       assetVersionId: v.assetVersionId,
       scenarioIds: v.scenarioIds,
-      cwd: v.cwd,
       source: v.source,
     },
     batchScenariosResponse,
@@ -265,7 +262,6 @@ export async function launchBatchScenarios(v: BatchScenariosInput) {
 export interface BenchmarkInput {
   assetVersionId: string;
   scenarioId: string;
-  cwd: string;
   source: "fixture" | "local-claude";
   n: number; // 2~10
 }
@@ -307,7 +303,6 @@ export async function launchBatchRun(v: BatchLaunchInput) {
     {
       assetVersionIds: v.assetVersionIds,
       scenarioId: scenario.id,
-      cwd: v.cwd,
       source: v.source,
     },
     z.object({ runs: z.array(runSchema) }),
@@ -332,7 +327,7 @@ export async function launchRun(v: LaunchInput) {
   );
   return apiPost(
     "/api/runs",
-    { assetVersionId: v.assetVersionId, scenarioId: scenario.id, cwd: v.cwd, source: v.source },
+    { assetVersionId: v.assetVersionId, scenarioId: scenario.id, source: v.source },
     runSchema,
   );
 }
