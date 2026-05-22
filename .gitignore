@@ -14,3 +14,6 @@ coverage/
 
 # playwright 산출물(스냅샷/콘솔로그)
 .playwright-mcp/
+
+# 세션 간 핸드오프 스크래치 노트 (로컬 전용)
+next.md
