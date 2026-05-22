@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { registryKeys } from "../registry/api";
-import { authorAsset, authoringKeys, draftAsset, getAssetContent, reviewAuthoring } from "./api";
+import {
+  adoptVersion,
+  authorAsset,
+  authoringKeys,
+  draftAsset,
+  getAssetContent,
+  reviewAuthoring,
+} from "./api";
 
 export function useAuthorAsset(projectId: string) {
   const qc = useQueryClient();
@@ -8,6 +15,17 @@ export function useAuthorAsset(projectId: string) {
     mutationFn: authorAsset,
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: registryKeys.assets(projectId) });
+      void qc.invalidateQueries({ queryKey: registryKeys.all });
+    },
+  });
+}
+
+// OPSP-45: 과거 버전 채택 → 새 latest. registry 전체 무효화로 버전 타임라인 갱신.
+export function useAdoptVersion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: adoptVersion,
+    onSuccess: () => {
       void qc.invalidateQueries({ queryKey: registryKeys.all });
     },
   });

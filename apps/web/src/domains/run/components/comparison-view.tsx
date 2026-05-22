@@ -1,8 +1,9 @@
-import { Sparkles, Target, Trophy } from "lucide-react";
+import { Check, Sparkles, Target, Trophy } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "../../../components/ui/alert";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { EmptyState, ErrorNotice, InfoMark, InlineError, Loading } from "../../../lib/ui";
+import { useAdoptVersion } from "../../authoring/use-authoring";
 import type { JudgeVerdict } from "../api";
 import { useJudgeRuns, useRunsCompare } from "../use-run";
 
@@ -27,6 +28,7 @@ const verdictMeta: Record<JudgeVerdict, { label: string; variant: "success" | "w
 export function ComparisonView({ runIds, onSelectRun }: Props) {
   const { data: items, isPending, isError, error } = useRunsCompare(runIds, false);
   const judge = useJudgeRuns();
+  const adopt = useAdoptVersion();
   const verdictByRunId = new Map(judge.data?.perRun.map((p) => [p.runId, p]) ?? []);
 
   if (runIds.length === 0) return null;
@@ -247,12 +249,52 @@ export function ComparisonView({ runIds, onSelectRun }: Props) {
                 </td>
               ))}
             </Row>
+            {/* OPSP-45: 비교 모드에서 우승(또는 임의) 버전 채택 — 회귀 모드는 전부 같은 버전이라 제외 */}
+            {!isRegression && (
+              <Row
+                label="버전 채택"
+                help="이 run 이 쓴 자산 버전을 클론 .claude 에 다시 써서 새 최신 버전으로 만듭니다(git 앞으로 감기)."
+              >
+                {items.map((it) => {
+                  const adopted =
+                    adopt.isSuccess && adopt.variables?.assetVersionId === it.run.assetVersionId;
+                  return (
+                    <td key={it.run.id} className="border-b p-2 align-top">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={adopt.isPending}
+                        onClick={() =>
+                          adopt.mutate({
+                            assetVersionId: it.run.assetVersionId,
+                            note: `비교 run ${it.run.id.slice(0, 8)} 결과 채택`,
+                          })
+                        }
+                      >
+                        {adopted ? "✓ 채택됨" : "이 버전 채택"}
+                      </Button>
+                    </td>
+                  );
+                })}
+              </Row>
+            )}
           </tbody>
         </table>
       </div>
       <p className="text-xs text-muted-foreground">
         컬럼 헤더(run id) 를 클릭하면 그 run 의 트레이스로 이동. 셀에 hover 하면 자세한 이유가 뜹니다.
       </p>
+      {adopt.isError && <InlineError error={adopt.error} />}
+      {adopt.isSuccess && (
+        <Alert variant="success">
+          <Check className="h-4 w-4" />
+          <AlertDescription>
+            버전 채택 완료 — 새 커밋{" "}
+            <code className="font-mono">{adopt.data.committed.slice(0, 8)}</code> 가 자산의 현재
+            최신이 되었습니다. 레지스트리의 버전 타임라인에서 확인하세요.
+          </AlertDescription>
+        </Alert>
+      )}
     </div>
   );
 }

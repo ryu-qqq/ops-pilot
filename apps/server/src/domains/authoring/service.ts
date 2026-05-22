@@ -2,7 +2,9 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { AssetKind, Project } from "@opspilot/shared-types";
-import { saveScan } from "../registry/repository.js";
+import { getDb } from "../../db/index.js";
+import { getProject } from "../project/repository.js";
+import { getAsset, latestContent, saveScan } from "../registry/repository.js";
 import { scanRepo } from "../registry/scanner.js";
 
 export class AuthoringError extends Error {}
@@ -78,4 +80,42 @@ export function writeAsset(
   const scanned = scanRepo(project.clonePath);
   const saved = saveScan(project.id, scanned);
   return { committed, scanned: saved };
+}
+
+/**
+ * OPSP-45: 비교/벤치마크로 고른 과거 버전을 자산의 "현재"로 채택.
+ * git 선형 모델("앞으로 감기") — 그 버전의 본문을 클론 .claude 에 다시 쓰고
+ * 구조화 커밋해 새 latest 버전을 만든다. git revert/checkout 을 사용자가 직접
+ * 만지지 않게 — "저작은 늘 강제 커밋" 철학 유지.
+ */
+export function adoptVersion(
+  assetVersionId: string,
+  note: string,
+): { committed: string; scanned: { assets: number; versions: number } } {
+  const ver = getDb()
+    .prepare(
+      "SELECT content, git_commit AS gitCommit, asset_id AS assetId FROM asset_version WHERE id = ?",
+    )
+    .get(assetVersionId) as { content: string; gitCommit: string; assetId: string } | undefined;
+  if (!ver) throw new AuthoringError("자산 버전을 찾을 수 없습니다");
+
+  const asset = getAsset(ver.assetId);
+  if (!asset) throw new AuthoringError("자산을 찾을 수 없습니다");
+  const project = getProject(asset.projectId);
+  if (!project) throw new AuthoringError("프로젝트를 찾을 수 없습니다");
+
+  // 채택할 내용이 이미 현재 최신과 같으면 거부 — no-op 커밋 방지(친화 메시지).
+  const latest = latestContent(ver.assetId);
+  if (latest !== undefined && latest.trimEnd() === ver.content.trimEnd()) {
+    throw new AuthoringError("이 버전의 내용이 이미 현재 최신과 같습니다 — 채택 불필요");
+  }
+
+  const short = ver.gitCommit.slice(0, 8);
+  return writeAsset(project, {
+    kind: asset.kind,
+    name: asset.name,
+    content: ver.content,
+    changeSummary: `버전 ${short} 채택 (앞으로 감기)`,
+    rationale: note.trim() === "" ? `버전 ${short} 을(를) 현재 버전으로 채택` : note.trim(),
+  });
 }

@@ -3,11 +3,12 @@ import { z } from "zod";
 import { assetVersionSchema, scenarioSchema } from "@opspilot/shared-types";
 import { assetExists, latestContent, listVersions } from "../../domains/registry/repository.js";
 import { listScenariosByAsset } from "../../domains/scenario/repository.js";
+import { AuthoringError, adoptVersion } from "../../domains/authoring/service.js";
 
 const versionSummarySchema = assetVersionSchema.omit({ content: true });
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
 
-// 자산 버전 조회만 유지 (등록·스캔·목록은 프로젝트 스코프로 projects.ts 로 이동).
+// 자산 버전 조회 + OPSP-45 버전 채택 (등록·스캔·목록은 프로젝트 스코프로 projects.ts).
 const registry: FastifyPluginAsyncZod = async (fastify) => {
   fastify.get(
     "/registry/assets/:id/versions",
@@ -39,6 +40,34 @@ const registry: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ error: "NotFound", detail: "asset not found" });
       }
       return { scenarios: listScenariosByAsset(req.params.id) };
+    },
+  );
+
+  // OPSP-45: 비교/벤치마크에서 고른 버전을 자산의 현재 최신으로 채택(앞으로 감기).
+  fastify.post(
+    "/registry/asset-versions/:id/adopt",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        body: z.object({ note: z.string().default("") }),
+        response: {
+          200: z.object({
+            committed: z.string(),
+            scanned: z.object({ assets: z.number().int(), versions: z.number().int() }),
+          }),
+          400: errorSchema,
+        },
+      },
+    },
+    async (req, reply) => {
+      try {
+        return adoptVersion(req.params.id, req.body.note);
+      } catch (e) {
+        if (e instanceof AuthoringError) {
+          return reply.status(400).send({ error: "AuthoringError", detail: e.message });
+        }
+        throw e;
+      }
     },
   );
 
