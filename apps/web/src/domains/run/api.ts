@@ -72,6 +72,11 @@ export async function getRun(runId: string) {
   return apiGet(`/api/runs/${runId}`, runSchema);
 }
 
+// OPSP-46: run 회고 메모 갱신 (빈 문자열이면 메모 삭제).
+export async function setRunRetro(runId: string, retro: string) {
+  return apiPatch(`/api/runs/${runId}/retro`, { retro }, runSchema);
+}
+
 export async function getRunTrace(runId: string) {
   return (await apiGet(`/api/runs/${runId}/trace`, traceResponse)).trace;
 }
