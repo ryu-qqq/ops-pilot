@@ -6,7 +6,9 @@ import {
   CardTitle,
 } from "../../../components/ui/card";
 import { Badge } from "../../../components/ui/badge";
+import { Button } from "../../../components/ui/button";
 import { EmptyState, InlineError, Loading } from "../../../lib/ui";
+import { useAdoptVersion } from "../../authoring/use-authoring";
 import type { BenchmarkAggregate } from "../api";
 import { useBenchmarkAggregate, useRunsCompare } from "../use-run";
 
@@ -74,6 +76,9 @@ export function BenchmarkSummary({ runIds, onSelectRun }: Props) {
   const anyRunning = items.some((it) => it.run.status === "running");
   const agg = useBenchmarkAggregate(runIds, anyRunning);
   const data: BenchmarkAggregate | undefined = agg.data;
+  // OPSP-45: 벤치마크는 한 버전을 N회 — 그 버전을 채택. (모든 run 이 같은 버전)
+  const adopt = useAdoptVersion();
+  const benchVersionId = items[0]?.run.assetVersionId;
 
   if (runIds.length < 1) {
     return (
@@ -210,6 +215,34 @@ export function BenchmarkSummary({ runIds, onSelectRun }: Props) {
             })}
           </div>
         </div>
+
+        {/* OPSP-45: 벤치마크한 버전을 자산의 현재 최신으로 채택 */}
+        {benchVersionId !== undefined && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-purple/20 pt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={adopt.isPending}
+              onClick={() =>
+                adopt.mutate({
+                  assetVersionId: benchVersionId,
+                  note: `벤치마크 N=${String(data.count)} 결과 채택`,
+                })
+              }
+            >
+              {adopt.isSuccess ? "✓ 채택됨" : "이 버전 채택"}
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              벤치마크한 버전을 자산의 현재 최신 버전으로 만듭니다(git 앞으로 감기).
+            </span>
+            {adopt.isError && <InlineError error={adopt.error} />}
+            {adopt.isSuccess && (
+              <span className="text-xs text-success">
+                새 커밋 {adopt.data.committed.slice(0, 8)} 가 현재 최신
+              </span>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

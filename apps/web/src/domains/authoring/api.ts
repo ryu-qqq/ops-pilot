@@ -29,6 +29,15 @@ export async function getAssetContent(assetId: string) {
   return (await apiGet(`/api/registry/assets/${assetId}/content`, contentResponse)).content;
 }
 
+// OPSP-45: 비교/벤치마크에서 고른 버전을 자산의 현재 최신으로 채택(앞으로 감기).
+export async function adoptVersion(input: { assetVersionId: string; note: string }) {
+  return apiPost(
+    `/api/registry/asset-versions/${input.assetVersionId}/adopt`,
+    { note: input.note },
+    authorResponse,
+  );
+}
+
 export const authoringKeys = {
   content: (assetId: string) => ["authoring", "content", assetId] as const,
 };
