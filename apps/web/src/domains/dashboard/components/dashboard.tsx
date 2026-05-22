@@ -6,13 +6,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui
 import { EmptyState, InlineError, Loading } from "../../../lib/ui";
 import { useCancelRun } from "../../run/use-run";
 import { useStatsOverview } from "../use-dashboard";
-import type { DashboardRun } from "../api";
+import type { DashboardPeriod, DashboardRun } from "../api";
 
 // OPSP-35 (a): 관측 대시보드. 카운트 카드 + 진행 중 run + 최근 run 타임라인 점.
+// OPSP-47: run 집계에 기간 토글(7일/30일/전체).
 
 interface Props {
   onSelectRun: (id: string) => void;
 }
+
+const PERIODS: { value: DashboardPeriod; label: string }[] = [
+  { value: "7d", label: "7일" },
+  { value: "30d", label: "30일" },
+  { value: "all", label: "전체" },
+];
 
 function fmtMs(v: number | null) {
   if (v === null) return "—";
@@ -145,7 +152,9 @@ function RecentRunDot({ run, onSelect }: { run: DashboardRun; onSelect: () => vo
 }
 
 export function Dashboard({ onSelectRun }: Props) {
-  const q = useStatsOverview();
+  // OPSP-47: 기본 '전체' — 토글로 최근 7일/30일 추세를 본다.
+  const [period, setPeriod] = useState<DashboardPeriod>("all");
+  const q = useStatsOverview(period);
   if (q.isPending) return <Loading label="대시보드 로딩 중…" />;
   if (q.isError) return <InlineError error={q.error} />;
   const d = q.data;
@@ -159,6 +168,23 @@ export function Dashboard({ onSelectRun }: Props) {
           <CardTitle className="flex items-center gap-2 text-base">
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
             전체 현황
+            {/* OPSP-47: run 집계 기간 토글 — 자산·시나리오 카운트는 영향받지 않음 */}
+            <div className="ml-auto flex items-center gap-0.5 rounded-md border p-0.5">
+              {PERIODS.map((p) => (
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => setPeriod(p.value)}
+                  className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
+                    period === p.value
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-4">

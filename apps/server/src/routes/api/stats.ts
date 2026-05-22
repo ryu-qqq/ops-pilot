@@ -48,8 +48,14 @@ const overviewSchema = z.object({
 const stats: FastifyPluginAsyncZod = async (fastify) => {
   fastify.get(
     "/stats/overview",
-    { schema: { response: { 200: overviewSchema } } },
-    async () => computeOverview(),
+    {
+      schema: {
+        // OPSP-47: 기간 필터 — 미지정 시 전체.
+        querystring: z.object({ period: z.enum(["7d", "30d", "all"]).default("all") }),
+        response: { 200: overviewSchema },
+      },
+    },
+    async (req) => computeOverview(req.query.period),
   );
 };
 
