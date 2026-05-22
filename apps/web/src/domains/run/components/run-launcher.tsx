@@ -19,17 +19,15 @@ type ScenarioSource = "manual" | "jira" | "notion";
 interface Props {
   assetId: string;
   assetVersionId: string;
-  defaultCwd: string;
   onLaunched: (runIds: string[]) => void;
 }
 
-export function RunLauncher({ assetId, assetVersionId, defaultCwd, onLaunched }: Props) {
+export function RunLauncher({ assetId, assetVersionId, onLaunched }: Props) {
   const [name, setName] = useState("");
   const [purpose, setPurpose] = useState("");
   const [input, setInput] = useState("");
   const [expectedBehavior, setExpectedBehavior] = useState("");
   const [successText, setSuccessText] = useState("");
-  const [cwd, setCwd] = useState(defaultCwd);
   const [source, setSource] = useState<"fixture" | "local-claude">("fixture");
   const [hint, setHint] = useState("");
   const [scenarioSource, setScenarioSource] = useState<ScenarioSource>("manual");
@@ -66,7 +64,6 @@ export function RunLauncher({ assetId, assetVersionId, defaultCwd, onLaunched }:
               {
                 assetId,
                 assetVersionIds: compareList,
-                cwd,
                 source,
                 name,
                 purpose,
@@ -78,7 +75,7 @@ export function RunLauncher({ assetId, assetVersionId, defaultCwd, onLaunched }:
             );
           } else {
             launch.mutate(
-              { assetId, assetVersionId, cwd, source, name, purpose, input, expectedBehavior, successCriteria },
+              { assetId, assetVersionId, source, name, purpose, input, expectedBehavior, successCriteria },
               { onSuccess: (run) => onLaunched([run.id]) },
             );
           }
@@ -236,11 +233,6 @@ export function RunLauncher({ assetId, assetVersionId, defaultCwd, onLaunched }:
               className="font-mono"
             />
           </div>
-          <div className="space-y-1">
-            <Label>대상 레포 cwd</Label>
-            <Input value={cwd} onChange={(e) => setCwd(e.target.value)} className="font-mono text-xs" />
-          </div>
-
           {/* OPSP-10: 비교 모드 */}
           <div className="rounded-md border bg-muted/30 p-3 space-y-2">
             <label className="flex items-center gap-2 text-sm font-medium">

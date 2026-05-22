@@ -107,20 +107,17 @@ export function RegistryView({ onRunCreated, onBenchmarkStarted }: Props) {
           <RunLauncher
             assetId={assetId}
             assetVersionId={versionId}
-            defaultCwd={project.clonePath}
             onLaunched={onRunCreated}
           />
           <RegressionLauncher
             assetId={assetId}
             assetVersionId={versionId}
-            defaultCwd={project.clonePath}
             onLaunched={onRunCreated}
           />
           <div className={pulse("benchmark")}>
             <BenchmarkLauncher
               assetId={assetId}
               assetVersionId={versionId}
-              defaultCwd={project.clonePath}
               onLaunched={onBenchmarkStarted}
             />
           </div>

@@ -20,20 +20,13 @@ import { useLaunchBenchmark } from "../use-run";
 interface Props {
   assetId: string;
   assetVersionId: string;
-  defaultCwd: string;
   onLaunched: (runIds: string[]) => void;
 }
 
-export function BenchmarkLauncher({
-  assetId,
-  assetVersionId,
-  defaultCwd,
-  onLaunched,
-}: Props) {
+export function BenchmarkLauncher({ assetId, assetVersionId, onLaunched }: Props) {
   const scenarios = useAssetScenarios(assetId);
   const launch = useLaunchBenchmark();
   const [scenarioId, setScenarioId] = useState<string>("");
-  const [cwd, setCwd] = useState(defaultCwd);
   const [source, setSource] = useState<"fixture" | "local-claude">("fixture");
   const [n, setN] = useState(3);
 
@@ -113,15 +106,10 @@ export function BenchmarkLauncher({
         )}
       </CardContent>
       <CardFooter className="border-t border-purple/20 pt-3">
-        <Input
-          value={cwd}
-          onChange={(e) => setCwd(e.target.value)}
-          className="flex-1 font-mono text-xs"
-        />
         <RadioGroup
           value={source}
           onValueChange={(v) => setSource(v as "fixture" | "local-claude")}
-          className="ml-2 mr-2 flex items-center gap-3"
+          className="flex items-center gap-3"
         >
           <label className="flex items-center gap-1 text-xs">
             <RadioGroupItem value="fixture" />
@@ -132,26 +120,28 @@ export function BenchmarkLauncher({
             local-claude
           </label>
         </RadioGroup>
-        <Button
-          type="button"
-          disabled={launch.isPending || !canSubmit}
-          onClick={() =>
-            launch.mutate(
-              { assetVersionId, scenarioId, cwd, source, n },
-              { onSuccess: (res) => onLaunched(res.runs.map((r) => r.id)) },
-            )
-          }
-        >
-          {launch.isPending ? (
-            <Loading label={`${String(n)}회 벤치마크 시작 중…`} />
-          ) : (
-            <>
-              <Play className="h-3.5 w-3.5" />
-              {`${String(n)}회 벤치마크 실행`}
-            </>
-          )}
-        </Button>
-        {launch.isError && <InlineError error={launch.error} />}
+        <div className="ml-auto flex items-center gap-3">
+          {launch.isError && <InlineError error={launch.error} />}
+          <Button
+            type="button"
+            disabled={launch.isPending || !canSubmit}
+            onClick={() =>
+              launch.mutate(
+                { assetVersionId, scenarioId, source, n },
+                { onSuccess: (res) => onLaunched(res.runs.map((r) => r.id)) },
+              )
+            }
+          >
+            {launch.isPending ? (
+              <Loading label={`${String(n)}회 벤치마크 시작 중…`} />
+            ) : (
+              <>
+                <Play className="h-3.5 w-3.5" />
+                {`${String(n)}회 벤치마크 실행`}
+              </>
+            )}
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   );
