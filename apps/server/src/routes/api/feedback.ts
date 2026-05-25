@@ -13,6 +13,7 @@ import {
   getIngestDetail,
   ingestFeedback,
   listIngestsByProject,
+  reprocessFeedbackIngest,
 } from "../../domains/feedback/service.js";
 import {
   FeedbackProposalError,
@@ -82,6 +83,29 @@ const feedback: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ error: "NotFound", detail: "ingest bundle not found" });
       }
       return detail;
+    },
+  );
+
+  fastify.post(
+    "/feedback/ingest/:id/reprocess",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: { 200: ingestBundleDetailSchema, 400: errorSchema, 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      try {
+        return await reprocessFeedbackIngest(req.params.id);
+      } catch (e) {
+        if (e instanceof FeedbackIngestError) {
+          if (e.code === "NotFound") {
+            return reply.status(404).send({ error: "NotFound", detail: e.message });
+          }
+          return reply.status(400).send({ error: e.code, detail: e.message });
+        }
+        throw e;
+      }
     },
   );
 

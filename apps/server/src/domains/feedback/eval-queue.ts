@@ -1,4 +1,5 @@
 import type { Scenario } from "@opspilot/shared-types";
+import { getDb } from "../../db/index.js";
 import { getProject } from "../project/repository.js";
 import { listAssets, listVersions, saveScan } from "../registry/repository.js";
 import { scanRepo } from "../registry/scanner.js";
@@ -150,8 +151,41 @@ export async function handleFeedbackRunCompleted(runId: string): Promise<void> {
     return;
   }
 
-  for (const p of parsed.proposals) {
-    createImprovementProposal({ ingestId, runId, ...p });
+  try {
+    for (const p of parsed.proposals) {
+      createImprovementProposal({ ingestId, runId, ...p });
+    }
+    updateIngestStatus(ingestId, "done");
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    markEvalFailed(ingestId, `proposal save failed: ${msg}`);
+    throw e;
   }
-  updateIngestStatus(ingestId, "done");
+}
+
+/** eval run은 끝났으나 ingest 후처리(DB 등)만 실패한 경우 재파싱·proposal 저장. */
+export async function reprocessFeedbackEval(ingestId: string): Promise<void> {
+  const ingest = getIngestBundle(ingestId);
+  if (!ingest) throw new Error("ingest not found");
+
+  const evalRunId = ingest.contextJson.evalRunId;
+  if (!evalRunId) throw new Error("evalRunId 없음 — ingest 재생성 필요");
+
+  const run = getRun(evalRunId);
+  if (!run) throw new Error("eval run not found");
+  if (run.status === "running") throw new Error("eval run still running");
+
+  const db = getDb();
+  db.prepare("DELETE FROM improvement_proposal WHERE ingest_id = ? AND status = 'draft'").run(
+    ingestId,
+  );
+
+  const ctx = { ...ingest.contextJson };
+  delete ctx.evalError;
+  db.prepare("UPDATE ingest_bundle SET context_json = ?, status = 'evaluating' WHERE id = ?").run(
+    JSON.stringify(ctx),
+    ingestId,
+  );
+
+  await handleFeedbackRunCompleted(evalRunId);
 }

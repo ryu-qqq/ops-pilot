@@ -34,8 +34,8 @@ import {
 import { EmptyState, InlineError, Loading } from "../../../lib/ui";
 import { useTheme } from "../../../lib/use-theme";
 import { Button } from "../../../components/ui/button";
-import { useRun, useRunAnalysis, useRuns, useRunTrace, useStartAnalysis } from "../../run/use-run";
-import type { TraceEventView } from "../../run/api";
+import { useRun, useRunAnalysis, useRuns, useRunTrace, useStartAnalysis } from "../use-run";
+import type { TraceEventView } from "../api";
 
 // OPSP-35 (b 재작성): 선택된 *1개 run* 의 trace event 흐름을 그래프로 +
 // 그 run 의 상세 메트릭(시간·토큰·비용·type별·tool별·thinking·sub-agent) 카드.
@@ -294,7 +294,7 @@ export function FlowGraph({ selectedRunId, onSelectRun, showRunSelect = true }: 
           <CardContent className="p-4">
             <EmptyState
               title="run 을 선택하세요"
-              hint="위 드롭다운에서 고르거나, 대시보드 탭의 ‘진행 중’·‘최근 run’ 점을 클릭하면 그 run 의 trace 흐름이 그래프로 펼쳐집니다."
+              hint="왼쪽 run 목록에서 고르거나, 피드백 탭에서 evaluating ingest 를 클릭하면 eval trace 흐름이 그래프로 열립니다."
             />
           </CardContent>
         </Card>

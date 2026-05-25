@@ -155,7 +155,7 @@ CREATE TABLE IF NOT EXISTS improvement_proposal (
   id             TEXT PRIMARY KEY,
   ingest_id      TEXT NOT NULL REFERENCES ingest_bundle (id) ON DELETE CASCADE,
   run_id         TEXT REFERENCES run (id) ON DELETE SET NULL,
-  target_kind    TEXT NOT NULL CHECK (target_kind IN ('cursor_rule', 'agent', 'skill', 'command')),
+  target_kind    TEXT NOT NULL CHECK (target_kind IN ('cursor_rule', 'agent', 'skill', 'command', 'workflow_patch')),
   target_path    TEXT NOT NULL,
   rationale      TEXT NOT NULL,
   content        TEXT NOT NULL,

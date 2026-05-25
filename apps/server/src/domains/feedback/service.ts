@@ -1,7 +1,7 @@
 import type { FeedbackIngestRequest, IngestBundleDetail } from "@opspilot/shared-types";
 import { getProject } from "../project/repository.js";
 import { collectCommitDiff, DEFAULT_MAX_DIFF_BYTES } from "./diff.js";
-import { queueFeedbackEval } from "./eval-queue.js";
+import { queueFeedbackEval, reprocessFeedbackEval } from "./eval-queue.js";
 import { createIngestBundle, getIngestBundle, listIngestBundlesByProject, listProposalsByIngestId } from "./repository.js";
 import { readTranscriptExcerpt } from "./transcript.js";
 
@@ -77,4 +77,21 @@ export function listIngestsByProject(projectId: string) {
     throw new FeedbackIngestError("NotFound", "project not found");
   }
   return listIngestBundlesByProject(projectId);
+}
+
+export async function reprocessFeedbackIngest(id: string): Promise<IngestBundleDetail> {
+  const bundle = getIngestBundle(id);
+  if (!bundle) {
+    throw new FeedbackIngestError("NotFound", "ingest bundle not found");
+  }
+  try {
+    await reprocessFeedbackEval(id);
+  } catch (e) {
+    throw new FeedbackIngestError("EvalSetupError", (e as Error).message);
+  }
+  const detail = getIngestDetail(id);
+  if (!detail) {
+    throw new FeedbackIngestError("EvalSetupError", "ingest row lost after reprocess");
+  }
+  return detail;
 }

@@ -37,3 +37,7 @@ export async function applyProposal(proposalId: string) {
     feedbackProposalApplyResponseSchema,
   );
 }
+
+export async function reprocessIngest(ingestId: string) {
+  return apiPost(`/api/feedback/ingest/${ingestId}/reprocess`, {}, ingestBundleDetailSchema);
+}

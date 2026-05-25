@@ -337,6 +337,7 @@ export const ingestBundleListItemSchema = z.object({
   status: ingestBundleStatusSchema,
   createdAt: ts,
   draftProposalCount: z.number().int().nonnegative(),
+  evalRunId: id.nullable().optional(),
 });
 export type IngestBundleListItem = z.infer<typeof ingestBundleListItemSchema>;
 
