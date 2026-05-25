@@ -311,3 +311,14 @@ export const ingestBundleDetailSchema = ingestBundleSchema.extend({
   proposals: z.array(improvementProposalSchema),
 });
 export type IngestBundleDetail = z.infer<typeof ingestBundleDetailSchema>;
+
+export const feedbackApplyRequestSchema = z.object({
+  confirm: z.literal(true),
+});
+export type FeedbackApplyRequest = z.infer<typeof feedbackApplyRequestSchema>;
+
+export const feedbackProposalApplyResponseSchema = z.object({
+  proposal: improvementProposalSchema,
+  appliedCommit: z.string(),
+});
+export type FeedbackProposalApplyResponse = z.infer<typeof feedbackProposalApplyResponseSchema>;
