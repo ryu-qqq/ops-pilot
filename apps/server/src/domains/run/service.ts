@@ -1,4 +1,5 @@
 import type { Run } from "@opspilot/shared-types";
+import { mcpLog } from "../../mcp/log.js";
 import { assetVersionExists, versionExecContext } from "../registry/repository.js";
 import { getScenario } from "../scenario/repository.js";
 import { evaluateAssertionsForRun } from "../score/auto-evaluate.js";
@@ -62,6 +63,17 @@ async function runLoop(runId: string, scenarioInput: string, params: RunParams):
     // OPSP-20: run 종료 후 시나리오 assertions 자동 측정 → score(scorer='assertion') 저장.
     // 실패해도 noop, 실행 결과에 영향 X.
     evaluateAssertionsForRun(runId);
+    // OPSP-18: 종료 결과 컬러 한 줄(데이몬 pane).
+    const final = getRun(runId);
+    if (final) {
+      const tokens = (final.promptTokens ?? 0) + (final.completionTokens ?? 0);
+      mcpLog.runDone(
+        runId,
+        final.status === "succeeded" ? "succeeded" : "failed",
+        tokens > 0 ? tokens : null,
+        final.costUsd,
+      );
+    }
   }
 }
 
@@ -81,6 +93,9 @@ export function startRun(params: RunParams): Run {
     scenarioId: params.scenarioId,
     runner: params.source.kind,
   });
+
+  // OPSP-18: 데이몬 pane 에 시작 한 줄(컬러). asset name 까지 끌어오면 join 추가 비용 → scenario.name + source 만.
+  mcpLog.runStart(runId, `${scenario.name} via ${params.source.kind}`);
 
   // fire-and-forget — 응답을 막지 않는다.
   void runLoop(runId, scenario.input, params);
