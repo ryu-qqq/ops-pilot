@@ -8,8 +8,12 @@ import {
 } from "fastify-type-provider-zod";
 
 // Composition: 플러그인/라우트는 @fastify/autoload 로 자동 등록 (CONVENTIONS.md 3).
+// OPSP-18: 기본 logger level 을 warn 으로 — 매 요청 info 한 줄(JSON) 도배 방지.
+// 터미널-친화 채널은 mcp/log.ts(컬러 한 줄, mcpLog) 가 별도로 담당. 디버그 시 OPS_LOG_LEVEL=info.
 export async function buildApp() {
-  const app = Fastify({ logger: true }).withTypeProvider<ZodTypeProvider>();
+  const app = Fastify({
+    logger: { level: process.env.OPS_LOG_LEVEL ?? "warn" },
+  }).withTypeProvider<ZodTypeProvider>();
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
