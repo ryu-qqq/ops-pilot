@@ -85,7 +85,7 @@ git URL로 프로젝트를 클론 → 스캔하면 `.claude/` 의 에이전트·
 
 ### Claude Code 에서 호출 — MCP 어댑터
 
-OpsPilot 데이몬을 한 터미널에 띄워두고, 다른 터미널의 Claude Code 세션에서 자연어로 트리거할 수 있다. 데이몬의 `:3001/mcp` 엔드포인트가 MCP HTTP 어댑터로 동작해 다음 7개 툴을 노출한다 — `scan_project` · `list_projects` · `list_assets` · `list_scenarios` · `start_run` · `get_run` · `compare_runs`. 자세한 등록 절차는 아래 [Claude Code 에 등록](#claude-code-에-등록-mcp) 참고.
+OpsPilot 데이몬을 한 터미널에 띄워두고, 다른 터미널의 Claude Code 세션에서 자연어로 트리거할 수 있다. 데이몬의 `:3001/mcp` 엔드포인트가 MCP HTTP 어댑터로 동작해 다음 10개 툴을 노출한다 — `scan_project` · `list_projects` · `list_assets` · `list_scenarios` · `start_run` · `get_run` · `compare_runs` · `ingest_cursor_session` · `list_proposals` · `apply_proposal`. 자세한 등록 절차는 아래 [Claude Code 에 등록](#claude-code-에-등록-mcp) 참고.
 
 ### 그 외
 
@@ -149,6 +149,9 @@ claude mcp add --transport http opspilot http://localhost:3001/mcp
 | `start_run` | asset_version × scenario 비동기 실행 (runId 즉시 반환) |
 | `get_run` | run 상세 + 옵션으로 trace 동봉 |
 | `compare_runs` | 여러 run 매트릭스 비교 (상태/토큰/비용/diff수/점수) |
+| `ingest_cursor_session` | Cursor 작업 ingest + eval run 큐 (= REST ingest) |
+| `list_proposals` | ingest별 improvement_proposal 목록 (기본 draft) |
+| `apply_proposal` | HITL confirm 후 proposal clone 반영 |
 
 데이몬은 한 터미널에 떠 있고(상태 + 영속 sqlite), 다른 터미널의 Claude Code 세션이 MCP로 호출하는 *멀티 터미널 워크플로* 를 가정한다. 시각 분석(흐름 그래프 · diff 2-pane · 비교 매트릭스)은 여전히 대시보드(`:5173`) 몫.
 

@@ -1,7 +1,8 @@
 // OPSP-18: MCP 어댑터 — OpsPilot 데이몬을 Claude Code 세션의 MCP 툴로 노출.
 // REST 라우트(routes/api/*)와 같은 domains 함수를 재사용 (비즈니스 로직 중복 X).
 // 노출 툴: scan_project / list_projects / list_assets / list_scenarios /
-//          start_run / get_run / compare_runs.
+//          start_run / get_run / compare_runs /
+//          ingest_cursor_session / list_proposals / apply_proposal.
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
@@ -33,10 +34,21 @@ import {
 } from "../domains/run/repository.js";
 import { listScoresForRuns } from "../domains/score/repository.js";
 import { listScenariosByAsset } from "../domains/scenario/repository.js";
+import {
+  FeedbackIngestError,
+  getIngestDetail,
+  ingestFeedback,
+} from "../domains/feedback/service.js";
+import {
+  FeedbackProposalError,
+  applyProposalHitl,
+  listProposalsForIngest,
+} from "../domains/feedback/proposal-service.js";
 
 const MCP_SERVER_VERSION = "0.1.0";
 
 interface ToolContent {
+  [key: string]: unknown;
   content: { type: "text"; text: string }[];
   isError?: boolean;
 }
@@ -202,6 +214,93 @@ export function createMcpServer(): McpServer {
           humanScore: pickLatest(run.id, "human"),
         })),
       });
+    },
+  );
+
+  // 8) ingest_cursor_session — Cursor 작업 ingest + eval run 큐 (= POST /api/feedback/ingest).
+  server.tool(
+    "ingest_cursor_session",
+    "Cursor 작업 단위를 ingest(git diff + 메타)하고 work-evaluator eval run을 큐합니다. ingestId·status·proposals 를 반환 — eval 완료까지 get_run 또는 list_proposals 로 폴링.",
+    {
+      projectId: z.string().uuid().describe("프로젝트 UUID — list_projects 의 id"),
+      gitRef: z.string().min(1).describe("프로젝트 clone 기준 commit SHA"),
+      notionTaskUrl: z.string().optional(),
+      retro: z.string().optional().describe("사용자 회고 1~3문장"),
+      transcriptPath: z.string().optional().describe("로컬 transcript 절대경로 — 발췌만 읽음"),
+      maxDiffBytes: z.number().int().positive().max(1024 * 1024).optional(),
+      evalSource: z
+        .enum(["fixture", "local-claude"])
+        .default("local-claude")
+        .describe("fixture=결정론(검증), local-claude=실 Claude eval"),
+    },
+    (input) => {
+      mcpLog.mcp("ingest_cursor_session");
+      try {
+        const detail = ingestFeedback(input);
+        return jsonResult({
+          ingestId: detail.id,
+          status: detail.status,
+          evalRunId: detail.contextJson.evalRunId ?? null,
+          proposalCount: detail.proposals.length,
+          hint: "eval 완료 후 list_proposals({ ingestId }) 로 draft 개선안 조회.",
+        });
+      } catch (e) {
+        if (e instanceof FeedbackIngestError) return errorResult(`${e.code}: ${e.message}`);
+        return errorResult(`ingest failed: ${(e as Error).message}`);
+      }
+    },
+  );
+
+  // 9) list_proposals — ingest별 improvement_proposal 목록 (기본 draft).
+  server.tool(
+    "list_proposals",
+    "ingestId별 improvement_proposal 목록. status 기본 draft — eval 완료 후 apply 전 HITL 검토용.",
+    {
+      ingestId: z.string().uuid(),
+      status: z
+        .enum(["draft", "approved", "rejected", "applied", "all"])
+        .default("draft")
+        .describe("필터 — all 이면 전 상태"),
+    },
+    ({ ingestId, status }) => {
+      mcpLog.mcp("list_proposals");
+      try {
+        const bundle = getIngestDetail(ingestId);
+        if (!bundle) return errorResult(`ingest not found: ${ingestId}`);
+        const listed = listProposalsForIngest(ingestId, status);
+        return jsonResult({
+          ingest: {
+            id: bundle.id,
+            status: bundle.status,
+            evalRunId: bundle.contextJson.evalRunId ?? null,
+            evalError: bundle.contextJson.evalError ?? null,
+          },
+          proposals: listed.proposals,
+        });
+      } catch (e) {
+        if (e instanceof FeedbackProposalError) return errorResult(`${e.code}: ${e.message}`);
+        return errorResult(`list failed: ${(e as Error).message}`);
+      }
+    },
+  );
+
+  // 10) apply_proposal — HITL apply (confirm 필수). draft 면 승인+apply, approved 면 apply만.
+  server.tool(
+    "apply_proposal",
+    "승인된(HITL confirm=true) improvement_proposal 을 프로젝트 clone에 반영합니다. draft 상태면 confirm 으로 승인+apply. REST 와 달리 MCP 는 한 번에 처리.",
+    {
+      proposalId: z.string().uuid(),
+      confirm: z.literal(true).describe("반드시 true — 사람 확인 게이트"),
+    },
+    ({ proposalId, confirm: _confirm }) => {
+      mcpLog.mcp("apply_proposal");
+      try {
+        const result = applyProposalHitl(proposalId);
+        return jsonResult(result);
+      } catch (e) {
+        if (e instanceof FeedbackProposalError) return errorResult(`${e.code}: ${e.message}`);
+        return errorResult(`apply failed: ${(e as Error).message}`);
+      }
     },
   );
 
