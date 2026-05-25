@@ -1,0 +1,11 @@
+# agent-crew 핀 — ops-pilot .claude/ 동기화 기준
+# ops-pilot 제품 sync 구현 전까지: agent-crew 태그에서 수동 rsync
+version: v0.4.0
+commit: 3139410
+source: git@github.com:ryu-qqq/agent-crew.git
+tag: v0.4.0
+syncedAt: "2026-05-25T12:00:00Z"
+includes:
+  - agents/
+  - skills/
+  - references/

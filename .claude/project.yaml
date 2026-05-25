@@ -1,0 +1,49 @@
+# ops-pilot — agent-crew v0.4.0 소비 설정
+# Engineering OS: https://www.notion.so/36be81355305810ab090d786d4384140
+
+project:
+  name: ops-pilot
+  description: Harness Control Plane — Cursor-first pivot 연결고리
+  stack: ""
+
+tracking:
+  jira:
+    enabled: false
+    projectKey: OPSP
+  notion:
+    enabled: true
+    convention: engineering-os
+    hubPageUrl: "https://www.notion.so/36be81355305810ab090d786d4384140"
+    tasksDatabaseId: "collection://70de28a5-99ab-4a0e-8813-724cf43ec41a"
+    projectsDatabaseId: "collection://5d933b0f-9e1b-43e1-a919-835b404c95af"
+    epicsDatabaseId: "collection://b07ffe5c-a000-463b-8508-457eed3db8ed"
+    fieldNames:
+      status: "상태"
+      title: "작업"
+      taskId: "Task ID"
+      wikiAdr: "Wiki ADR"
+      commit: "Commit"
+      priority: "우선순위"
+      project: "프로젝트"
+      epic: "Epic"
+      dueDate: "마감일"
+
+knowledge:
+  mode: vault
+  vault:
+    path: /Users/ryu-qqq/Documents/ryu-qqq-wiki
+    projectPath: wiki/projects/ops-pilot
+    conventionsPath: wiki/conventions
+    rawPrefix: ops-pilot
+    git: true
+
+docs:
+  notion:
+    enabled: false
+    parentId: ""
+  adrPath: docs/adr
+
+agentCrew:
+  version: v0.4.0
+  source: git@github.com:ryu-qqq/agent-crew.git
+  syncedAt: "2026-05-25"
