@@ -10,13 +10,21 @@ export function createRun(input: {
   assetVersionId: string;
   scenarioId: string;
   runner: string;
+  retro?: string | null;
 }): string {
   const db = getDb();
   const id = randomUUID();
   db.prepare(
-    `INSERT INTO run (id, asset_version_id, scenario_id, status, runner, started_at, created_at)
-     VALUES (@id, @assetVersionId, @scenarioId, 'running', @runner, @now, @now)`,
-  ).run({ id, assetVersionId: input.assetVersionId, scenarioId: input.scenarioId, runner: input.runner, now: nowIso() });
+    `INSERT INTO run (id, asset_version_id, scenario_id, status, runner, retro, started_at, created_at)
+     VALUES (@id, @assetVersionId, @scenarioId, 'running', @runner, @retro, @now, @now)`,
+  ).run({
+    id,
+    assetVersionId: input.assetVersionId,
+    scenarioId: input.scenarioId,
+    runner: input.runner,
+    retro: input.retro ?? null,
+    now: nowIso(),
+  });
   return id;
 }
 
@@ -237,6 +245,29 @@ export function listLastAssistantTexts(runIds: string[]): Record<string, string 
     }
   }
   return map;
+}
+
+/** run 의 마지막 assistant 메시지 전문(파서용 — compare 미리보기용 truncate 없음). */
+export function getLastAssistantText(runId: string): string | null {
+  const row = getDb()
+    .prepare(
+      `SELECT output FROM trace_event
+       WHERE run_id = ? AND type = 'assistant_message'
+       ORDER BY seq DESC LIMIT 1`,
+    )
+    .get(runId) as { output: string | null } | undefined;
+  if (row === undefined || row.output === null) return null;
+  try {
+    const parsed = JSON.parse(row.output) as unknown;
+    if (typeof parsed === "string") return parsed;
+    if (parsed !== null && typeof parsed === "object" && "text" in parsed) {
+      const t = (parsed as { text: unknown }).text;
+      return typeof t === "string" ? t : JSON.stringify(parsed);
+    }
+    return JSON.stringify(parsed);
+  } catch {
+    return row.output;
+  }
 }
 
 export function listRunDiff(runId: string): RunDiffFile[] {

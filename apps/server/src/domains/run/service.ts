@@ -5,6 +5,7 @@ import { getScenario } from "../scenario/repository.js";
 import { evaluateAssertionsForRun } from "../score/auto-evaluate.js";
 import { collectDiffFiles } from "./diff.js";
 import { extractUsage, normalizeEvent, type NormalizedEvent, type RunUsage } from "./normalizer.js";
+import { notifyRunCompleted } from "./completion.js";
 import { appendTrace, createRun, finishRun, getRun, saveRunDiff } from "./repository.js";
 import type { RunnerSource } from "./source.js";
 import { createWorktree, removeWorktree } from "./worktree.js";
@@ -19,6 +20,8 @@ interface RunParams {
   assetVersionId: string;
   scenarioId: string;
   source: RunnerSource;
+  /** OPSP-46 retro — feedback ingest 연결 등 내부 메타용 JSON 문자열 */
+  retro?: string | null;
 }
 
 // 백그라운드 실행 루프 (run 행은 이미 생성됨). local-claude 는 worktree 격리.
@@ -63,6 +66,7 @@ async function runLoop(runId: string, scenarioInput: string, params: RunParams):
     // OPSP-20: run 종료 후 시나리오 assertions 자동 측정 → score(scorer='assertion') 저장.
     // 실패해도 noop, 실행 결과에 영향 X.
     evaluateAssertionsForRun(runId);
+    notifyRunCompleted(runId);
     // OPSP-18: 종료 결과 컬러 한 줄(데이몬 pane).
     const final = getRun(runId);
     if (final) {
@@ -92,6 +96,7 @@ export function startRun(params: RunParams): Run {
     assetVersionId: params.assetVersionId,
     scenarioId: params.scenarioId,
     runner: params.source.kind,
+    retro: params.retro ?? null,
   });
 
   // OPSP-18: 데이몬 pane 에 시작 한 줄(컬러). asset name 까지 끌어오면 join 추가 비용 → scenario.name + source 만.

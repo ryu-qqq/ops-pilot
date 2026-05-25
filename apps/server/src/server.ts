@@ -1,4 +1,5 @@
 import { buildApp } from "./app.js";
+import "./domains/feedback/register.js";
 import { cleanupZombieRuns } from "./domains/run/repository.js";
 import { mcpLog } from "./mcp/log.js";
 

@@ -243,3 +243,71 @@ export const notionPageDetailSchema = z.object({
   body: z.string(), // → 시나리오 input (블록 텍스트를 평탄화)
 });
 export type NotionPageDetail = z.infer<typeof notionPageDetailSchema>;
+
+// TASK-5 MVP: Cursor 작업 ingest + evaluator 개선안.
+export const ingestBundleStatusSchema = z.enum(["pending", "evaluating", "done", "failed"]);
+export type IngestBundleStatus = z.infer<typeof ingestBundleStatusSchema>;
+
+export const improvementProposalStatusSchema = z.enum([
+  "draft",
+  "approved",
+  "rejected",
+  "applied",
+]);
+export type ImprovementProposalStatus = z.infer<typeof improvementProposalStatusSchema>;
+
+export const improvementTargetKindSchema = z.enum(["cursor_rule", "agent", "skill", "command"]);
+export type ImprovementTargetKind = z.infer<typeof improvementTargetKindSchema>;
+
+export const ingestBundleContextSchema = z.object({
+  retro: z.string().optional(),
+  transcriptExcerpt: z.string().optional(),
+  taskTitle: z.string().optional(),
+  diffTruncated: z.boolean().optional(),
+  evalRunId: z.string().uuid().optional(),
+  evalError: z.string().optional(),
+});
+export type IngestBundleContext = z.infer<typeof ingestBundleContextSchema>;
+
+export const ingestBundleSchema = z.object({
+  id,
+  projectId: id,
+  notionTaskUrl: z.string().nullable(),
+  gitRef: z.string().min(1),
+  diffSummary: z.string(),
+  contextJson: ingestBundleContextSchema,
+  status: ingestBundleStatusSchema,
+  createdAt: ts,
+});
+export type IngestBundle = z.infer<typeof ingestBundleSchema>;
+
+export const improvementProposalSchema = z.object({
+  id,
+  ingestId: id,
+  runId: id.nullable(),
+  targetKind: improvementTargetKindSchema,
+  targetPath: z.string().min(1),
+  rationale: z.string(),
+  content: z.string(),
+  status: improvementProposalStatusSchema,
+  appliedCommit: z.string().nullable(),
+  createdAt: ts,
+});
+export type ImprovementProposal = z.infer<typeof improvementProposalSchema>;
+
+export const feedbackIngestRequestSchema = z.object({
+  projectId: id,
+  gitRef: z.string().min(1),
+  notionTaskUrl: z.string().optional(),
+  retro: z.string().optional(),
+  transcriptPath: z.string().optional(),
+  maxDiffBytes: z.number().int().positive().max(1024 * 1024).optional(),
+  /** 기본 local-claude. 검증·CI는 fixture. */
+  evalSource: z.enum(["fixture", "local-claude"]).default("local-claude"),
+});
+export type FeedbackIngestRequest = z.infer<typeof feedbackIngestRequestSchema>;
+
+export const ingestBundleDetailSchema = ingestBundleSchema.extend({
+  proposals: z.array(improvementProposalSchema),
+});
+export type IngestBundleDetail = z.infer<typeof ingestBundleDetailSchema>;
