@@ -2,7 +2,7 @@ import type { FeedbackIngestRequest, IngestBundleDetail } from "@opspilot/shared
 import { getProject } from "../project/repository.js";
 import { collectCommitDiff, DEFAULT_MAX_DIFF_BYTES } from "./diff.js";
 import { queueFeedbackEval } from "./eval-queue.js";
-import { createIngestBundle, getIngestBundle, listProposalsByIngestId } from "./repository.js";
+import { createIngestBundle, getIngestBundle, listIngestBundlesByProject, listProposalsByIngestId } from "./repository.js";
 import { readTranscriptExcerpt } from "./transcript.js";
 
 export class FeedbackIngestError extends Error {
@@ -69,4 +69,12 @@ export function getIngestDetail(id: string): IngestBundleDetail | undefined {
   const bundle = getIngestBundle(id);
   if (!bundle) return undefined;
   return { ...bundle, proposals: listProposalsByIngestId(id) };
+}
+
+export function listIngestsByProject(projectId: string) {
+  const project = getProject(projectId);
+  if (!project) {
+    throw new FeedbackIngestError("NotFound", "project not found");
+  }
+  return listIngestBundlesByProject(projectId);
 }

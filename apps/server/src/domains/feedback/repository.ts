@@ -163,6 +163,43 @@ export function listProposalsByIngestId(ingestId: string): ImprovementProposal[]
   return rows.map(rowToProposal);
 }
 
+export interface IngestBundleListRow {
+  id: string;
+  projectId: string;
+  notionTaskUrl: string | null;
+  gitRef: string;
+  status: IngestBundleStatus;
+  createdAt: string;
+  draftProposalCount: number;
+}
+
+export function listIngestBundlesByProject(projectId: string): IngestBundleListRow[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT ib.id,
+              ib.project_id AS projectId,
+              ib.notion_task_url AS notionTaskUrl,
+              ib.git_ref AS gitRef,
+              ib.status,
+              ib.created_at AS createdAt,
+              (SELECT COUNT(*) FROM improvement_proposal p
+                 WHERE p.ingest_id = ib.id AND p.status = 'draft') AS draftProposalCount
+         FROM ingest_bundle ib
+        WHERE ib.project_id = ?
+        ORDER BY ib.created_at DESC`,
+    )
+    .all(projectId) as Record<string, unknown>[];
+  return rows.map((row) => ({
+    id: row.id as string,
+    projectId: row.projectId as string,
+    notionTaskUrl: (row.notionTaskUrl as string | null) ?? null,
+    gitRef: row.gitRef as string,
+    status: row.status as IngestBundleStatus,
+    createdAt: row.createdAt as string,
+    draftProposalCount: Number(row.draftProposalCount ?? 0),
+  }));
+}
+
 export function getImprovementProposal(id: string): ImprovementProposal | undefined {
   const row = getDb().prepare(`${PROPOSAL_SELECT} WHERE id = ?`).get(id) as
     | Record<string, unknown>
