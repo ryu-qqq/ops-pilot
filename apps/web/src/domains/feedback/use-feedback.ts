@@ -6,6 +6,7 @@ import {
   getIngestDetail,
   getIngests,
   rejectProposal,
+  reprocessIngest,
 } from "./api";
 
 const pollIngestMs = 2000;
@@ -59,6 +60,14 @@ export function useApplyProposal(ingestId: string, projectId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: applyProposal,
+    onSuccess: () => invalidateFeedback(qc, ingestId, projectId),
+  });
+}
+
+export function useReprocessIngest(ingestId: string, projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => reprocessIngest(ingestId),
     onSuccess: () => invalidateFeedback(qc, ingestId, projectId),
   });
 }

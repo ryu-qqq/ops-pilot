@@ -159,7 +159,6 @@ export function useCancelRun() {
     mutationFn: cancelRun,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: runKeys.all });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }
@@ -171,7 +170,6 @@ export function useStartAnalysis(runId: string) {
     mutationFn: () => startAnalysis(runId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: runKeys.analysis(runId) });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }
@@ -194,7 +192,6 @@ export function useRerunRun() {
     mutationFn: rerunRun,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: runKeys.all });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }

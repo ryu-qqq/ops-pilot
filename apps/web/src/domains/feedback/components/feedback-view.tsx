@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, FileCode, X } from "lucide-react";
+import { Check, FileCode, RefreshCw, Share2, X } from "lucide-react";
 import type { ImprovementProposal } from "@opspilot/shared-types";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
@@ -20,6 +20,7 @@ import {
   useIngestDetail,
   useIngests,
   useRejectProposal,
+  useReprocessIngest,
 } from "../use-feedback";
 
 const statusVariant: Record<string, "default" | "secondary" | "destructive" | "success" | "warning"> = {
@@ -35,6 +36,10 @@ const proposalVariant: Record<string, "default" | "secondary" | "destructive" | 
   applied: "success",
   rejected: "destructive",
 };
+
+interface FeedbackViewProps {
+  onOpenEvalRun: (runId: string) => void;
+}
 
 function ProposalCard({
   proposal,
@@ -118,11 +123,15 @@ function ProposalCard({
 function IngestDetailPanel({
   ingestId,
   projectId,
+  onOpenEvalRun,
 }: {
   ingestId: string;
   projectId: string;
+  onOpenEvalRun: (runId: string) => void;
 }) {
   const { data, isPending, isError, error } = useIngestDetail(ingestId);
+  const reprocess = useReprocessIngest(ingestId, projectId);
+  const evalRunId = data?.contextJson.evalRunId;
 
   if (isPending)
     return (
@@ -133,6 +142,10 @@ function IngestDetailPanel({
   if (isError) return <ErrorNotice error={error} />;
   if (!data) return null;
 
+  const showReprocess =
+    data.status === "evaluating" ||
+    (data.status === "failed" && data.contextJson.evalError !== undefined && evalRunId !== undefined);
+
   return (
     <div className="space-y-4">
       <Card>
@@ -142,7 +155,7 @@ function IngestDetailPanel({
             <Badge variant={statusVariant[data.status] ?? "secondary"}>{data.status}</Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 pt-4 text-sm">
+        <CardContent className="space-y-3 pt-4 text-sm">
           <p>
             git: <code className="font-mono text-xs">{data.gitRef.slice(0, 12)}</code>
           </p>
@@ -155,6 +168,26 @@ function IngestDetailPanel({
           {data.contextJson.evalError !== undefined && (
             <p className="text-destructive text-xs">{data.contextJson.evalError}</p>
           )}
+          <div className="flex flex-wrap gap-2 pt-1">
+            {evalRunId !== undefined && (
+              <Button size="sm" variant="default" onClick={() => onOpenEvalRun(evalRunId)}>
+                <Share2 className="h-3.5 w-3.5" />
+                {data.status === "evaluating" ? "eval 실시간 트레이스" : "eval 트레이스 보기"}
+              </Button>
+            )}
+            {showReprocess && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={reprocess.isPending}
+                onClick={() => reprocess.mutate()}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${reprocess.isPending ? "animate-spin" : ""}`} />
+                eval 재처리
+              </Button>
+            )}
+          </div>
+          {reprocess.isError && <ErrorNotice error={reprocess.error} />}
         </CardContent>
       </Card>
 
@@ -167,8 +200,10 @@ function IngestDetailPanel({
             title="개선안 없음"
             hint={
               data.status === "evaluating"
-                ? "eval run 진행 중…"
-                : "eval 완료 후 draft proposal 이 여기 표시됩니다."
+                ? "eval run 진행 중이면 「eval 실시간 트레이스」로 흐름 그래프를 보세요."
+                : showReprocess
+                  ? "eval은 끝났을 수 있습니다 — 「eval 재처리」를 시도하세요."
+                  : "eval 완료 후 draft proposal 이 여기 표시됩니다."
             }
           />
         ) : (
@@ -181,10 +216,17 @@ function IngestDetailPanel({
   );
 }
 
-export function FeedbackView() {
+export function FeedbackView({ onOpenEvalRun }: FeedbackViewProps) {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [selectedIngestId, setSelectedIngestId] = useState<string | null>(null);
   const { data: ingests, isPending, isError, error } = useIngests(projectId);
+
+  const handleSelectIngest = (id: string, evalRunId: string | null | undefined, status: string) => {
+    setSelectedIngestId(id);
+    if (evalRunId && (status === "evaluating" || status === "pending")) {
+      onOpenEvalRun(evalRunId);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -215,7 +257,7 @@ export function FeedbackView() {
                 <li key={item.id}>
                   <button
                     type="button"
-                    onClick={() => setSelectedIngestId(item.id)}
+                    onClick={() => handleSelectIngest(item.id, item.evalRunId, item.status)}
                     className={cn(
                       "w-full rounded-md border px-3 py-2 text-left transition-colors",
                       item.id === selectedIngestId
@@ -233,6 +275,9 @@ export function FeedbackView() {
                     </div>
                     <div className="mt-1 text-xs text-muted-foreground">
                       draft {String(item.draftProposalCount)} · {new Date(item.createdAt).toLocaleString()}
+                      {item.evalRunId !== undefined && item.status === "evaluating" && (
+                        <span className="text-primary"> · 트레이스 탭으로</span>
+                      )}
                     </div>
                   </button>
                 </li>
@@ -241,10 +286,14 @@ export function FeedbackView() {
           </Card>
 
           {selectedIngestId !== null ? (
-            <IngestDetailPanel ingestId={selectedIngestId} projectId={projectId} />
+            <IngestDetailPanel
+              ingestId={selectedIngestId}
+              projectId={projectId}
+              onOpenEvalRun={onOpenEvalRun}
+            />
           ) : (
             <Card className="flex min-h-[240px] items-center justify-center p-6 text-sm text-muted-foreground">
-              왼쪽에서 ingest 를 선택하세요
+              왼쪽 ingest 클릭 — evaluating 이면 eval 흐름 그래프가 열립니다
             </Card>
           )}
         </div>

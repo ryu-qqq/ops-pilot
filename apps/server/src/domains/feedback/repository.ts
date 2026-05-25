@@ -171,6 +171,7 @@ export interface IngestBundleListRow {
   status: IngestBundleStatus;
   createdAt: string;
   draftProposalCount: number;
+  evalRunId: string | null;
 }
 
 export function listIngestBundlesByProject(projectId: string): IngestBundleListRow[] {
@@ -182,6 +183,7 @@ export function listIngestBundlesByProject(projectId: string): IngestBundleListR
               ib.git_ref AS gitRef,
               ib.status,
               ib.created_at AS createdAt,
+              json_extract(ib.context_json, '$.evalRunId') AS evalRunId,
               (SELECT COUNT(*) FROM improvement_proposal p
                  WHERE p.ingest_id = ib.id AND p.status = 'draft') AS draftProposalCount
          FROM ingest_bundle ib
@@ -197,6 +199,7 @@ export function listIngestBundlesByProject(projectId: string): IngestBundleListR
     status: row.status as IngestBundleStatus,
     createdAt: row.createdAt as string,
     draftProposalCount: Number(row.draftProposalCount ?? 0),
+    evalRunId: (row.evalRunId as string | null) ?? null,
   }));
 }
 

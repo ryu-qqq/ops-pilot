@@ -8,7 +8,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../../../components/ui/dialog";
-import { FlowGraph } from "../../dashboard/components/flow-graph";
+import { FlowGraph } from "./flow-graph";
 import { BenchmarkSummary } from "./benchmark-summary";
 import { ComparisonView } from "./comparison-view";
 import { DiffView } from "./diff-view";

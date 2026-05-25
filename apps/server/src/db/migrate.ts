@@ -9,6 +9,7 @@ export function migrate(dbPath?: string): void {
   db.exec(sql);
   reconcileScoreCheck(db);
   reconcileRunRetro(db);
+  reconcileImprovementProposalTargetKind(db);
 }
 
 // OPSP-46: 기존 DB 에 run.retro 컬럼 추가. CREATE TABLE IF NOT EXISTS 는
@@ -44,6 +45,42 @@ function reconcileScoreCheck(db: ReturnType<typeof getDb>): void {
       DROP TABLE score;
       ALTER TABLE score__new RENAME TO score;
       CREATE INDEX IF NOT EXISTS idx_score_run ON score (run_id);
+    `);
+  });
+  tx();
+  db.exec("PRAGMA foreign_keys=ON;");
+}
+
+// TASK-5: improvement_proposal.target_kind CHECK 에 workflow_patch 추가.
+function reconcileImprovementProposalTargetKind(db: ReturnType<typeof getDb>): void {
+  const row = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='improvement_proposal'")
+    .get() as { sql: string } | undefined;
+  if (!row || row.sql.includes("'workflow_patch'")) return;
+
+  db.exec("PRAGMA foreign_keys=OFF;");
+  const tx = db.transaction(() => {
+    db.exec(`
+      CREATE TABLE improvement_proposal__new (
+        id             TEXT PRIMARY KEY,
+        ingest_id      TEXT NOT NULL REFERENCES ingest_bundle (id) ON DELETE CASCADE,
+        run_id         TEXT REFERENCES run (id) ON DELETE SET NULL,
+        target_kind    TEXT NOT NULL CHECK (target_kind IN ('cursor_rule', 'agent', 'skill', 'command', 'workflow_patch')),
+        target_path    TEXT NOT NULL,
+        rationale      TEXT NOT NULL,
+        content        TEXT NOT NULL,
+        status         TEXT NOT NULL DEFAULT 'draft'
+                       CHECK (status IN ('draft', 'approved', 'applied', 'rejected')),
+        applied_commit TEXT,
+        created_at     TEXT NOT NULL
+      );
+      INSERT INTO improvement_proposal__new
+        SELECT id, ingest_id, run_id, target_kind, target_path, rationale, content, status, applied_commit, created_at
+        FROM improvement_proposal;
+      DROP TABLE improvement_proposal;
+      ALTER TABLE improvement_proposal__new RENAME TO improvement_proposal;
+      CREATE INDEX IF NOT EXISTS idx_improvement_proposal_ingest ON improvement_proposal (ingest_id);
+      CREATE INDEX IF NOT EXISTS idx_improvement_proposal_status ON improvement_proposal (status);
     `);
   });
   tx();
