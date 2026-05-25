@@ -8,6 +8,12 @@ const FIXTURE_PROPOSALS = {
       rationale: "검증용 fixture proposal",
       content: "---\ndescription: test\n---\n# Feedback fixture",
     },
+    {
+      targetKind: "workflow_patch" as const,
+      targetPath: ".github/workflows/ci.yml",
+      rationale: "fixture workflow_patch parser/apply 검증",
+      content: "      - name: OpsPilot fixture step\n        run: echo fixture",
+    },
   ],
 };
 

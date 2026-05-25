@@ -256,7 +256,13 @@ export const improvementProposalStatusSchema = z.enum([
 ]);
 export type ImprovementProposalStatus = z.infer<typeof improvementProposalStatusSchema>;
 
-export const improvementTargetKindSchema = z.enum(["cursor_rule", "agent", "skill", "command"]);
+export const improvementTargetKindSchema = z.enum([
+  "cursor_rule",
+  "agent",
+  "skill",
+  "command",
+  "workflow_patch",
+]);
 export type ImprovementTargetKind = z.infer<typeof improvementTargetKindSchema>;
 
 export const ingestBundleContextSchema = z.object({
