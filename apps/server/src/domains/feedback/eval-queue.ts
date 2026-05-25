@@ -143,14 +143,14 @@ export async function handleFeedbackRunCompleted(runId: string): Promise<void> {
 
   if (run?.status !== "succeeded") return;
 
-  const proposals = parseProposalsFromRun(runId);
-  if (proposals === null) {
-    mergeIngestContext(ingestId, { evalError: "proposal JSON parse failed" });
+  const parsed = parseProposalsFromRun(runId);
+  if (!parsed.ok) {
+    mergeIngestContext(ingestId, { evalError: parsed.error });
     updateIngestStatus(ingestId, "failed");
     return;
   }
 
-  for (const p of proposals) {
+  for (const p of parsed.proposals) {
     createImprovementProposal({ ingestId, runId, ...p });
   }
   updateIngestStatus(ingestId, "done");
