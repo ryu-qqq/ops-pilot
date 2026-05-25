@@ -79,11 +79,16 @@ function versionsOf(repoPath: string, relPath: string, currentRef: string | null
 
 function parseMeta(filePath: string, fallbackName: string): { name: string; description: string | null } {
   const raw = readFileSync(filePath, "utf8");
-  const fm = matter(raw).data as { name?: unknown; description?: unknown };
-  return {
-    name: typeof fm.name === "string" && fm.name.length > 0 ? fm.name : fallbackName,
-    description: typeof fm.description === "string" ? fm.description : null,
-  };
+  try {
+    const fm = matter(raw).data as { name?: unknown; description?: unknown };
+    return {
+      name: typeof fm.name === "string" && fm.name.length > 0 ? fm.name : fallbackName,
+      description: typeof fm.description === "string" ? fm.description : null,
+    };
+  } catch {
+    // description 에 콜론 등 YAML 특수문자 — frontmatter 파싱 실패해도 스캔은 계속.
+    return { name: fallbackName, description: null };
+  }
 }
 
 function listMarkdown(dir: string): string[] {

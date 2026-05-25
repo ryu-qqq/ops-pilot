@@ -162,3 +162,34 @@ export function listProposalsByIngestId(ingestId: string): ImprovementProposal[]
     .all(ingestId) as Record<string, unknown>[];
   return rows.map(rowToProposal);
 }
+
+export function getImprovementProposal(id: string): ImprovementProposal | undefined {
+  const row = getDb().prepare(`${PROPOSAL_SELECT} WHERE id = ?`).get(id) as
+    | Record<string, unknown>
+    | undefined;
+  return row ? rowToProposal(row) : undefined;
+}
+
+export function updateProposalStatus(
+  id: string,
+  status: ImprovementProposal["status"],
+): ImprovementProposal | undefined {
+  const existing = getImprovementProposal(id);
+  if (!existing) return undefined;
+  getDb().prepare("UPDATE improvement_proposal SET status = ? WHERE id = ?").run(status, id);
+  return { ...existing, status };
+}
+
+export function markProposalApplied(
+  id: string,
+  appliedCommit: string,
+): ImprovementProposal | undefined {
+  const existing = getImprovementProposal(id);
+  if (!existing) return undefined;
+  getDb()
+    .prepare(
+      "UPDATE improvement_proposal SET status = 'applied', applied_commit = ? WHERE id = ?",
+    )
+    .run(appliedCommit, id);
+  return { ...existing, status: "applied", appliedCommit };
+}

@@ -1,7 +1,10 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import {
+  feedbackApplyRequestSchema,
   feedbackIngestRequestSchema,
+  feedbackProposalApplyResponseSchema,
+  improvementProposalSchema,
   ingestBundleDetailSchema,
 } from "@opspilot/shared-types";
 import {
@@ -9,6 +12,13 @@ import {
   getIngestDetail,
   ingestFeedback,
 } from "../../domains/feedback/service.js";
+import {
+  FeedbackProposalError,
+  applyProposal,
+  approveProposal,
+  getProposalDetail,
+  rejectProposal,
+} from "../../domains/feedback/proposal-service.js";
 
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
 
@@ -50,6 +60,97 @@ const feedback: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ error: "NotFound", detail: "ingest bundle not found" });
       }
       return detail;
+    },
+  );
+
+  fastify.get(
+    "/feedback/proposals/:id",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: { 200: improvementProposalSchema, 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      const proposal = getProposalDetail(req.params.id);
+      if (!proposal) {
+        return reply.status(404).send({ error: "NotFound", detail: "proposal not found" });
+      }
+      return proposal;
+    },
+  );
+
+  fastify.post(
+    "/feedback/proposals/:id/approve",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: { 200: improvementProposalSchema, 400: errorSchema, 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      try {
+        return approveProposal(req.params.id);
+      } catch (e) {
+        if (e instanceof FeedbackProposalError) {
+          if (e.code === "NotFound") {
+            return reply.status(404).send({ error: "NotFound", detail: e.message });
+          }
+          return reply.status(400).send({ error: e.code, detail: e.message });
+        }
+        throw e;
+      }
+    },
+  );
+
+  fastify.post(
+    "/feedback/proposals/:id/reject",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: { 200: improvementProposalSchema, 400: errorSchema, 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      try {
+        return rejectProposal(req.params.id);
+      } catch (e) {
+        if (e instanceof FeedbackProposalError) {
+          if (e.code === "NotFound") {
+            return reply.status(404).send({ error: "NotFound", detail: e.message });
+          }
+          return reply.status(400).send({ error: e.code, detail: e.message });
+        }
+        throw e;
+      }
+    },
+  );
+
+  fastify.post(
+    "/feedback/proposals/:id/apply",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        body: feedbackApplyRequestSchema,
+        response: {
+          200: feedbackProposalApplyResponseSchema,
+          400: errorSchema,
+          404: errorSchema,
+        },
+      },
+    },
+    async (req, reply) => {
+      try {
+        return applyProposal(req.params.id);
+      } catch (e) {
+        if (e instanceof FeedbackProposalError) {
+          if (e.code === "NotFound") {
+            return reply.status(404).send({ error: "NotFound", detail: e.message });
+          }
+          return reply.status(400).send({ error: e.code, detail: e.message });
+        }
+        throw e;
+      }
     },
   );
 };

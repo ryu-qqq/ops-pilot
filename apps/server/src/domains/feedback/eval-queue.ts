@@ -84,8 +84,10 @@ export function queueFeedbackEval(ingestId: string, evalSource: FeedbackEvalSour
   try {
     saveScan(project.id, scanRepo(project.clonePath));
   } catch (e) {
-    markEvalFailed(ingestId, `scan failed: ${(e as Error).message}`);
-    return;
+    if (!findWorkEvaluator(project.id)) {
+      markEvalFailed(ingestId, `scan failed: ${(e as Error).message}`);
+      return;
+    }
   }
 
   const evalAsset = findWorkEvaluator(project.id);
