@@ -6,11 +6,13 @@ import {
   feedbackProposalApplyResponseSchema,
   improvementProposalSchema,
   ingestBundleDetailSchema,
+  ingestBundleListResponseSchema,
 } from "@opspilot/shared-types";
 import {
   FeedbackIngestError,
   getIngestDetail,
   ingestFeedback,
+  listIngestsByProject,
 } from "../../domains/feedback/service.js";
 import {
   FeedbackProposalError,
@@ -40,6 +42,26 @@ const feedback: FastifyPluginAsyncZod = async (fastify) => {
             return reply.status(404).send({ error: "NotFound", detail: e.message });
           }
           return reply.status(400).send({ error: e.code, detail: e.message });
+        }
+        throw e;
+      }
+    },
+  );
+
+  fastify.get(
+    "/feedback/ingests",
+    {
+      schema: {
+        querystring: z.object({ projectId: z.string().uuid() }),
+        response: { 200: ingestBundleListResponseSchema, 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      try {
+        return { ingests: listIngestsByProject(req.query.projectId) };
+      } catch (e) {
+        if (e instanceof FeedbackIngestError && e.code === "NotFound") {
+          return reply.status(404).send({ error: "NotFound", detail: e.message });
         }
         throw e;
       }

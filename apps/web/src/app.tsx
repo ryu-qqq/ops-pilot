@@ -6,11 +6,12 @@ import { useTheme } from "./lib/use-theme";
 import { Dashboard } from "./domains/dashboard/components/dashboard";
 import { OnboardingGuide } from "./domains/onboarding/components/onboarding-guide";
 import { useOnboardingDismissed } from "./domains/onboarding/use-onboarding";
+import { FeedbackView } from "./domains/feedback/components/feedback-view";
 import { RegistryView } from "./domains/registry/components/registry-view";
 import { RunsView, type RunViewMode } from "./domains/run/components/runs-view";
 import { SettingsDialog } from "./domains/settings/components/settings-dialog";
 
-type Tab = "dashboard" | "registry" | "runs";
+type Tab = "dashboard" | "registry" | "runs" | "feedback";
 
 export function App() {
   const [tab, setTab] = useState<Tab>("dashboard");
@@ -81,9 +82,10 @@ export function App() {
           <TabsTrigger value="dashboard">대시보드</TabsTrigger>
           <TabsTrigger value="registry">레지스트리</TabsTrigger>
           <TabsTrigger value="runs">실행</TabsTrigger>
+          <TabsTrigger value="feedback">피드백</TabsTrigger>
         </TabsList>
         <OnboardingGuide
-          tab={tab === "dashboard" ? "registry" : tab}
+          tab={tab === "dashboard" ? "registry" : tab === "feedback" ? "registry" : tab}
           onSwitchTab={(t) => setTab(t)}
         />
         <TabsContent value="dashboard" className="mt-0">
@@ -106,6 +108,9 @@ export function App() {
             viewMode={runViewMode}
             onViewModeChange={setRunViewMode}
           />
+        </TabsContent>
+        <TabsContent value="feedback" className="mt-0">
+          <FeedbackView />
         </TabsContent>
       </Tabs>
     </main>

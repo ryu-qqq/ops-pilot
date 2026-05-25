@@ -322,3 +322,19 @@ export const feedbackProposalApplyResponseSchema = z.object({
   appliedCommit: z.string(),
 });
 export type FeedbackProposalApplyResponse = z.infer<typeof feedbackProposalApplyResponseSchema>;
+
+export const ingestBundleListItemSchema = z.object({
+  id,
+  projectId: id,
+  notionTaskUrl: z.string().nullable(),
+  gitRef: z.string(),
+  status: ingestBundleStatusSchema,
+  createdAt: ts,
+  draftProposalCount: z.number().int().nonnegative(),
+});
+export type IngestBundleListItem = z.infer<typeof ingestBundleListItemSchema>;
+
+export const ingestBundleListResponseSchema = z.object({
+  ingests: z.array(ingestBundleListItemSchema),
+});
+export type IngestBundleListResponse = z.infer<typeof ingestBundleListResponseSchema>;
