@@ -1,12 +1,13 @@
 import type { FeedbackIngestRequest, IngestBundleDetail } from "@opspilot/shared-types";
 import { getProject } from "../project/repository.js";
 import { collectCommitDiff, DEFAULT_MAX_DIFF_BYTES } from "./diff.js";
+import { queueFeedbackEval } from "./eval-queue.js";
 import { createIngestBundle, getIngestBundle, listProposalsByIngestId } from "./repository.js";
 import { readTranscriptExcerpt } from "./transcript.js";
 
 export class FeedbackIngestError extends Error {
   constructor(
-    readonly code: "NotFound" | "InvalidGitRef" | "TranscriptReadError",
+    readonly code: "NotFound" | "InvalidGitRef" | "TranscriptReadError" | "EvalSetupError",
     message: string,
   ) {
     super(message);
@@ -55,7 +56,13 @@ export function ingestFeedback(input: FeedbackIngestRequest): IngestBundleDetail
     status: "pending",
   });
 
-  return { ...bundle, proposals: [] };
+  queueFeedbackEval(bundle.id, input.evalSource);
+
+  const updated = getIngestDetail(bundle.id);
+  if (!updated) {
+    throw new FeedbackIngestError("EvalSetupError", "ingest row lost after eval queue");
+  }
+  return updated;
 }
 
 export function getIngestDetail(id: string): IngestBundleDetail | undefined {

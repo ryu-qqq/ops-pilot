@@ -110,6 +110,52 @@ export function getIngestBundle(id: string): IngestBundle | undefined {
   return row ? rowToIngest(row) : undefined;
 }
 
+export function updateIngestStatus(id: string, status: IngestBundleStatus): void {
+  getDb().prepare("UPDATE ingest_bundle SET status = ? WHERE id = ?").run(status, id);
+}
+
+export function mergeIngestContext(id: string, patch: Partial<IngestBundleContext>): IngestBundle | undefined {
+  const existing = getIngestBundle(id);
+  if (!existing) return undefined;
+  const next = { ...existing.contextJson, ...patch };
+  getDb()
+    .prepare("UPDATE ingest_bundle SET context_json = ? WHERE id = ?")
+    .run(JSON.stringify(next), id);
+  return { ...existing, contextJson: next };
+}
+
+export interface NewImprovementProposal {
+  ingestId: string;
+  runId: string;
+  targetKind: ImprovementProposal["targetKind"];
+  targetPath: string;
+  rationale: string;
+  content: string;
+}
+
+export function createImprovementProposal(input: NewImprovementProposal): ImprovementProposal {
+  const db = getDb();
+  const id = randomUUID();
+  const createdAt = nowIso();
+  db.prepare(
+    `INSERT INTO improvement_proposal
+       (id, ingest_id, run_id, target_kind, target_path, rationale, content, status, applied_commit, created_at)
+     VALUES (@id, @ingestId, @runId, @targetKind, @targetPath, @rationale, @content, 'draft', NULL, @createdAt)`,
+  ).run({ id, ...input, createdAt });
+  return {
+    id,
+    ingestId: input.ingestId,
+    runId: input.runId,
+    targetKind: input.targetKind,
+    targetPath: input.targetPath,
+    rationale: input.rationale,
+    content: input.content,
+    status: "draft",
+    appliedCommit: null,
+    createdAt,
+  };
+}
+
 export function listProposalsByIngestId(ingestId: string): ImprovementProposal[] {
   const rows = getDb()
     .prepare(`${PROPOSAL_SELECT} WHERE ingest_id = ? ORDER BY created_at ASC`)

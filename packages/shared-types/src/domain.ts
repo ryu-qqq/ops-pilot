@@ -264,6 +264,8 @@ export const ingestBundleContextSchema = z.object({
   transcriptExcerpt: z.string().optional(),
   taskTitle: z.string().optional(),
   diffTruncated: z.boolean().optional(),
+  evalRunId: z.string().uuid().optional(),
+  evalError: z.string().optional(),
 });
 export type IngestBundleContext = z.infer<typeof ingestBundleContextSchema>;
 
@@ -300,6 +302,8 @@ export const feedbackIngestRequestSchema = z.object({
   retro: z.string().optional(),
   transcriptPath: z.string().optional(),
   maxDiffBytes: z.number().int().positive().max(1024 * 1024).optional(),
+  /** 기본 local-claude. 검증·CI는 fixture. */
+  evalSource: z.enum(["fixture", "local-claude"]).default("local-claude"),
 });
 export type FeedbackIngestRequest = z.infer<typeof feedbackIngestRequestSchema>;
 
