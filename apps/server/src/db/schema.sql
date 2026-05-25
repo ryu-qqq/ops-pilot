@@ -135,3 +135,34 @@ CREATE TABLE IF NOT EXISTS setting (
   value      TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+-- TASK-5 MVP: Cursor 작업 ingest 번들 + evaluator 개선안.
+CREATE TABLE IF NOT EXISTS ingest_bundle (
+  id              TEXT PRIMARY KEY,
+  project_id      TEXT NOT NULL REFERENCES project (id) ON DELETE CASCADE,
+  notion_task_url TEXT,
+  git_ref         TEXT NOT NULL,
+  diff_summary    TEXT NOT NULL,
+  context_json    TEXT NOT NULL,
+  status          TEXT NOT NULL DEFAULT 'pending'
+                  CHECK (status IN ('pending', 'evaluating', 'done', 'failed')),
+  created_at      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ingest_bundle_project ON ingest_bundle (project_id);
+CREATE INDEX IF NOT EXISTS idx_ingest_bundle_status ON ingest_bundle (status);
+
+CREATE TABLE IF NOT EXISTS improvement_proposal (
+  id             TEXT PRIMARY KEY,
+  ingest_id      TEXT NOT NULL REFERENCES ingest_bundle (id) ON DELETE CASCADE,
+  run_id         TEXT REFERENCES run (id) ON DELETE SET NULL,
+  target_kind    TEXT NOT NULL CHECK (target_kind IN ('cursor_rule', 'agent', 'skill', 'command')),
+  target_path    TEXT NOT NULL,
+  rationale      TEXT NOT NULL,
+  content        TEXT NOT NULL,
+  status         TEXT NOT NULL DEFAULT 'draft'
+                 CHECK (status IN ('draft', 'approved', 'rejected', 'applied')),
+  applied_commit TEXT,
+  created_at     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_improvement_proposal_ingest ON improvement_proposal (ingest_id);
+CREATE INDEX IF NOT EXISTS idx_improvement_proposal_status ON improvement_proposal (status);
