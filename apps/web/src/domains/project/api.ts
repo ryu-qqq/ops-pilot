@@ -27,8 +27,12 @@ export async function getProjects() {
   return (await apiGet("/api/projects", projectsResponse)).projects;
 }
 
-export async function createProject(gitUrl: string) {
-  return apiPost("/api/projects", { gitUrl }, projectSchema);
+export type CreateProjectRequest =
+  | { mode: "linked"; localPath: string; gitUrl?: string; name?: string }
+  | { mode: "managed"; gitUrl: string; name?: string };
+
+export async function createProject(input: CreateProjectRequest) {
+  return apiPost("/api/projects", input, projectSchema);
 }
 
 export async function scanProject(projectId: string) {
