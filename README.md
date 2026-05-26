@@ -169,7 +169,7 @@ ingest → eval → review → HITL apply (clone만)
 Cursor(dev) pull / cherry-pick
 ```
 
-> **Infrastructure 이중 checkout** — `Infrastructure` 와 `ryu-qqq__Infrastructure` 가 같이 있으면 **로컬 연결**로 재등록하거나 Cursor를 clone만 열어 한쪽으로 통일하세요.
+> **Infrastructure 이중 checkout** — `Infrastructure` 와 `ryu-qqq__Infrastructure` 가 같이 있으면 **로컬 경로 연결**로 재등록하거나 [`project-registration-migration-runbook.md`](./docs/project-registration-migration-runbook.md) 참고.
 
 ### 흐름 (공통 · Cursor-first)
 
