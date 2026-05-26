@@ -1,9 +1,10 @@
 import { useState, type ReactNode } from "react";
-import { Check, Expand, FileCode, RefreshCw, Share2, X } from "lucide-react";
-import type { ImprovementProposal, ProposalReviewMeta } from "@opspilot/shared-types";
+import { Check, Expand, FileCode, Info, RefreshCw, Share2, X } from "lucide-react";
+import type { ImprovementProposal, Project, ProposalReviewMeta } from "@opspilot/shared-types";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "../../../components/ui/alert";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,7 @@ import {
 import { EmptyState, ErrorNotice, Loading } from "../../../lib/ui";
 import { cn } from "../../../lib/utils";
 import { ProjectBar } from "../../project/components/project-bar";
+import { useProjects } from "../../project/use-project";
 import {
   useApplyProposal,
   useApproveProposal,
@@ -25,6 +27,7 @@ import {
   useReviewIngest,
 } from "../use-feedback";
 import { IngestPipelineSteps } from "./ingest-pipeline-steps";
+import { PostApplyBanner } from "./post-apply-banner";
 
 const statusVariant: Record<string, "default" | "secondary" | "destructive" | "success" | "warning"> = {
   done: "success",
@@ -111,11 +114,13 @@ function ProposalCard({
   proposal,
   ingestId,
   projectId,
+  project,
   reviewMeta,
 }: {
   proposal: ImprovementProposal;
   ingestId: string;
   projectId: string;
+  project: Project;
   reviewMeta?: ProposalReviewMeta;
 }) {
   const approve = useApproveProposal(ingestId, projectId);
@@ -180,9 +185,18 @@ function ProposalCard({
           }
         />
         {proposal.appliedCommit !== null && (
-          <p className="font-mono text-xs text-muted-foreground">
-            applied: {proposal.appliedCommit.slice(0, 8)}
-          </p>
+          <>
+            <p className="font-mono text-xs text-muted-foreground">
+              applied: {proposal.appliedCommit.slice(0, 8)}
+            </p>
+            {proposal.status === "applied" && (
+              <PostApplyBanner
+                project={project}
+                projectId={projectId}
+                appliedCommit={proposal.appliedCommit}
+              />
+            )}
+          </>
         )}
         {proposal.status === "draft" && (
           <div className="flex flex-wrap gap-2">
@@ -209,8 +223,11 @@ function ProposalCard({
                 <DialogTitle>개선안 적용 (HITL)</DialogTitle>
               </DialogHeader>
               <p className="text-sm text-muted-foreground">
-                <code className="font-mono text-xs">{proposal.targetPath}</code> 를 프로젝트 clone에
-                쓰고 구조화 커밋합니다. 되돌리려면 git으로 revert하세요.
+                <code className="font-mono text-xs">{proposal.targetPath}</code> 를{" "}
+                {project.workspaceMode === "linked"
+                  ? "등록된 로컬 경로"
+                  : "OpsPilot 관리 클론"}
+                에 쓰고 구조화 커밋합니다. 되돌리려면 git으로 revert하세요.
               </p>
               <div className="flex justify-end pt-2">
                 <Button disabled={busy} onClick={() => apply.mutate(proposal.id)}>
@@ -231,10 +248,12 @@ function ProposalCard({
 function IngestDetailPanel({
   ingestId,
   projectId,
+  project,
   onOpenEvalRun,
 }: {
   ingestId: string;
   projectId: string;
+  project: Project;
   onOpenEvalRun: (runId: string) => void;
 }) {
   const { data, isPending, isError, error } = useIngestDetail(ingestId);
@@ -368,6 +387,7 @@ function IngestDetailPanel({
               proposal={p}
               ingestId={ingestId}
               projectId={projectId}
+              project={project}
               reviewMeta={data.contextJson.proposalReviews?.[p.id]}
             />
           ))
@@ -380,7 +400,10 @@ function IngestDetailPanel({
 export function FeedbackView({ onOpenEvalRun }: FeedbackViewProps) {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [selectedIngestId, setSelectedIngestId] = useState<string | null>(null);
+  const { data: projects } = useProjects();
   const { data: ingests, isPending, isError, error } = useIngests(projectId);
+
+  const selectedProject = (projects ?? []).find((p) => p.id === projectId);
 
   const handleSelectIngest = (
     id: string,
@@ -412,6 +435,21 @@ export function FeedbackView({ onOpenEvalRun }: FeedbackViewProps) {
         <EmptyState title="프로젝트를 선택하세요" hint="위에서 프로젝트를 등록·선택하면 ingest 목록이 표시됩니다." />
       ) : (
         <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
+          {selectedProject?.workspaceMode === "managed" && (
+            <div className="lg:col-span-2">
+              <Alert variant="info">
+                <Info className="h-4 w-4" />
+                <AlertTitle>관리 클론 모드</AlertTitle>
+                <AlertDescription>
+                  apply는 <code className="font-mono text-xs">{selectedProject.clonePath}</code> 에만
+                  반영됩니다. Cursor dev 폴더와 다르면 apply 후 sync 배너의 명령 또는{" "}
+                  <code className="font-mono text-xs">/opspilot-sync-managed-clone</code> 을 사용하세요.
+                  이중 checkout을 피하려면 프로젝트 등록에서{" "}
+                  <strong>로컬 경로 연결</strong>을 권장합니다.
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
           <Card className="p-4 space-y-3">
             <h2 className="text-sm font-semibold text-muted-foreground">Ingest</h2>
             {isPending && <Loading label="목록 불러오는 중…" />}
@@ -457,10 +495,11 @@ export function FeedbackView({ onOpenEvalRun }: FeedbackViewProps) {
             </ul>
           </Card>
 
-          {selectedIngestId !== null ? (
+          {selectedIngestId !== null && selectedProject ? (
             <IngestDetailPanel
               ingestId={selectedIngestId}
               projectId={projectId}
+              project={selectedProject}
               onOpenEvalRun={onOpenEvalRun}
             />
           ) : (
