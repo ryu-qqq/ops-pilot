@@ -7,6 +7,14 @@ const scanResponse = z.object({
   scannedAssets: z.number(),
   scannedVersions: z.number(),
   saved: z.object({ assets: z.number(), versions: z.number() }),
+  agentCrewDrift: z
+    .object({
+      drift: z.boolean(),
+      lockTag: z.string().nullable(),
+      lockCommit: z.string().nullable(),
+      projectYamlTag: z.string().nullable(),
+    })
+    .optional(),
 });
 export type ScanResult = z.infer<typeof scanResponse>;
 

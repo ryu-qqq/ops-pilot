@@ -99,11 +99,41 @@ agent-crew `CLAUDE.md`의 "작업 원칙 — 4줄"과 같은 축이다:
 - 시드: {vault raw 경로 / "vault 미사용 — 미기록"}
 ```
 
+## OpsPilot feedback eval — 개선안 JSON (ingest 시나리오)
+
+ingest retro·시나리오 입력에 **개선안 JSON** 출력을 요구하면, 채점 본문 뒤에 **별도 JSON block**을 붙인다.
+
+허용 `targetKind` (0~2개):
+
+| targetKind | targetPath | content |
+|---|---|---|
+| `cursor_rule` | `.cursor/rules/*.mdc` | rule 전체 본문 |
+| `workflow_patch` | `.github/workflows/*.yml` | `steps` YAML **fragment** (append) |
+| `agent` | `.claude/agents/{name}.md` | agent 본문 |
+| `skill` | `.claude/skills/{name}/SKILL.md` | skill 본문 |
+| `command` | `.claude/commands/{name}.md` | command 본문 |
+
+```json
+{
+  "proposals": [
+    {
+      "targetKind": "workflow_patch",
+      "targetPath": ".github/workflows/ci.yml",
+      "rationale": "...",
+      "content": "      - name: ...\\n        run: ..."
+    }
+  ]
+}
+```
+
+개선안이 없으면 `"proposals": []` 로 출력한다.
+
 ## 다른 에이전트와의 관계
 
 - **← 파이프라인·오케스트레이터** (마지막 단계), **← 사용자 직접**
 - **journal-recorder와 형제** — 둘 다 vault `raw/` 시드. recorder는 *관찰*(판단 안 함),
   evaluator는 *채점*(판단함). 분업.
+- **→ proposal-reviewer** (OpsPilot ingest) — eval 시나리오가 개선안 JSON을 요구하면, reviewer가 draft를 검토한다.
 - **→ wiki-curator** (간접) — evaluation 시드가 누적되면 wiki-curator가 "품질 추세"
   페이지로 합성한다. 그게 주기적 인사이트 — 별도 인프라 없이.
 
