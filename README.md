@@ -37,7 +37,7 @@ OpsPilot을 단순 로그 뷰어와 다르게 만드는 네 가지 결정:
 
 | 설계 | 내용 |
 |---|---|
-| **git 커밋 = 버전의 단일 원천** | 별도 버전 DB가 없다. 프로젝트는 git URL로 클론하고, 자산 변경은 OpsPilot이 구조화 커밋으로 강제한다 — git 히스토리가 곧 버전 히스토리. |
+| **git 커밋 = 버전의 단일 원천** | 별도 버전 DB가 없다. 프로젝트는 **로컬 경로 연결** 또는 **git URL 클론**으로 등록하고, 자산 변경은 OpsPilot이 구조화 커밋으로 강제한다 — git 히스토리가 곧 버전 히스토리. |
 | **worktree 격리 실행** | 실행은 버전 커밋으로 만든 일회용 git worktree에서 일어나고, 끝나면 폐기된다. 클론·원본 레포는 오염되지 않는다. |
 | **비동기 러너** | 실행 요청은 즉시 반환되고 백그라운드에서 진행되며 프론트가 폴링한다. 수 분~수십 분 걸리는 실행도 화면을 막지 않는다. |
 | **로컬 `claude` CLI 직접 실행** | 별도 API 키·과금 없이 로컬 `claude` 헤드리스를 spawn한다(키체인 인증 직결). 글로벌 MCP는 차단해 실행의 재현성을 확보한다. |
@@ -46,7 +46,7 @@ OpsPilot을 단순 로그 뷰어와 다르게 만드는 네 가지 결정:
 
 ### 레지스트리 — 프로젝트 · 자산 · 버전
 
-git URL로 프로젝트를 클론 → 스캔하면 `.claude/` 의 에이전트·스킬·커맨드가 자산으로 등록된다. 각 자산은 git 커밋 기반의 버전 타임라인을 갖는다. 자산은 폼으로 직접 저작할 수 있고(컨셉 한 줄 → AI 초안 자동완성, Claude Code 공식 frontmatter 스펙 반영), 저장 시 버저닝 커밋이 강제된다. 에이전트가 49개든, 한 레포를 **중앙 에이전트 라이브러리** 로 삼아 통째로 관리할 수 있다.
+git URL로 **관리 클론** 등록(또는 **로컬 경로 연결**) → 스캔하면 `.claude/` 의 에이전트·스킬·커맨드가 자산으로 등록된다. 각 자산은 git 커밋 기반의 버전 타임라인을 갖는다. 자산은 폼으로 직접 저작할 수 있고(컨셉 한 줄 → AI 초안 자동완성, Claude Code 공식 frontmatter 스펙 반영), 저장 시 버저닝 커밋이 강제된다. 에이전트가 49개든, 한 레포를 **중앙 에이전트 라이브러리** 로 삼아 통째로 관리할 수 있다.
 
 ### 실제 업무를 시나리오로 — 지라 · 노션 import
 
@@ -85,7 +85,7 @@ git URL로 프로젝트를 클론 → 스캔하면 `.claude/` 의 에이전트·
 
 ### Claude Code 에서 호출 — MCP 어댑터
 
-OpsPilot 데이몬을 한 터미널에 띄워두고, 다른 터미널의 Claude Code 세션에서 자연어로 트리거할 수 있다. 데이몬의 `:3001/mcp` 엔드포인트가 MCP HTTP 어댑터로 동작해 다음 10개 툴을 노출한다 — `scan_project` · `list_projects` · `list_assets` · `list_scenarios` · `start_run` · `get_run` · `compare_runs` · `ingest_cursor_session` · `list_proposals` · `apply_proposal`. 자세한 등록 절차는 아래 [Claude Code 에 등록](#claude-code-에-등록-mcp) 참고.
+OpsPilot 데이몬을 한 터미널에 띄워두고, 다른 터미널의 Claude Code 세션에서 자연어로 트리거할 수 있다. 데이몬의 `:3001/mcp` 엔드포인트가 MCP HTTP 어댑터로 동작해 `register_project` · `scan_project` · `list_projects` 등 13개 툴을 노출한다. 자세한 표는 아래 [Claude Code 에 등록](#claude-code-에-등록-mcp) 참고.
 
 ### 그 외
 
@@ -126,9 +126,86 @@ cd apps/web
 corepack pnpm dev            # → http://localhost:5173
 ```
 
-브라우저로 `http://localhost:5173` 접속 → **레지스트리** 탭에서 프로젝트(git URL)를 등록·스캔 → 자산·버전 선택 → 시나리오를 입력(또는 지라/노션에서 import)하고 실행 → **실행** 탭에서 트레이스·평가 확인 → **대시보드** 탭에서 전체 현황.
+브라우저로 `http://localhost:5173` 접속 → 아래 [5분 시작 — Cursor 피드백 루프](#5분-시작--cursor-피드백-루프) 참고.
 
 > **참고** — 루트 `pnpm dev` 는 두 워크스페이스를 한 번에 띄우지만, 평가를 격리하려면(임시 `OPS_DB_PATH` 로 DB 분리) 워크스페이스별로 따로 띄우는 편이 안전하다.
+
+## 5분 시작 — Cursor 피드백 루프
+
+UI는 세 탭으로 나뉜다. **일상 루프의 중심은 피드백**, **관측은 실행 / 트레이스**, **Harness 자산·수동 실행은 프로젝트**.
+
+| 탭 | 한 줄 | 당신이 할 일 |
+|---|---|---|
+| **피드백** | Cursor 세션 → eval → 개선안 | ingest 확인 · proposal 승인/거절 · clone 반영 |
+| **실행 / 트레이스** | 모든 run 관측실 | eval/review/harness run의 흐름 그래프 · diff · 점수 |
+| **프로젝트** | 레지스트리 · 저작 · 실행 | 등록·스캔·자산 작성·시나리오 실행·버전 채택 |
+
+### 프로젝트 등록 — 두 모드
+
+| 모드 | 등록 UI | apply land | Cursor에서 보이려면 |
+|---|---|---|---|
+| **로컬 연결** (권장) | Cursor dev 경로 | 같은 폴더 | 즉시 |
+| **관리 클론** | git URL → clone | `OPS_PROJECTS_DIR/<slug>` | push/pull · cherry-pick · `/opspilot-sync-managed-clone` |
+
+상세 스펙: [`docs/project-registration-two-mode-spec.md`](./docs/project-registration-two-mode-spec.md)
+
+### 흐름 — 로컬 연결 (linked, 권장)
+
+```
+Cursor(dev 경로) 작업 → commit
+    ↓  ingest (gitRef = 그 경로 HEAD)
+eval → review → HITL apply
+    ↓
+같은 폴더에 harness 반영 → (선택) 스캔 → 다음 Cursor 세션
+```
+
+### 흐름 — 관리 클론 (managed)
+
+```
+Cursor(dev) 작업 → commit → push (권장)
+    ↓  OpsPilot scan (pull clone)
+ingest → eval → review → HITL apply (clone만)
+    ↓  sync — README/피드백 배너 또는 /opspilot-sync-managed-clone
+Cursor(dev) pull / cherry-pick
+```
+
+> **Infrastructure 이중 checkout** — `Infrastructure` 와 `ryu-qqq__Infrastructure` 가 같이 있으면 **로컬 연결**로 재등록하거나 Cursor를 clone만 열어 한쪽으로 통일하세요.
+
+### 흐름 (공통 · Cursor-first)
+
+```
+Cursor 작업
+    ↓  MCP ingest_cursor_session (또는 REST ingest)
+피드백 — ingest (evaluating → done/reviewed)
+    ↓  백그라운드: work-evaluator → proposal-reviewer
+피드백 — draft 개선안 → 승인 → 등록 경로에 반영 (git 커밋)
+    ↓  linked: 즉시 Cursor · managed: sync 후 dev
+Harness 반영된 .claude 가 다음 Cursor/Claude Code 세션의 기준
+```
+
+**eval/review가 돌아가는 동안** — ingest를 클릭하면 **실행 / 트레이스** 탭의 흐름 그래프가 자동으로 열린다. 에이전트가 무엇을 읽고, 어떤 도구를 썼는지 여기서 본다.
+
+**개선안( proposal )** — `draft` → 사람 **승인/거절** → 승인 후 **등록 경로(clonePath)** 에 반영됩니다. **관리 클론**이면 Cursor dev와 다를 때 피드백 탭 **sync 배너** 또는 [`docs/cookbook/cursor-commands/`](./docs/cookbook/cursor-commands/) 의 `/opspilot-sync-managed-clone` 으로 dev에 가져옵니다. origin 자동 push는 없습니다.
+
+### Harness 실험 (프로젝트 탭)
+
+에이전트를 *의도적으로* 바꿔가며 시험할 때:
+
+1. **프로젝트** 등록 → **스캔** → (권장) **버전 강제 훅 설치**
+2. 자산 작성 또는 agent-crew **sync**
+3. 버전 × 시나리오 **실행** → **실행 / 트레이스**에서 비교·벤치마크·채택
+
+피드백 루프(실제 업무 회고)와 harness 실험(버전 A/B)은 **같은 run 관측 UI**를 공유하지만, 시작점이 다르다.
+
+### MCP 한 줄 등록
+
+```bash
+claude mcp add --transport http opspilot http://localhost:3001/mcp
+```
+
+Cursor/Claude Code에서 `ingest_cursor_session` · `list_proposals` · `apply_proposal` 등을 호출한다. 자세한 툴 표는 아래 [Claude Code 에 등록](#claude-code-에-등록-mcp) 참고.
+
+> **UI 안내** — 각 탭 상단의 「사용법」 카드에 탭별 요약이 있다. 접으면 `localStorage`에 기억된다.
 
 ## Claude Code 에 등록 (MCP)
 
@@ -142,8 +219,9 @@ claude mcp add --transport http opspilot http://localhost:3001/mcp
 
 | 툴 | 용도 |
 |---|---|
-| `scan_project` | 프로젝트 클론 pull → `.claude` 스캔 → DB 적재 (멱등) |
-| `list_projects` | 등록된 프로젝트 목록 |
+| `register_project` | 프로젝트 등록 — `mode=linked`(로컬 경로) 또는 `managed`(git clone) |
+| `scan_project` | 등록 경로 pull → `.claude` 스캔 → DB 적재 (멱등) |
+| `list_projects` | 등록 프로젝트 목록 (`workspaceMode` · `clonePath` · `remoteVerified`) |
 | `list_assets` | 한 프로젝트의 자산 + 최근 5개 버전 |
 | `list_scenarios` | 한 자산에 묶인 시나리오 목록 |
 | `start_run` | asset_version × scenario 비동기 실행 (runId 즉시 반환) |
@@ -151,9 +229,11 @@ claude mcp add --transport http opspilot http://localhost:3001/mcp
 | `compare_runs` | 여러 run 매트릭스 비교 (상태/토큰/비용/diff수/점수) |
 | `ingest_cursor_session` | Cursor 작업 ingest + eval run 큐 (= REST ingest) |
 | `list_proposals` | ingest별 improvement_proposal 목록 (기본 draft) |
-| `apply_proposal` | HITL confirm 후 proposal clone 반영 |
+| `apply_proposal` | HITL confirm 후 proposal 등록 경로에 반영 |
+| `review_proposals` | proposal-reviewer run 큐 |
+| `sync_agent_crew` | agent-crew tag → `.claude` sync (+ optional scan) |
 
-데이몬은 한 터미널에 떠 있고(상태 + 영속 sqlite), 다른 터미널의 Claude Code 세션이 MCP로 호출하는 *멀티 터미널 워크플로* 를 가정한다. 시각 분석(흐름 그래프 · diff 2-pane · 비교 매트릭스)은 여전히 대시보드(`:5173`) 몫.
+데이몬은 한 터미널에 떠 있고(상태 + 영속 sqlite), 다른 터미널의 Claude Code 세션이 MCP로 호출하는 *멀티 터미널 워크플로* 를 가정한다. 시각 분석(흐름 그래프 · diff 2-pane · 비교 매트릭스 · 피드백 ingest)은 웹 UI(`:5173`) 몫.
 
 > **참고** — Serena 같은 per-session stdio MCP 와 달리, OpsPilot 은 *상태 데이몬 + HTTP* 모델이다. 매 세션마다 새로 띄우지 않고, 한 번 떠 있는 데이몬에 모든 세션이 붙는다.
 

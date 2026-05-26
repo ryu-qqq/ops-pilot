@@ -91,8 +91,16 @@ erDiagram
 | **run** | (asset_version × scenario) 1회 실행 = 분기점 | FK 인덱스, status 인덱스 |
 | **trace_event** | run의 단계별 정규화 트레이스 + 원본 보관 | `UNIQUE(run_id,seq)` |
 | **score** | run 채점 결과 (스코어러별 N개) | `run_id` 인덱스 |
+| **project** | 등록된 git 레포 (linked = dev 경로, managed = OpsPilot clone) | `git_url` UNIQUE |
 | **ingest_bundle** | Cursor 작업 단위 번들 (git diff + 메타) | `project_id` · `status` 인덱스 |
 | **improvement_proposal** | evaluator 개선안 draft → HITL apply | `ingest_id` · `status` 인덱스 |
+
+### project (REG-01)
+
+| 컬럼 | 타입 | 설명 |
+|---|---|---|
+| `workspace_mode` | `linked` \| `managed` | linked = Cursor dev 경로, managed = clone (기존 v1) |
+| `remote_verified` | 0/1 | linked 등록 시 origin ↔ git_url 일치 여부 (REG-02) |
 
 ## 설계 근거 (CONVENTIONS.md 결합도/응집도 반영)
 

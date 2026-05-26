@@ -4,7 +4,6 @@ import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "../components/ui/tooltip";
 import { ApiError } from "./api-client";
@@ -26,25 +25,30 @@ export function Loading({ label }: { label: string }) {
   );
 }
 
-// InfoMark — hover/포커스 시 Radix Tooltip(접근성·모바일 친화).
+// InfoMark — hover/포커스 시 Radix Tooltip. App 루트 TooltipProvider 필요.
 // span 으로 렌더 — Button 안에 들어가도 button 중첩 경고 안 남.
 export function InfoMark({ help, label }: { help: string; label?: string }) {
   return (
-    <TooltipProvider delayDuration={150}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span
-            role="img"
-            tabIndex={0}
-            aria-label={label === undefined ? help : `${label}: ${help}`}
-            className="ml-1 inline-flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted-foreground hover:text-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            <HelpCircle className="h-3 w-3" />
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>{help}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          role="img"
+          tabIndex={0}
+          aria-label={label === undefined ? help : `${label}: ${help}`}
+          className="ml-1.5 inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-muted/80 text-muted-foreground ring-offset-background transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <HelpCircle className="h-3.5 w-3.5" strokeWidth={2} />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" align="start" className="space-y-1.5">
+        {label !== undefined && (
+          <p className="text-xs font-semibold leading-none tracking-tight text-foreground">{label}</p>
+        )}
+        <p className="text-[13px] leading-relaxed text-popover-foreground/90">{help}</p>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

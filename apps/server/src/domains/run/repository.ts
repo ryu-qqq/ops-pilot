@@ -247,6 +247,22 @@ export function listLastAssistantTexts(runIds: string[]): Record<string, string 
   return map;
 }
 
+/** trace_event output 컬럼 → assistant 텍스트. */
+function decodeTraceOutput(raw: string | null): string | null {
+  if (raw === null) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed === "string") return parsed;
+    if (parsed !== null && typeof parsed === "object" && "text" in parsed) {
+      const t = (parsed as { text: unknown }).text;
+      return typeof t === "string" ? t : JSON.stringify(parsed);
+    }
+    return JSON.stringify(parsed);
+  } catch {
+    return raw;
+  }
+}
+
 /** run 의 마지막 assistant 메시지 전문(파서용 — compare 미리보기용 truncate 없음). */
 export function getLastAssistantText(runId: string): string | null {
   const row = getDb()
@@ -256,18 +272,24 @@ export function getLastAssistantText(runId: string): string | null {
        ORDER BY seq DESC LIMIT 1`,
     )
     .get(runId) as { output: string | null } | undefined;
-  if (row === undefined || row.output === null) return null;
-  try {
-    const parsed = JSON.parse(row.output) as unknown;
-    if (typeof parsed === "string") return parsed;
-    if (parsed !== null && typeof parsed === "object" && "text" in parsed) {
-      const t = (parsed as { text: unknown }).text;
-      return typeof t === "string" ? t : JSON.stringify(parsed);
-    }
-    return JSON.stringify(parsed);
-  } catch {
-    return row.output;
+  return row === undefined ? null : decodeTraceOutput(row.output);
+}
+
+/** run 의 assistant 메시지 전체 — 최신 seq 먼저 (feedback JSON이 마지막 turn에 없을 때 대비). */
+export function listAssistantTextsNewestFirst(runId: string): string[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT output FROM trace_event
+       WHERE run_id = ? AND type = 'assistant_message'
+       ORDER BY seq DESC`,
+    )
+    .all(runId) as { output: string | null }[];
+  const texts: string[] = [];
+  for (const row of rows) {
+    const text = decodeTraceOutput(row.output);
+    if (text !== null && text.trim() !== "") texts.push(text);
   }
+  return texts;
 }
 
 export function listRunDiff(runId: string): RunDiffFile[] {

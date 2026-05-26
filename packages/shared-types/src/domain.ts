@@ -29,11 +29,17 @@ export type Scorer = z.infer<typeof scorerSchema>;
 const id = z.string().uuid();
 const ts = z.string().datetime();
 
+// REG-01: linked = Cursor dev 경로, managed = OpsPilot clone (v1 기본).
+export const projectWorkspaceModeSchema = z.enum(["linked", "managed"]);
+export type ProjectWorkspaceMode = z.infer<typeof projectWorkspaceModeSchema>;
+
 export const projectSchema = z.object({
   id,
   name: z.string().min(1),
   gitUrl: z.string().min(1),
   clonePath: z.string().min(1),
+  workspaceMode: projectWorkspaceModeSchema,
+  remoteVerified: z.boolean(),
   defaultBranch: z.string().nullable(),
   createdAt: ts,
 });
