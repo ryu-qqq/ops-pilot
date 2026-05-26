@@ -5,6 +5,7 @@ export const FEEDBACK_SCENARIO_NAME = "cursor-feedback-mvp";
 /** work-evaluator eval 프롬프트·파서·apply 와 동기화할 kind 목록. */
 export const FEEDBACK_PROPOSAL_TARGET_KINDS = [
   "cursor_rule",
+  "cursor_skill",
   "agent",
   "skill",
   "command",
@@ -60,6 +61,7 @@ OpsPilot은 JSON만 파싱한다. **각 proposal은 네 필드 모두 non-empty*
 
 허용 targetKind (0~2개): ${kinds}
 - cursor_rule: .cursor/rules/*.mdc — frontmatter+본문 전체
+- cursor_skill: .cursor/skills/<name>/SKILL.md — frontmatter+본문 전체 (Cursor native)
 - workflow_patch: .github/workflows/*.yml — steps YAML fragment (append, 들여쓰기 포함)
 - agent/skill/command: .claude/ 아래 — md **전체 본문**
 

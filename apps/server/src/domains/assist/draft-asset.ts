@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { AssetKind } from "@opspilot/shared-types";
+import type { ClaudeAssetKind } from "@opspilot/shared-types";
 import { ClaudeAssistError, extractJsonObject, runClaudeOnce } from "./claude.js";
 
 // OPSP-27 follow-up: 사용자가 "CTO 에이전트" 같이 한 줄 컨셉만 적으면
@@ -18,8 +18,8 @@ export const draftAssetSchema = z.object({
 });
 export type AssetDraft = z.infer<typeof draftAssetSchema>;
 
-function systemPrompt(kind: AssetKind): string {
-  const kindGuide: Record<AssetKind, string> = {
+function systemPrompt(kind: ClaudeAssetKind): string {
+  const kindGuide: Record<ClaudeAssetKind, string> = {
     agent:
       "에이전트(.claude/agents/<name>.md): 특정 작업을 위임받아 격리된 서브세션에서 수행. " +
       "description = 언제 이 에이전트를 부를지(자동 위임 트리거). " +
@@ -57,7 +57,7 @@ ${kindGuide[kind]}
 }
 
 export async function draftAsset(input: {
-  kind: AssetKind;
+  kind: ClaudeAssetKind;
   prompt: string;
 }): Promise<AssetDraft> {
   if (input.prompt.trim() === "") throw new ClaudeAssistError("컨셉을 한 줄이라도 적어 주세요.");

@@ -38,6 +38,14 @@ function sha256(s: string): string {
   return createHash("sha256").update(s).digest("hex");
 }
 
+function currentGitRef(root: string): string | null {
+  try {
+    return git(root, ["rev-parse", "--abbrev-ref", "HEAD"]) || null;
+  } catch {
+    return null;
+  }
+}
+
 // 한 파일의 git 이력 → 커밋별 스냅샷. --follow 로 rename 추적.
 function versionsOf(repoPath: string, relPath: string, currentRef: string | null): ScannedVersion[] {
   let log: string;
@@ -63,12 +71,12 @@ function versionsOf(repoPath: string, relPath: string, currentRef: string | null
     try {
       content = git(repoPath, ["show", `${commit}:${relPath}`]);
     } catch {
-      continue; // 해당 커밋에 파일 없음(rename 경계) → 스킵
+      continue;
     }
     versions.push({
       gitCommit: commit,
       gitRef: currentRef,
-      committedAt: new Date(committedAt).toISOString(), // %cI 오프셋 → UTC Z 정규화
+      committedAt: new Date(committedAt).toISOString(),
       commitMessage: message ?? null,
       content,
       contentHash: sha256(content),
@@ -86,7 +94,6 @@ function parseMeta(filePath: string, fallbackName: string): { name: string; desc
       description: typeof fm.description === "string" ? fm.description : null,
     };
   } catch {
-    // description 에 콜론 등 YAML 특수문자 — frontmatter 파싱 실패해도 스캔은 계속.
     return { name: fallbackName, description: null };
   }
 }
@@ -98,20 +105,22 @@ function listMarkdown(dir: string): string[] {
     .map((f) => join(dir, f));
 }
 
-/** 레포의 `.claude/`를 스캔해 agent/skill/command 자산 + git 버전 목록을 만든다. */
-export function scanRepo(repoPath: string): ScannedAsset[] {
-  const root = resolve(repoPath);
+function listMdc(dir: string): string[] {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => f.endsWith(".mdc") && statSync(join(dir, f)).isFile())
+    .map((f) => join(dir, f));
+}
+
+function basenameNoExt(filePath: string, ext: string): string {
+  const base = filePath.split("/").pop() ?? filePath;
+  return base.replace(new RegExp(`${ext.replace(".", "\\.")}$`), "");
+}
+
+function scanClaudeAssets(root: string, scope: AssetScope, currentRef: string | null): ScannedAsset[] {
   const claudeDir = join(root, ".claude");
   if (!existsSync(claudeDir)) {
     throw new Error(`.claude 디렉터리가 없습니다: ${claudeDir}`);
-  }
-  const scope: AssetScope = claudeDir === join(homedir(), ".claude") ? "user" : "project";
-
-  let currentRef: string | null = null;
-  try {
-    currentRef = git(root, ["rev-parse", "--abbrev-ref", "HEAD"]) || null;
-  } catch {
-    currentRef = null;
   }
 
   const assets: ScannedAsset[] = [];
@@ -128,11 +137,9 @@ export function scanRepo(repoPath: string): ScannedAsset[] {
     });
   };
 
-  // agents: .claude/agents/*.md
   for (const f of listMarkdown(join(claudeDir, "agents"))) {
-    add("agent", f, basenameNoExt(f));
+    add("agent", f, basenameNoExt(f, ".md"));
   }
-  // skills: .claude/skills/<name>/SKILL.md
   const skillsDir = join(claudeDir, "skills");
   if (existsSync(skillsDir)) {
     for (const entry of readdirSync(skillsDir)) {
@@ -140,15 +147,55 @@ export function scanRepo(repoPath: string): ScannedAsset[] {
       if (existsSync(skillFile)) add("skill", skillFile, entry);
     }
   }
-  // commands: .claude/commands/*.md
   for (const f of listMarkdown(join(claudeDir, "commands"))) {
-    add("command", f, basenameNoExt(f));
+    add("command", f, basenameNoExt(f, ".md"));
   }
 
   return assets;
 }
 
-function basenameNoExt(filePath: string): string {
-  const base = filePath.split("/").pop() ?? filePath;
-  return base.replace(/\.md$/, "");
+/** `.cursor/` derived harness (BRIDGE-04). 없으면 []. */
+function scanCursorAssets(root: string, scope: AssetScope, currentRef: string | null): ScannedAsset[] {
+  const cursorDir = join(root, ".cursor");
+  if (!existsSync(cursorDir)) return [];
+
+  const assets: ScannedAsset[] = [];
+  const add = (kind: AssetKind, filePath: string, fallback: string) => {
+    const relPath = relative(root, filePath).split("\\").join("/");
+    const meta = parseMeta(filePath, fallback);
+    assets.push({
+      kind,
+      name: meta.name,
+      scope,
+      sourcePath: relPath,
+      description: meta.description,
+      versions: versionsOf(root, relPath, currentRef),
+    });
+  };
+
+  const skillsDir = join(cursorDir, "skills");
+  if (existsSync(skillsDir)) {
+    for (const entry of readdirSync(skillsDir)) {
+      const skillFile = join(skillsDir, entry, "SKILL.md");
+      if (existsSync(skillFile)) add("cursor_skill", skillFile, entry);
+    }
+  }
+  for (const f of listMarkdown(join(cursorDir, "commands"))) {
+    add("cursor_command", f, basenameNoExt(f, ".md"));
+  }
+  for (const f of listMdc(join(cursorDir, "rules"))) {
+    add("cursor_rule", f, basenameNoExt(f, ".mdc"));
+  }
+
+  return assets;
+}
+
+/** `.claude/` + `.cursor/` harness 자산 + git 버전 목록. */
+export function scanRepo(repoPath: string): ScannedAsset[] {
+  const root = resolve(repoPath);
+  const claudeDir = join(root, ".claude");
+  const scope: AssetScope = claudeDir === join(homedir(), ".claude") ? "user" : "project";
+  const currentRef = currentGitRef(root);
+
+  return [...scanClaudeAssets(root, scope, currentRef), ...scanCursorAssets(root, scope, currentRef)];
 }

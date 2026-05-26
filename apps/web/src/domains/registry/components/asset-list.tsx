@@ -14,11 +14,21 @@ interface Props {
   onSelect: (id: string | null) => void;
 }
 
-const KIND_ORDER: AssetKind[] = ["skill", "command", "agent"];
+const KIND_ORDER: AssetKind[] = [
+  "skill",
+  "command",
+  "agent",
+  "cursor_skill",
+  "cursor_command",
+  "cursor_rule",
+];
 const KIND_LABEL: Record<AssetKind, string> = {
   skill: "스킬",
   command: "커맨드",
   agent: "에이전트",
+  cursor_skill: "Cursor 스킬",
+  cursor_command: "Cursor 커맨드",
+  cursor_rule: "Cursor rule",
 };
 
 export function AssetList({ projectId, selectedId, onSelect }: Props) {

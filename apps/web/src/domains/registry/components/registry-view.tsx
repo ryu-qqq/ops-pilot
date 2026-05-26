@@ -57,7 +57,7 @@ export function RegistryView({ onRunCreated, onBenchmarkStarted }: Props) {
         <Card className={`flex flex-col p-4 ${pulse("asset")}`}>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-muted-foreground">
-              자산 (agents · skills · commands)
+              자산 (Claude · Cursor harness)
             </h2>
             {project !== null && (
               <Button

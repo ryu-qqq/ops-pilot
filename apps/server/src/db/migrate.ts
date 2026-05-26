@@ -9,6 +9,7 @@ export function migrate(dbPath?: string): void {
   db.exec(sql);
   reconcileScoreCheck(db);
   reconcileRunRetro(db);
+  reconcileAssetKind(db);
   reconcileImprovementProposalTargetKind(db);
   reconcileIngestBundleStatus(db);
   reconcileProjectWorkspaceMode(db);
@@ -74,12 +75,43 @@ function reconcileScoreCheck(db: ReturnType<typeof getDb>): void {
   db.exec("PRAGMA foreign_keys=ON;");
 }
 
-// TASK-5: improvement_proposal.target_kind CHECK 에 workflow_patch 추가.
+// BRIDGE-04: asset.kind CHECK 에 cursor_* 추가.
+function reconcileAssetKind(db: ReturnType<typeof getDb>): void {
+  const row = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='asset'")
+    .get() as { sql: string } | undefined;
+  if (!row || row.sql.includes("'cursor_skill'")) return;
+
+  db.exec("PRAGMA foreign_keys=OFF;");
+  const tx = db.transaction(() => {
+    db.exec(`
+      CREATE TABLE asset__new (
+        id          TEXT PRIMARY KEY,
+        project_id  TEXT NOT NULL REFERENCES project (id) ON DELETE CASCADE,
+        kind        TEXT NOT NULL CHECK (kind IN ('agent', 'skill', 'command', 'cursor_skill', 'cursor_command', 'cursor_rule')),
+        name        TEXT NOT NULL,
+        scope       TEXT NOT NULL CHECK (scope IN ('project', 'user', 'plugin')),
+        source_path TEXT NOT NULL,
+        created_at  TEXT NOT NULL,
+        UNIQUE (project_id, kind, name, scope)
+      );
+      INSERT INTO asset__new
+        SELECT id, project_id, kind, name, scope, source_path, created_at FROM asset;
+      DROP TABLE asset;
+      ALTER TABLE asset__new RENAME TO asset;
+      CREATE INDEX IF NOT EXISTS idx_asset_project ON asset (project_id);
+    `);
+  });
+  tx();
+  db.exec("PRAGMA foreign_keys=ON;");
+}
+
+// TASK-5 / BRIDGE-05: improvement_proposal.target_kind CHECK 확장.
 function reconcileImprovementProposalTargetKind(db: ReturnType<typeof getDb>): void {
   const row = db
     .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='improvement_proposal'")
     .get() as { sql: string } | undefined;
-  if (!row || row.sql.includes("'workflow_patch'")) return;
+  if (!row || row.sql.includes("'cursor_skill'")) return;
 
   db.exec("PRAGMA foreign_keys=OFF;");
   const tx = db.transaction(() => {
@@ -88,7 +120,7 @@ function reconcileImprovementProposalTargetKind(db: ReturnType<typeof getDb>): v
         id             TEXT PRIMARY KEY,
         ingest_id      TEXT NOT NULL REFERENCES ingest_bundle (id) ON DELETE CASCADE,
         run_id         TEXT REFERENCES run (id) ON DELETE SET NULL,
-        target_kind    TEXT NOT NULL CHECK (target_kind IN ('cursor_rule', 'agent', 'skill', 'command', 'workflow_patch')),
+        target_kind    TEXT NOT NULL CHECK (target_kind IN ('cursor_rule', 'cursor_skill', 'agent', 'skill', 'command', 'workflow_patch')),
         target_path    TEXT NOT NULL,
         rationale      TEXT NOT NULL,
         content        TEXT NOT NULL,

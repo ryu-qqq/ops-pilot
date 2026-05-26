@@ -1,6 +1,6 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { assetKindSchema } from "@opspilot/shared-types";
+import { claudeAssetKindSchema } from "@opspilot/shared-types";
 import { ClaudeAssistError } from "../../domains/assist/claude.js";
 import { reviewAuthoringDraft } from "../../domains/assist/authoring-review.js";
 import { draftAsset, draftAssetSchema } from "../../domains/assist/draft-asset.js";
@@ -23,7 +23,7 @@ const assist: FastifyPluginAsyncZod = async (fastify) => {
     {
       schema: {
         body: z.object({
-          kind: assetKindSchema,
+          kind: claudeAssetKindSchema,
           name: z.string().min(1),
           content: z.string().min(1),
         }),
@@ -48,7 +48,7 @@ const assist: FastifyPluginAsyncZod = async (fastify) => {
     "/assist/draft-asset",
     {
       schema: {
-        body: z.object({ kind: assetKindSchema, prompt: z.string().min(1) }),
+        body: z.object({ kind: claudeAssetKindSchema, prompt: z.string().min(1) }),
         response: { 200: draftAssetSchema, 400: errorSchema },
       },
     },

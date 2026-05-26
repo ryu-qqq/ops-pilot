@@ -233,7 +233,7 @@ export function createMcpServer(): McpServer {
   // 3) list_assets — 프로젝트의 자산 목록 + 각 자산의 최근 버전 5개.
   server.tool(
     "list_assets",
-    "프로젝트의 자산(agent/skill/command) 목록과 각 자산의 최근 버전 5개. 시나리오는 list_scenarios 로 별도 조회.",
+    "프로젝트의 자산(Claude + Cursor harness) 목록과 각 자산의 최근 버전 5개. 시나리오는 list_scenarios 로 별도 조회.",
     { projectId: z.string().uuid() },
     ({ projectId }) => {
       const project = getProject(projectId);

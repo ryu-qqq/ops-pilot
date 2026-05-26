@@ -14,6 +14,12 @@ import {
   updateProposalStatus,
 } from "./repository.js";
 
+const BRIDGE_AFTER_APPLY_KINDS = new Set<ImprovementProposal["targetKind"]>([
+  "agent",
+  "skill",
+  "command",
+]);
+
 export class FeedbackProposalError extends Error {
   constructor(
     readonly code: "NotFound" | "InvalidState" | "ApplyError",
@@ -88,20 +94,21 @@ export function applyProposal(id: string): FeedbackProposalApplyResponse {
 
   const updated = markProposalApplied(id, appliedCommit);
   if (!updated) throw new FeedbackProposalError("NotFound", "proposal not found");
-  const cursorHarnessSync = maybeSyncCursorHarnessAfterApply(project);
+  const bridgeResult =
+    project.workspaceMode === "linked" && BRIDGE_AFTER_APPLY_KINDS.has(proposal.targetKind)
+      ? maybeSyncCursorHarnessAfterApply(project)
+      : null;
   return {
     proposal: updated,
     appliedCommit,
-    ...(cursorHarnessSync !== null
+    ...(bridgeResult !== null
       ? {
           cursorHarnessSync: {
-            dryRun: cursorHarnessSync.dryRun,
-            written: cursorHarnessSync.written,
-            commit: cursorHarnessSync.commit,
-            staleDerivedRules: cursorHarnessSync.staleDerivedRules,
-            ...(cursorHarnessSync.skippedReason
-              ? { skippedReason: cursorHarnessSync.skippedReason }
-              : {}),
+            dryRun: bridgeResult.dryRun,
+            written: bridgeResult.written,
+            commit: bridgeResult.commit,
+            staleDerivedRules: bridgeResult.staleDerivedRules,
+            ...(bridgeResult.skippedReason ? { skippedReason: bridgeResult.skippedReason } : {}),
           },
         }
       : {}),

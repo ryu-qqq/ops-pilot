@@ -63,6 +63,7 @@ proposal-reviewer 로 각 draft 를 검토하라.
 
 1. clone 에서 targetPath 및 관련 파일을 Read/Grep 한다.
    - cursor_rule: .cursor/rules/*.mdc 전체와 주제 중복 확인
+   - cursor_skill: .cursor/skills/*/SKILL.md 와 기존 skill·rule 중복 확인
    - workflow_patch: .github/workflows/*.yml 의 steps 와 append 시 중복·충돌 확인
 2. proposalId 마다 decision: approve | reject | revise
 3. **risk 는 \`low\` 또는 \`high\` 만** (medium 금지 — agent/skill/command 는 high)

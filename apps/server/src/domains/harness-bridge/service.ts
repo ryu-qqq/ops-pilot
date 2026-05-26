@@ -39,6 +39,12 @@ function gitCommitPaths(project: Project, paths: string[]): string | null {
     git(project.clonePath, ["add", "-f", "--", rel]);
   }
   try {
+    git(project.clonePath, ["diff", "--cached", "--quiet", "--", ...paths]);
+    return null;
+  } catch {
+    // has staged changes
+  }
+  try {
     git(project.clonePath, [
       "-c",
       "user.email=opspilot@local",

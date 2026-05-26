@@ -83,12 +83,12 @@ Cursor 다음 세션
 
 ## 8. feedback targetKind 확장 (BRIDGE-05)
 
-| kind | path |
-|---|---|
-| `cursor_rule` | `.cursor/rules/*.mdc` (기존) |
-| `cursor_skill` | `.cursor/skills/*/SKILL.md` (신규) |
+| kind | path | 상태 |
+|---|---|---|
+| `cursor_rule` | `.cursor/rules/*.mdc` | ✅ |
+| `cursor_skill` | `.cursor/skills/*/SKILL.md` | ✅ v1 |
 
-apply 후 BRIDGE-03 auto sync로 `.claude` 쪽 skill과 drift 검사.
+`cursor_skill` apply 후 bridge auto-sync **안 함** (hand-authored 보호). `.claude` agent/skill/command apply 후에만 sync.
 
 ---
 

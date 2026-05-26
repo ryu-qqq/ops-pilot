@@ -15,7 +15,7 @@ erDiagram
 
     asset {
         text id PK
-        text kind "agent|skill|command"
+        text kind "agent|skill|command|cursor_skill|cursor_command|cursor_rule"
         text name
         text scope "project|user|plugin"
         text source_path

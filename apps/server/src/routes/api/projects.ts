@@ -1,6 +1,6 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { assetKindSchema, assetSchema, cursorHarnessSyncResultSchema, projectSchema } from "@opspilot/shared-types";
+import { claudeAssetKindSchema, assetSchema, cursorHarnessSyncResultSchema, projectSchema } from "@opspilot/shared-types";
 import { AuthoringError, writeAsset } from "../../domains/authoring/service.js";
 import { installHooks } from "../../domains/authoring/hooks.js";
 import {
@@ -243,7 +243,7 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
       schema: {
         params: z.object({ id: z.string().uuid() }),
         body: z.object({
-          kind: assetKindSchema,
+          kind: claudeAssetKindSchema,
           name: z.string().min(1),
           content: z.string().min(1),
           changeSummary: z.string().min(1),
