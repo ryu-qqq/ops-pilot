@@ -331,6 +331,7 @@ export type ImprovementTargetKind = z.infer<typeof improvementTargetKindSchema>;
 
 export const ingestBundleContextSchema = z.object({
   retro: z.string().optional(),
+  commitSubject: z.string().optional(),
   transcriptExcerpt: z.string().optional(),
   taskTitle: z.string().optional(),
   diffTruncated: z.boolean().optional(),
@@ -417,6 +418,10 @@ export const ingestBundleListItemSchema = z.object({
   status: ingestBundleStatusSchema,
   createdAt: ts,
   draftProposalCount: z.number().int().nonnegative(),
+  approvedProposalCount: z.number().int().nonnegative().optional(),
+  appliedProposalCount: z.number().int().nonnegative().optional(),
+  commitSubject: z.string().nullable().optional(),
+  retroPreview: z.string().nullable().optional(),
   evalRunId: id.nullable().optional(),
   reviewRunId: id.nullable().optional(),
 });

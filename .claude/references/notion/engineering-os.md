@@ -50,6 +50,9 @@ Jira-style `TODO` / `IN PROGRESS` / `DONE` DB는 notion-manager 본문의 일반
 3. `Commit` — 해당 작업의 git commit (문서-only도 wiki 커밋 hash 가능)
 4. 페이지 코멘트 1–2줄 + vault raw 경로 (과정 dump 금지)
 
+**커밋 subject·PR 제목**은 `references/conventions/commit-format.md` 와 `.claude/project.yaml`의 `git.commit`을 따른다.
+완료 커밋을 만들기 전에 convention을 Glob·Read한다.
+
 ## 지식 vault와의 관계
 
 | 레이어 | 담당 | 경로 |

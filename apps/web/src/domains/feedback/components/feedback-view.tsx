@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Ban, Check, Expand, FileCode, Info, RefreshCw, Share2, X } from "lucide-react";
 import type { ImprovementProposal, Project, ProposalReviewMeta } from "@opspilot/shared-types";
@@ -31,7 +31,10 @@ import {
   useReviewIngest,
 } from "../use-feedback";
 import { IngestPipelineSteps } from "./ingest-pipeline-steps";
+import { IngestLineage } from "./ingest-lineage";
+import { IngestPipelineMiniBadges } from "./ingest-pipeline-mini-badges";
 import { PostApplyBanner } from "./post-apply-banner";
+import { ingestListSubtitle, ingestListTitle } from "../lib/ingest-label";
 
 const statusVariant: Record<string, "default" | "secondary" | "destructive" | "success" | "warning"> = {
   done: "success",
@@ -307,11 +310,14 @@ function IngestDetailPanel({
 
   return (
     <div className="space-y-4">
+      <IngestLineage data={data} onOpenRun={onOpenEvalRun} />
       <IngestPipelineSteps data={data} />
       <Card>
         <CardHeader className="border-b pb-3">
           <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-            Ingest
+            {data.contextJson.commitSubject != null && data.contextJson.commitSubject.trim() !== ""
+              ? data.contextJson.commitSubject
+              : "Ingest"}
             <Badge variant={statusVariant[data.status] ?? "secondary"}>{data.status}</Badge>
           </CardTitle>
         </CardHeader>
@@ -474,6 +480,13 @@ export function FeedbackView({ projectId, onProjectIdChange, onOpenEvalRun }: Fe
 
   const selectedProject = (projects ?? []).find((p) => p.id === projectId);
 
+  useEffect(() => {
+    if (selectedIngestId === null || ingests === undefined) return;
+    if (!ingests.some((item) => item.id === selectedIngestId)) {
+      setSelectedIngestId(null);
+    }
+  }, [selectedIngestId, ingests, setSelectedIngestId]);
+
   const handleSelectIngest = (id: string) => {
     setSelectedIngestId(id);
   };
@@ -530,25 +543,27 @@ export function FeedbackView({ projectId, onProjectIdChange, onOpenEvalRun }: Fe
                         : "border-transparent hover:border-border hover:bg-accent/50",
                     )}
                   >
-                    <div className="flex items-center gap-2 text-sm">
-                      <Badge variant={statusVariant[item.status] ?? "secondary"} className="px-1.5 py-0 text-[10px]">
+                    <div className="flex items-start gap-2">
+                      <Badge
+                        variant={statusVariant[item.status] ?? "secondary"}
+                        className="mt-0.5 shrink-0 px-1.5 py-0 text-[10px]"
+                      >
                         {item.status}
                       </Badge>
-                      <code className="font-mono text-xs text-muted-foreground">
-                        {item.gitRef.slice(0, 8)}
-                      </code>
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      draft {String(item.draftProposalCount)} · {new Date(item.createdAt).toLocaleString()}
-                      {item.evalRunId != null && (
-                        <span>
-                          {" "}
-                          · eval <code className="font-mono">{item.evalRunId.slice(0, 8)}</code>
-                        </span>
-                      )}
-                      {item.evalRunId !== undefined && item.status === "evaluating" && (
-                        <span className="text-primary"> · 트레이스 탭으로</span>
-                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="line-clamp-2 text-sm font-medium leading-snug">
+                          {ingestListTitle(item)}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">{ingestListSubtitle(item)}</p>
+                        <IngestPipelineMiniBadges item={item} />
+                        {(item.evalRunId != null || item.reviewRunId != null) && (
+                          <p className="mt-1 font-mono text-[10px] text-muted-foreground">
+                            {item.evalRunId != null && <>eval {item.evalRunId.slice(0, 8)}</>}
+                            {item.evalRunId != null && item.reviewRunId != null && " · "}
+                            {item.reviewRunId != null && <>review {item.reviewRunId.slice(0, 8)}</>}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </button>
                 </li>
@@ -556,7 +571,9 @@ export function FeedbackView({ projectId, onProjectIdChange, onOpenEvalRun }: Fe
             </ul>
           </Card>
 
-          {selectedIngestId !== null && selectedProject ? (
+          {selectedIngestId !== null &&
+          selectedProject &&
+          (ingests ?? []).some((item) => item.id === selectedIngestId) ? (
             <IngestDetailPanel
               ingestId={selectedIngestId}
               projectId={projectId}

@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2 } from "lucide-react";
 import type { Project, ProjectWorkspaceMode } from "@opspilot/shared-types";
 import { Badge } from "../../../components/ui/badge";
@@ -15,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../../components/ui/select";
-import { registryKeys } from "../../registry/api";
 import type { CreateProjectRequest } from "../api";
 import { ErrorNotice, InfoMark, InlineError, Loading } from "../../../lib/ui";
 import { useCreateProject, useInstallHooks, useProjects, useScanProject } from "../use-project";
@@ -47,9 +45,8 @@ function ProjectModeBadge({ mode }: { mode: ProjectWorkspaceMode }) {
 export function ProjectBar({ selectedProjectId, onSelect }: Props) {
   const { data: projects } = useProjects();
   const create = useCreateProject();
-  const scan = useScanProject();
+  const scan = useScanProject(selectedProjectId);
   const hooks = useInstallHooks();
-  const qc = useQueryClient();
 
   const [registerMode, setRegisterMode] = useState<RegisterMode>("linked");
   const [localPath, setLocalPath] = useState("");
@@ -191,13 +188,10 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
         <Button
           type="button"
           variant="secondary"
-          disabled={selectedProjectId === null || scan.isPending}
+          disabled={selectedProjectId === null || scan.isPending || scan.isSuccess}
           onClick={() => {
             if (selectedProjectId === null) return;
-            scan.mutate(selectedProjectId, {
-              onSuccess: () =>
-                qc.invalidateQueries({ queryKey: registryKeys.assets(selectedProjectId) }),
-            });
+            scan.mutate(selectedProjectId);
           }}
         >
           {scan.isPending ? (

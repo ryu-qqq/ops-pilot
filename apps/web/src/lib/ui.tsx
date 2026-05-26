@@ -65,6 +65,29 @@ interface FriendlyError {
 
 export function friendlyError(error: unknown): FriendlyError {
   if (error instanceof ApiError) {
+    if (error.code === "NetworkError") {
+      return {
+        tone: "error",
+        title: "서버에 연결할 수 없어요",
+        body: error.detail ?? error.message,
+        cta: "apps/server dev(:3001)가 실행 중인지 확인하세요.",
+      };
+    }
+    if (error.code === "NotFound") {
+      return {
+        tone: "error",
+        title: "항목을 찾을 수 없어요",
+        body: error.detail ?? "선택한 ingest가 삭제되었거나 다른 프로젝트 것일 수 있습니다.",
+      };
+    }
+    if (error.code === "InvalidCommitSubject") {
+      return {
+        tone: "error",
+        title: "커밋 메시지 형식이 맞지 않아요",
+        body: error.detail ?? error.message,
+        cta: ".claude/project.yaml git.commit · references/conventions/commit-format.md",
+      };
+    }
     if (isMissingClaude(error)) {
       return {
         tone: "info",
@@ -83,6 +106,14 @@ export function friendlyError(error: unknown): FriendlyError {
       tone: "error",
       title: "요청을 처리하지 못했어요",
       body: error.detail ?? error.message,
+    };
+  }
+  if (error instanceof Error && error.message === "Failed to fetch") {
+    return {
+      tone: "error",
+      title: "서버에 연결할 수 없어요",
+      body: "브라우저가 API(:3001)에 닿지 못했습니다. apps/server dev가 실행 중인지 확인하세요.",
+      cta: "cd apps/server && corepack pnpm dev",
     };
   }
   return {

@@ -13,6 +13,15 @@ export interface CollectCommitDiffResult {
   truncated: boolean;
 }
 
+/** ingest 목록·상세 라벨용 — git log subject 한 줄. */
+export function resolveCommitSubject(clonePath: string, gitRef: string): string {
+  try {
+    return git(clonePath, ["log", "-1", "--format=%s", gitRef]).trim();
+  } catch {
+    return "";
+  }
+}
+
 /** `gitRef^..gitRef` unified diff. 루트 커밋이면 `git show --patch` 로 대체. */
 export function collectCommitDiff(
   clonePath: string,

@@ -20,6 +20,7 @@ sync_agent_crew (필요 시)
 
 ## MCP 순서
 
+0. (선택) 커밋 subject가 `references/conventions/commit-format.md` 인지 확인 — `git.commit.requireOnIngest: true` 이면 ingest 거부됨
 1. `sync_agent_crew({ projectId })` — `.claude/` 에 work-evaluator·proposal-* 반영 (lock 기준)
 2. `ingest_cursor_session({ projectId, gitRef, retro, evalSource: "local-claude" })`
 3. eval 완료까지 ingest status 폴링 (`evaluating` → `done` → `reviewing` → `reviewed`)
