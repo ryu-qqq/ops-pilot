@@ -3,8 +3,19 @@ import { z } from "zod";
 // OPSP-2 도메인 스키마. DB 행 ↔ API ↔ 프론트가 이 단일 출처를 공유한다.
 // (docs/DATA_MODEL.md 와 1:1)
 
-export const assetKindSchema = z.enum(["agent", "skill", "command"]);
+export const assetKindSchema = z.enum([
+  "agent",
+  "skill",
+  "command",
+  "cursor_skill",
+  "cursor_command",
+  "cursor_rule",
+]);
 export type AssetKind = z.infer<typeof assetKindSchema>;
+
+/** OpsPilot 저작 UI·Claude draft — `.claude/` only. */
+export const claudeAssetKindSchema = z.enum(["agent", "skill", "command"]);
+export type ClaudeAssetKind = z.infer<typeof claudeAssetKindSchema>;
 
 export const assetScopeSchema = z.enum(["project", "user", "plugin"]);
 export type AssetScope = z.infer<typeof assetScopeSchema>;
@@ -310,6 +321,7 @@ export type ImprovementProposalStatus = z.infer<typeof improvementProposalStatus
 
 export const improvementTargetKindSchema = z.enum([
   "cursor_rule",
+  "cursor_skill",
   "agent",
   "skill",
   "command",

@@ -72,7 +72,16 @@ function writeIfNeeded(
 ): void {
   const abs = join(clonePath, relPath);
   const normalized = normalizeContent(nextContent);
-  if (existsSync(abs) && readFileSync(abs, "utf8") === normalized) return;
+  if (existsSync(abs)) {
+    const current = readFileSync(abs, "utf8");
+    if (current === normalized) return;
+    if (
+      (relPath.startsWith(".cursor/skills/") || relPath.startsWith(".cursor/commands/")) &&
+      !isGeneratedHarnessContent(current)
+    ) {
+      return;
+    }
+  }
   mkdirSync(dirname(abs), { recursive: true });
   writeFileSync(abs, normalized, "utf8");
   written.push(relPath);

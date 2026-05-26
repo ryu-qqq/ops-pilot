@@ -32,8 +32,13 @@ function gitCommitRelPath(
   relPath: string,
   message: string,
 ): string {
-  // .cursor/ 등 gitignore 대상 harness 경로도 OpsPilot apply 로 의도적으로 커밋.
   git(project.clonePath, ["add", "-f", "--", relPath]);
+  try {
+    git(project.clonePath, ["diff", "--cached", "--quiet", "--", relPath]);
+    return git(project.clonePath, ["rev-parse", "HEAD"]);
+  } catch {
+    // staged diff exists — commit
+  }
   try {
     git(project.clonePath, [
       "-c",
@@ -69,6 +74,28 @@ function applyCursorRule(
 
   const message =
     `ops(feedback/cursor_rule): apply proposal to ${rel}\n\n` +
+    `why: ${rationale.trim() === "" ? "(미기재)" : rationale}\n\n` +
+    `[opspilot feedback apply]`;
+  return gitCommitRelPath(project, rel, message);
+}
+
+function applyCursorSkill(
+  project: Project,
+  targetPath: string,
+  content: string,
+  rationale: string,
+): string {
+  const rel = assertSafeRelativePath(targetPath);
+  if (!/^\.cursor\/skills\/[^/]+\/SKILL\.md$/.test(rel)) {
+    throw new FeedbackApplyError("cursor_skill target must be .cursor/skills/<name>/SKILL.md");
+  }
+
+  const abs = join(project.clonePath, rel);
+  mkdirSync(dirname(abs), { recursive: true });
+  writeFileSync(abs, content.endsWith("\n") ? content : `${content}\n`, "utf8");
+
+  const message =
+    `ops(feedback/cursor_skill): apply proposal to ${rel}\n\n` +
     `why: ${rationale.trim() === "" ? "(미기재)" : rationale}\n\n` +
     `[opspilot feedback apply]`;
   return gitCommitRelPath(project, rel, message);
@@ -187,6 +214,10 @@ export function applyProposalToProject(
 
   if (proposal.targetKind === "cursor_rule") {
     return applyCursorRule(project, proposal.targetPath, proposal.content, proposal.rationale);
+  }
+
+  if (proposal.targetKind === "cursor_skill") {
+    return applyCursorSkill(project, proposal.targetPath, proposal.content, proposal.rationale);
   }
 
   if (proposal.targetKind === "workflow_patch") {

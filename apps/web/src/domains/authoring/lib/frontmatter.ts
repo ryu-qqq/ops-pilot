@@ -43,6 +43,9 @@ export const KIND_KEYS: Record<AssetKind, readonly AnyKey[]> = {
   agent: ["name", "description", "model", "tools"],
   skill: ["name", "description", "when_to_use", "model", "allowed-tools"],
   command: ["name", "description", "argument-hint", "model", "allowed-tools"],
+  cursor_skill: ["name", "description", "when_to_use", "model", "allowed-tools"],
+  cursor_command: ["name", "description", "argument-hint", "model", "allowed-tools"],
+  cursor_rule: ["description"],
 };
 
 // 키별 사람말 라벨 + help (InfoMark·placeholder 등 재사용).
@@ -92,7 +95,10 @@ export const KEY_META: Record<
 export const DOCS_URL: Record<AssetKind, string> = {
   agent: "https://code.claude.com/docs/en/sub-agents",
   skill: "https://code.claude.com/docs/en/skills",
-  command: "https://code.claude.com/docs/en/skills", // commands = skills 통합 문서
+  command: "https://code.claude.com/docs/en/skills",
+  cursor_skill: "https://cursor.com/docs/context/skills",
+  cursor_command: "https://cursor.com/docs/context/commands",
+  cursor_rule: "https://cursor.com/docs/context/rules",
 };
 
 // 단순 YAML 직렬화 — single-line key: value 만 지원. 배열/멀티라인은 inline string.
