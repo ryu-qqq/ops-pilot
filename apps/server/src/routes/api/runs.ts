@@ -8,6 +8,7 @@ import {
   scorerSchema,
 } from "@opspilot/shared-types";
 import { RunInputError, startRun } from "../../domains/run/service.js";
+import { relinkFeedbackRunOnRerun } from "../../domains/feedback/rerun-link.js";
 import { DEMO_FIXTURE, fixtureSource, localClaudeSource } from "../../domains/run/source.js";
 import {
   cancelRun,
@@ -327,11 +328,14 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
       if (!old) return reply.status(404).send({ error: "NotFound", detail: "run not found" });
       try {
         // OPSP-44: cwd 는 서버가 assetVersionId → clonePath 로 자동 유도 — 별도 조회 불필요.
-        return startRun({
+        const newRun = startRun({
           assetVersionId: old.assetVersionId,
           scenarioId: old.scenarioId,
           source: old.runner === "fixture" ? fixtureSource(DEMO_FIXTURE) : localClaudeSource(),
+          retro: old.retro ?? null,
         });
+        relinkFeedbackRunOnRerun(old, newRun.id);
+        return newRun;
       } catch (e) {
         if (e instanceof RunInputError) {
           return reply.status(400).send({ error: "BadRequest", detail: e.message });
