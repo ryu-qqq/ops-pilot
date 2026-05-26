@@ -3,6 +3,7 @@ import type {
   ImprovementProposal,
   ImprovementProposalStatus,
 } from "@opspilot/shared-types";
+import { maybeSyncCursorHarnessAfterApply } from "../harness-bridge/service.js";
 import { getProject } from "../project/repository.js";
 import { FeedbackApplyError, applyProposalToProject } from "./apply.js";
 import {
@@ -87,7 +88,24 @@ export function applyProposal(id: string): FeedbackProposalApplyResponse {
 
   const updated = markProposalApplied(id, appliedCommit);
   if (!updated) throw new FeedbackProposalError("NotFound", "proposal not found");
-  return { proposal: updated, appliedCommit };
+  const cursorHarnessSync = maybeSyncCursorHarnessAfterApply(project);
+  return {
+    proposal: updated,
+    appliedCommit,
+    ...(cursorHarnessSync !== null
+      ? {
+          cursorHarnessSync: {
+            dryRun: cursorHarnessSync.dryRun,
+            written: cursorHarnessSync.written,
+            commit: cursorHarnessSync.commit,
+            staleDerivedRules: cursorHarnessSync.staleDerivedRules,
+            ...(cursorHarnessSync.skippedReason
+              ? { skippedReason: cursorHarnessSync.skippedReason }
+              : {}),
+          },
+        }
+      : {}),
+  };
 }
 
 /** MCP HITL: confirm=true 이면 draft 도 승인 후 apply (REST 는 approve·apply 분리). */

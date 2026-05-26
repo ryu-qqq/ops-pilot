@@ -381,9 +381,19 @@ export const feedbackApplyRequestSchema = z.object({
 });
 export type FeedbackApplyRequest = z.infer<typeof feedbackApplyRequestSchema>;
 
+export const cursorHarnessSyncResultSchema = z.object({
+  dryRun: z.boolean(),
+  written: z.array(z.string()),
+  commit: z.string().nullable(),
+  staleDerivedRules: z.array(z.string()),
+  skippedReason: z.string().optional(),
+});
+export type CursorHarnessSyncResult = z.infer<typeof cursorHarnessSyncResultSchema>;
+
 export const feedbackProposalApplyResponseSchema = z.object({
   proposal: improvementProposalSchema,
   appliedCommit: z.string(),
+  cursorHarnessSync: cursorHarnessSyncResultSchema.nullable().optional(),
 });
 export type FeedbackProposalApplyResponse = z.infer<typeof feedbackProposalApplyResponseSchema>;
 

@@ -232,6 +232,9 @@ claude mcp add --transport http opspilot http://localhost:3001/mcp
 | `apply_proposal` | HITL confirm 후 proposal 등록 경로에 반영 |
 | `review_proposals` | proposal-reviewer run 큐 |
 | `sync_agent_crew` | agent-crew tag → `.claude` sync (+ optional scan) |
+| `sync_cursor_harness` | `.claude` → `.cursor` derived mirror (skills · commands · agent rules) |
+
+linked apply 성공 시 **자동** `sync_cursor_harness` (best-effort). 수동: [`opspilot-sync-cursor-harness`](./docs/cookbook/cursor-commands/opspilot-sync-cursor-harness.md).
 
 데이몬은 한 터미널에 떠 있고(상태 + 영속 sqlite), 다른 터미널의 Claude Code 세션이 MCP로 호출하는 *멀티 터미널 워크플로* 를 가정한다. 시각 분석(흐름 그래프 · diff 2-pane · 비교 매트릭스 · 피드백 ingest)은 웹 UI(`:5173`) 몫.
 
