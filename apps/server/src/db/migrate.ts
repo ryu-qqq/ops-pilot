@@ -11,6 +11,28 @@ export function migrate(dbPath?: string): void {
   reconcileRunRetro(db);
   reconcileImprovementProposalTargetKind(db);
   reconcileIngestBundleStatus(db);
+  reconcileProjectWorkspaceMode(db);
+}
+
+// REG-01: project.workspace_mode · remote_verified. 기존 row → managed / 0.
+function reconcileProjectWorkspaceMode(db: ReturnType<typeof getDb>): void {
+  const cols = db.prepare("SELECT name FROM pragma_table_info('project')").all() as { name: string }[];
+  if (!cols.some((c) => c.name === "workspace_mode")) {
+    db.exec(`
+      ALTER TABLE project ADD COLUMN workspace_mode TEXT NOT NULL DEFAULT 'managed'
+        CHECK (workspace_mode IN ('linked', 'managed'));
+    `);
+  }
+  if (!cols.some((c) => c.name === "remote_verified")) {
+    db.exec(`
+      ALTER TABLE project ADD COLUMN remote_verified INTEGER NOT NULL DEFAULT 0
+        CHECK (remote_verified IN (0, 1));
+    `);
+  }
+  db.prepare(
+    `UPDATE project SET workspace_mode = 'managed' WHERE workspace_mode IS NULL OR workspace_mode = ''`,
+  ).run();
+  db.prepare(`UPDATE project SET remote_verified = 0 WHERE remote_verified IS NULL`).run();
 }
 
 // OPSP-46: 기존 DB 에 run.retro 컬럼 추가. CREATE TABLE IF NOT EXISTS 는

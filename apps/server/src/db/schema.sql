@@ -5,12 +5,15 @@ PRAGMA foreign_keys = ON;
 PRAGMA journal_mode = WAL;
 
 CREATE TABLE IF NOT EXISTS project (
-  id             TEXT PRIMARY KEY,
-  name           TEXT NOT NULL,
-  git_url        TEXT NOT NULL UNIQUE,
-  clone_path     TEXT NOT NULL,
-  default_branch TEXT,
-  created_at     TEXT NOT NULL
+  id              TEXT PRIMARY KEY,
+  name            TEXT NOT NULL,
+  git_url         TEXT NOT NULL UNIQUE,
+  clone_path      TEXT NOT NULL,
+  workspace_mode  TEXT NOT NULL DEFAULT 'managed'
+                  CHECK (workspace_mode IN ('linked', 'managed')),
+  remote_verified INTEGER NOT NULL DEFAULT 0 CHECK (remote_verified IN (0, 1)),
+  default_branch  TEXT,
+  created_at      TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS asset (
