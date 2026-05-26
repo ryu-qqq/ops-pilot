@@ -128,7 +128,7 @@ clone → push origin → dev pull
 
 또는 dev에서 `git cherry-pick <apply-commit>`.
 
-**Infrastructure 당장:** linked 재등록(`~/Documents/ryu-qqq/Infrastructure`) 또는 Cursor를 clone만 열기.
+**Infrastructure 당장:** linked 재등록(`~/Documents/ryu-qqq/Infrastructure`) 또는 Cursor를 clone만 열기. → [`project-registration-migration-runbook.md`](./project-registration-migration-runbook.md)
 
 ---
 
