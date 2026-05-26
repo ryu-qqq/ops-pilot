@@ -2,7 +2,7 @@
 // REST 라우트(routes/api/*)와 같은 domains 함수를 재사용 (비즈니스 로직 중복 X).
 // 노출 툴: scan_project / list_projects / list_assets / list_scenarios /
 //          start_run / get_run / compare_runs /
-//          ingest_cursor_session / list_proposals / apply_proposal / review_proposals.
+//          ingest_cursor_session / list_proposals / apply_proposal / review_proposals / sync_agent_crew.
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
@@ -45,6 +45,11 @@ import {
   applyProposalHitl,
   listProposalsForIngest,
 } from "../domains/feedback/proposal-service.js";
+import {
+  AgentCrewSyncError,
+  checkAgentCrewDrift,
+  syncAgentCrewForProject,
+} from "../domains/agent-crew/service.js";
 
 const MCP_SERVER_VERSION = "0.1.0";
 
@@ -82,13 +87,51 @@ export function createMcpServer(): McpServer {
         return errorResult(`scan failed: ${(e as Error).message}`);
       }
       const saved = saveScan(project.id, scanned);
+      const agentCrewDrift = checkAgentCrewDrift(project);
       mcpLog.scan(project.name, saved.assets, saved.versions);
       return jsonResult({
         project: { id: project.id, name: project.name },
         scannedAssets: scanned.length,
         scannedVersions: scanned.reduce((n, a) => n + a.versions.length, 0),
         saved,
+        agentCrewDrift,
+        hint: agentCrewDrift.drift
+          ? "lock 과 project.yaml agentCrew.version 불일치 — sync_agent_crew 권장"
+          : undefined,
       });
+    },
+  );
+
+  // 1b) sync_agent_crew — agent-crew tag → clone .claude sync (+ optional scan).
+  server.tool(
+    "sync_agent_crew",
+    "agent-crew git tag 기준으로 소비 프로젝트 clone 의 .claude/agents|skills|references 를 동기화합니다. lock·project.yaml 버전 갱신. scan=true(기본)면 이어서 scan_project.",
+    {
+      projectId: z.string().uuid(),
+      tag: z
+        .string()
+        .regex(/^v\d+\.\d+\.\d+$/)
+        .optional()
+        .describe("생략 시 agent-crew.lock / project.yaml 의 version"),
+      scan: z.boolean().default(true),
+    },
+    ({ projectId, tag, scan }) => {
+      mcpLog.mcp("sync_agent_crew");
+      const project = getProject(projectId);
+      if (!project) return errorResult(`project not found: ${projectId}`);
+      try {
+        const result = syncAgentCrewForProject(project, { tag, scan });
+        if (result.sync.missingFeedbackAgents.length > 0) {
+          return jsonResult({
+            ...result,
+            warning: `missing agents after sync: ${result.sync.missingFeedbackAgents.join(", ")}`,
+          });
+        }
+        return jsonResult(result);
+      } catch (e) {
+        if (e instanceof AgentCrewSyncError) return errorResult(e.message);
+        return errorResult(`sync failed: ${(e as Error).message}`);
+      }
     },
   );
 

@@ -12,6 +12,11 @@ import {
 import { cloneProject, ProjectCloneError, pullProject, slugFromUrl } from "../../domains/project/service.js";
 import { scanRepo } from "../../domains/registry/scanner.js";
 import { listAssets, saveScan } from "../../domains/registry/repository.js";
+import {
+  AgentCrewSyncError,
+  checkAgentCrewDrift,
+  syncAgentCrewForProject,
+} from "../../domains/agent-crew/service.js";
 
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
 
@@ -64,6 +69,12 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
             scannedAssets: z.number().int(),
             scannedVersions: z.number().int(),
             saved: z.object({ assets: z.number().int(), versions: z.number().int() }),
+            agentCrewDrift: z.object({
+              drift: z.boolean(),
+              lockTag: z.string().nullable(),
+              lockCommit: z.string().nullable(),
+              projectYamlTag: z.string().nullable(),
+            }),
           }),
           400: errorSchema,
           404: errorSchema,
@@ -81,11 +92,68 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(400).send({ error: "ScanError", detail: (e as Error).message });
       }
       const saved = saveScan(project.id, scanned);
+      const agentCrewDrift = checkAgentCrewDrift(project);
       return {
         scannedAssets: scanned.length,
         scannedVersions: scanned.reduce((n, a) => n + a.versions.length, 0),
         saved,
+        agentCrewDrift,
       };
+    },
+  );
+
+  fastify.post(
+    "/projects/:id/sync-agent-crew",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        body: z
+          .object({
+            tag: z.string().regex(/^v\d+\.\d+\.\d+$/).optional(),
+            scan: z.boolean().default(true),
+          })
+          .default({ scan: true }),
+        response: {
+          200: z.object({
+            sync: z.object({
+              tag: z.string(),
+              commit: z.string(),
+              source: z.string(),
+              crewRepoPath: z.string(),
+              copiedDirs: z.array(z.string()),
+              lockPath: z.string(),
+              missingFeedbackAgents: z.array(z.string()),
+            }),
+            driftBefore: z.object({
+              drift: z.boolean(),
+              lockTag: z.string().nullable(),
+              lockCommit: z.string().nullable(),
+              projectYamlTag: z.string().nullable(),
+            }),
+            scan: z
+              .object({
+                scannedAssets: z.number().int(),
+                scannedVersions: z.number().int(),
+                saved: z.object({ assets: z.number().int(), versions: z.number().int() }),
+              })
+              .optional(),
+          }),
+          400: errorSchema,
+          404: errorSchema,
+        },
+      },
+    },
+    async (req, reply) => {
+      const project = getProject(req.params.id);
+      if (!project) return reply.status(404).send({ error: "NotFound", detail: "project not found" });
+      try {
+        return syncAgentCrewForProject(project, { tag: req.body.tag, scan: req.body.scan });
+      } catch (e) {
+        if (e instanceof AgentCrewSyncError) {
+          return reply.status(400).send({ error: "AgentCrewSyncError", detail: e.message });
+        }
+        throw e;
+      }
     },
   );
 

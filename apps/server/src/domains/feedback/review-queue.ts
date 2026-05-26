@@ -115,7 +115,7 @@ export function queueProposalReview(
   const reviewAsset = findProposalReviewer(project.id);
   if (!reviewAsset) {
     mergeIngestContext(ingestId, {
-      skipReviewReason: "proposal-reviewer agent not found — scan_project 후 재시도",
+      skipReviewReason: "proposal-reviewer agent not found — sync_agent_crew 후 scan_project",
     });
     return;
   }
