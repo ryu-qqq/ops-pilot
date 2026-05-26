@@ -1,6 +1,6 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { assetKindSchema, assetSchema, projectSchema } from "@opspilot/shared-types";
+import { assetKindSchema, assetSchema, cursorHarnessSyncResultSchema, projectSchema } from "@opspilot/shared-types";
 import { AuthoringError, writeAsset } from "../../domains/authoring/service.js";
 import { installHooks } from "../../domains/authoring/hooks.js";
 import {
@@ -19,6 +19,10 @@ import {
   checkAgentCrewDrift,
   syncAgentCrewForProject,
 } from "../../domains/agent-crew/service.js";
+import {
+  HarnessBridgeSyncError,
+  syncCursorHarnessForProject,
+} from "../../domains/harness-bridge/service.js";
 
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
 
@@ -181,6 +185,51 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
       } catch (e) {
         if (e instanceof AgentCrewSyncError) {
           return reply.status(400).send({ error: "AgentCrewSyncError", detail: e.message });
+        }
+        throw e;
+      }
+    },
+  );
+
+  fastify.post(
+    "/projects/:id/sync-cursor-harness",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        body: z
+          .object({
+            dryRun: z.boolean().default(false),
+            commit: z.boolean().default(true),
+          })
+          .default({ dryRun: false, commit: true }),
+        response: {
+          200: cursorHarnessSyncResultSchema.extend({
+            plan: z
+              .array(
+                z.object({
+                  relPath: z.string(),
+                  action: z.enum(["create", "update", "unchanged"]),
+                  sourcePath: z.string(),
+                }),
+              )
+              .optional(),
+          }),
+          400: errorSchema,
+          404: errorSchema,
+        },
+      },
+    },
+    async (req, reply) => {
+      const project = getProject(req.params.id);
+      if (!project) return reply.status(404).send({ error: "NotFound", detail: "project not found" });
+      try {
+        return syncCursorHarnessForProject(project, {
+          dryRun: req.body.dryRun,
+          commit: req.body.commit,
+        });
+      } catch (e) {
+        if (e instanceof HarnessBridgeSyncError) {
+          return reply.status(400).send({ error: "HarnessBridgeSyncError", detail: e.message });
         }
         throw e;
       }

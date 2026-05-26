@@ -2,7 +2,7 @@
 // REST 라우트(routes/api/*)와 같은 domains 함수를 재사용 (비즈니스 로직 중복 X).
 // 노출 툴: register_project / scan_project / list_projects / list_assets / list_scenarios /
 //          start_run / get_run / compare_runs /
-//          ingest_cursor_session / list_proposals / apply_proposal / review_proposals / sync_agent_crew.
+//          ingest_cursor_session / list_proposals / apply_proposal / review_proposals / sync_agent_crew / sync_cursor_harness.
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
@@ -55,6 +55,10 @@ import {
   checkAgentCrewDrift,
   syncAgentCrewForProject,
 } from "../domains/agent-crew/service.js";
+import {
+  HarnessBridgeSyncError,
+  syncCursorHarnessForProject,
+} from "../domains/harness-bridge/service.js";
 
 const MCP_SERVER_VERSION = "0.1.0";
 
@@ -191,6 +195,28 @@ export function createMcpServer(): McpServer {
         return jsonResult(result);
       } catch (e) {
         if (e instanceof AgentCrewSyncError) return errorResult(e.message);
+        return errorResult(`sync failed: ${(e as Error).message}`);
+      }
+    },
+  );
+
+  server.tool(
+    "sync_cursor_harness",
+    ".claude/ SSOT harness를 Cursor derived layer(.cursor/skills·commands·rules/opspilot-agent-*)로 mirror. dryRun=true면 계획만. linked apply 후에도 자동 호출됨.",
+    {
+      projectId: z.string().uuid(),
+      dryRun: z.boolean().default(false),
+      commit: z.boolean().default(true),
+    },
+    ({ projectId, dryRun, commit }) => {
+      mcpLog.mcp("sync_cursor_harness");
+      const project = getProject(projectId);
+      if (!project) return errorResult(`project not found: ${projectId}`);
+      try {
+        const result = syncCursorHarnessForProject(project, { dryRun, commit });
+        return jsonResult(result);
+      } catch (e) {
+        if (e instanceof HarnessBridgeSyncError) return errorResult(e.message);
         return errorResult(`sync failed: ${(e as Error).message}`);
       }
     },
