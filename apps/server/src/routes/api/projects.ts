@@ -4,21 +4,14 @@ import { assetKindSchema, assetSchema, projectSchema } from "@opspilot/shared-ty
 import { AuthoringError, writeAsset } from "../../domains/authoring/service.js";
 import { installHooks } from "../../domains/authoring/hooks.js";
 import {
-  createProject,
   getProject,
-  getProjectByClonePath,
   listProjects,
 } from "../../domains/project/repository.js";
 import {
-  cloneProject,
-  defaultNameFromPath,
-  linkLocalProject,
-  normalizeGitUrl,
-  ProjectCloneError,
-  ProjectLinkError,
-  pullProject,
-  slugFromUrl,
-} from "../../domains/project/service.js";
+  ProjectRegisterError,
+  registerProject,
+} from "../../domains/project/register.js";
+import { pullProject } from "../../domains/project/service.js";
 import { scanRepo } from "../../domains/registry/scanner.js";
 import { listAssets, saveScan } from "../../domains/registry/repository.js";
 import {
@@ -54,11 +47,6 @@ const createProjectBodySchema = z.union([
   createLegacyProjectBody,
 ]);
 
-function isRegisteredGitUrl(gitUrl: string): boolean {
-  const norm = normalizeGitUrl(gitUrl);
-  return listProjects().some((p) => normalizeGitUrl(p.gitUrl) === norm);
-}
-
 const projects: FastifyPluginAsyncZod = async (fastify) => {
   // 프로젝트 등록 — linked(로컬 경로) | managed(git clone)
   fastify.post(
@@ -71,57 +59,23 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (req, reply) => {
       const body = req.body;
-
-      if ("localPath" in body) {
-        try {
-          const linked = linkLocalProject({
+      try {
+        if ("localPath" in body) {
+          return registerProject({
+            mode: "linked",
             localPath: body.localPath,
             gitUrl: body.gitUrl,
+            name: body.name,
           });
-          if (getProjectByClonePath(linked.clonePath)) {
-            return reply.status(400).send({
-              error: "Duplicate",
-              detail: `이미 등록된 로컬 경로: ${linked.clonePath}`,
-            });
-          }
-          if (isRegisteredGitUrl(linked.gitUrl)) {
-            return reply.status(400).send({
-              error: "Duplicate",
-              detail: "이미 등록된 git URL",
-            });
-          }
-          return createProject({
-            name: body.name ?? defaultNameFromPath(linked.clonePath),
-            gitUrl: linked.gitUrl,
-            clonePath: linked.clonePath,
-            defaultBranch: linked.defaultBranch,
-            workspaceMode: "linked",
-            remoteVerified: linked.remoteVerified,
-          });
-        } catch (e) {
-          if (e instanceof ProjectLinkError) {
-            return reply.status(400).send({ error: "LinkError", detail: e.message });
-          }
-          throw e;
         }
-      }
-
-      const { gitUrl } = body;
-      if (isRegisteredGitUrl(gitUrl)) {
-        return reply.status(400).send({ error: "Duplicate", detail: "이미 등록된 git URL" });
-      }
-      try {
-        const { clonePath, defaultBranch } = cloneProject(gitUrl);
-        return createProject({
-          name: body.name ?? slugFromUrl(gitUrl),
-          gitUrl,
-          clonePath,
-          defaultBranch,
-          workspaceMode: "managed",
+        return registerProject({
+          mode: "managed",
+          gitUrl: body.gitUrl,
+          name: body.name,
         });
       } catch (e) {
-        if (e instanceof ProjectCloneError) {
-          return reply.status(400).send({ error: "CloneError", detail: e.message });
+        if (e instanceof ProjectRegisterError) {
+          return reply.status(400).send({ error: e.code, detail: e.message });
         }
         throw e;
       }

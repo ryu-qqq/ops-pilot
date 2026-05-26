@@ -1,6 +1,6 @@
 // OPSP-18: MCP 어댑터 — OpsPilot 데이몬을 Claude Code 세션의 MCP 툴로 노출.
 // REST 라우트(routes/api/*)와 같은 domains 함수를 재사용 (비즈니스 로직 중복 X).
-// 노출 툴: scan_project / list_projects / list_assets / list_scenarios /
+// 노출 툴: register_project / scan_project / list_projects / list_assets / list_scenarios /
 //          start_run / get_run / compare_runs /
 //          ingest_cursor_session / list_proposals / apply_proposal / review_proposals / sync_agent_crew.
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -11,6 +11,11 @@ import {
   getProject,
   listProjects as repoListProjects,
 } from "../domains/project/repository.js";
+import {
+  ProjectRegisterError,
+  projectSummary,
+  registerProject,
+} from "../domains/project/register.js";
 import { pullProject } from "../domains/project/service.js";
 import {
   getAsset,
@@ -70,10 +75,64 @@ function errorResult(message: string): ToolContent {
 export function createMcpServer(): McpServer {
   const server = new McpServer({ name: "opspilot", version: MCP_SERVER_VERSION });
 
-  // 1) scan_project — clone pull + .claude 스캔 + DB 적재. 멱등.
+  // 1) register_project — linked(로컬 경로) | managed(git clone).
+  server.tool(
+    "register_project",
+    "OpsPilot에 프로젝트를 등록합니다. mode=linked 는 Cursor dev checkout 경로, mode=managed 는 git URL clone. 등록 후 scan_project 권장.",
+    {
+      mode: z.enum(["linked", "managed"]).describe("linked=로컬 git 경로, managed=OpsPilot 관리 클론"),
+      localPath: z
+        .string()
+        .min(1)
+        .optional()
+        .describe("mode=linked 필수 — 절대/홈 경로 git checkout"),
+      gitUrl: z
+        .string()
+        .min(1)
+        .optional()
+        .describe("mode=managed 필수 · linked 에서 origin과 다를 때만"),
+      name: z.string().optional().describe("표시 이름 — 생략 시 폴더명/slug"),
+    },
+    ({ mode, localPath, gitUrl, name }) => {
+      mcpLog.mcp("register_project");
+      if (mode === "linked") {
+        if (localPath === undefined || localPath.trim() === "") {
+          return errorResult("localPath required when mode=linked");
+        }
+        try {
+          const project = registerProject({ mode: "linked", localPath, gitUrl, name });
+          return jsonResult({
+            project: projectSummary(project),
+            hint:
+              project.workspaceMode === "linked"
+                ? "Cursor에서 clonePath 와 같은 폴더를 여세요. scan_project 로 .claude 적재."
+                : undefined,
+          });
+        } catch (e) {
+          if (e instanceof ProjectRegisterError) return errorResult(`${e.code}: ${e.message}`);
+          return errorResult(`register failed: ${(e as Error).message}`);
+        }
+      }
+      if (gitUrl === undefined || gitUrl.trim() === "") {
+        return errorResult("gitUrl required when mode=managed");
+      }
+      try {
+        const project = registerProject({ mode: "managed", gitUrl, name });
+        return jsonResult({
+          project: projectSummary(project),
+          hint: "apply 후 Cursor dev와 다르면 push/pull 또는 /opspilot-sync-managed-clone",
+        });
+      } catch (e) {
+        if (e instanceof ProjectRegisterError) return errorResult(`${e.code}: ${e.message}`);
+        return errorResult(`register failed: ${(e as Error).message}`);
+      }
+    },
+  );
+
+  // 2) scan_project — pull + .claude 스캔 + DB 적재. 멱등.
   server.tool(
     "scan_project",
-    "프로젝트 클론을 pull → .claude 디렉터리를 스캔 → asset/asset_version DB에 적재합니다(멱등). projectId 는 list_projects 로 조회.",
+    "등록 경로(clonePath)를 pull → .claude 디렉터리를 스캔 → asset/asset_version DB에 적재합니다(멱등). linked=Cursor dev, managed=OpsPilot clone.",
     { projectId: z.string().uuid().describe("프로젝트 UUID — list_projects 의 id") },
     ({ projectId }) => {
       mcpLog.mcp("scan_project");
@@ -90,14 +149,16 @@ export function createMcpServer(): McpServer {
       const agentCrewDrift = checkAgentCrewDrift(project);
       mcpLog.scan(project.name, saved.assets, saved.versions);
       return jsonResult({
-        project: { id: project.id, name: project.name },
+        project: projectSummary(project),
         scannedAssets: scanned.length,
         scannedVersions: scanned.reduce((n, a) => n + a.versions.length, 0),
         saved,
         agentCrewDrift,
         hint: agentCrewDrift.drift
           ? "lock 과 project.yaml agentCrew.version 불일치 — sync_agent_crew 권장"
-          : undefined,
+          : project.workspaceMode === "managed"
+            ? "managed: apply는 clonePath에만 — dev sync 필요할 수 있음"
+            : undefined,
       });
     },
   );
@@ -135,12 +196,12 @@ export function createMcpServer(): McpServer {
     },
   );
 
-  // 2) list_projects — 등록된 git URL 클론 프로젝트 전체.
+  // 3) list_projects — 등록된 프로젝트 전체 (workspaceMode · clonePath 포함).
   server.tool(
     "list_projects",
-    "OpsPilot 에 등록된 모든 프로젝트(git URL 기반 클론) 목록.",
+    "OpsPilot에 등록된 모든 프로젝트. workspaceMode=linked(Cursor dev) | managed(OpsPilot clone), clonePath, remoteVerified 포함.",
     {},
-    () => jsonResult({ projects: repoListProjects() }),
+    () => jsonResult({ projects: repoListProjects().map(projectSummary) }),
   );
 
   // 3) list_assets — 프로젝트의 자산 목록 + 각 자산의 최근 버전 5개.
@@ -155,7 +216,7 @@ export function createMcpServer(): McpServer {
         ...a,
         recentVersions: listVersions(a.id).slice(0, 5),
       }));
-      return jsonResult({ project: { id: project.id, name: project.name }, assets });
+      return jsonResult({ project: projectSummary(project), assets });
     },
   );
 
@@ -267,7 +328,7 @@ export function createMcpServer(): McpServer {
     "Cursor 작업 단위를 ingest(git diff + 메타)하고 work-evaluator eval run을 큐합니다. ingestId·status·proposals 를 반환 — eval 완료까지 get_run 또는 list_proposals 로 폴링.",
     {
       projectId: z.string().uuid().describe("프로젝트 UUID — list_projects 의 id"),
-      gitRef: z.string().min(1).describe("프로젝트 clone 기준 commit SHA"),
+      gitRef: z.string().min(1).describe("등록 경로(clonePath) 기준 commit SHA"),
       notionTaskUrl: z.string().optional(),
       retro: z.string().optional().describe("사용자 회고 1~3문장"),
       transcriptPath: z.string().optional().describe("로컬 transcript 절대경로 — 발췌만 읽음"),
@@ -336,7 +397,7 @@ export function createMcpServer(): McpServer {
   // 10) apply_proposal — HITL apply (confirm 필수). draft 면 승인+apply, approved 면 apply만.
   server.tool(
     "apply_proposal",
-    "승인된(HITL confirm=true) improvement_proposal 을 프로젝트 clone에 반영합니다. draft 상태면 confirm 으로 승인+apply. REST 와 달리 MCP 는 한 번에 처리.",
+    "승인된(HITL confirm=true) improvement_proposal 을 등록 경로(clonePath)에 반영합니다. managed 모드면 dev sync 필요.",
     {
       proposalId: z.string().uuid(),
       confirm: z.literal(true).describe("반드시 true — 사람 확인 게이트"),
