@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
-import { Check, Expand, FileCode, Info, RefreshCw, Share2, X } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Ban, Check, Expand, FileCode, Info, RefreshCw, Share2, X } from "lucide-react";
 import type { ImprovementProposal, Project, ProposalReviewMeta } from "@opspilot/shared-types";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
@@ -16,6 +17,8 @@ import { EmptyState, ErrorNotice, Loading } from "../../../lib/ui";
 import { cn } from "../../../lib/utils";
 import { ProjectBar } from "../../project/components/project-bar";
 import { useProjects } from "../../project/use-project";
+import { useCancelRun } from "../../run/use-run";
+import { feedbackKeys } from "../api";
 import {
   useApplyProposal,
   useApproveProposal,
@@ -260,6 +263,8 @@ function IngestDetailPanel({
   const reprocess = useReprocessIngest(ingestId, projectId);
   const review = useReviewIngest(ingestId, projectId);
   const reprocessReview = useReprocessReviewIngest(ingestId, projectId);
+  const cancelEval = useCancelRun();
+  const qc = useQueryClient();
   const evalRunId = data?.contextJson.evalRunId;
   const reviewRunId = data?.contextJson.reviewRunId;
 
@@ -296,6 +301,19 @@ function IngestDetailPanel({
           <p>
             git: <code className="font-mono text-xs">{data.gitRef.slice(0, 12)}</code>
           </p>
+          {evalRunId !== undefined && (
+            <p className="text-xs text-muted-foreground">
+              eval run:{" "}
+              <code className="font-mono">{evalRunId.slice(0, 8)}</code>
+              {data.status === "evaluating" && " (진행 중)"}
+            </p>
+          )}
+          {reviewRunId !== undefined && (
+            <p className="text-xs text-muted-foreground">
+              review run: <code className="font-mono">{reviewRunId.slice(0, 8)}</code>
+              {data.status === "reviewing" && " (진행 중)"}
+            </p>
+          )}
           {data.notionTaskUrl !== null && (
             <p className="truncate text-muted-foreground">{data.notionTaskUrl}</p>
           )}
@@ -328,6 +346,25 @@ function IngestDetailPanel({
               <Button size="sm" variant="outline" onClick={() => onOpenEvalRun(reviewRunId)}>
                 <Share2 className="h-3.5 w-3.5" />
                 {data.status === "reviewing" ? "review 실시간 트레이스" : "review 트레이스"}
+              </Button>
+            )}
+            {data.status === "evaluating" && evalRunId !== undefined && (
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={cancelEval.isPending}
+                onClick={() =>
+                  cancelEval.mutate(evalRunId, {
+                    onSuccess: () => {
+                      void qc.invalidateQueries({ queryKey: feedbackKeys.detail(ingestId) });
+                      void qc.invalidateQueries({ queryKey: feedbackKeys.list(projectId) });
+                    },
+                  })
+                }
+                title="멈춘 eval run을 failed로 마킹 — 이후 eval 재처리 또는 ingest 재생성"
+              >
+                <Ban className={`h-3.5 w-3.5 ${cancelEval.isPending ? "animate-pulse" : ""}`} />
+                eval 강제 종료
               </Button>
             )}
             {showReprocess && (
@@ -485,6 +522,12 @@ export function FeedbackView({ onOpenEvalRun }: FeedbackViewProps) {
                     </div>
                     <div className="mt-1 text-xs text-muted-foreground">
                       draft {String(item.draftProposalCount)} · {new Date(item.createdAt).toLocaleString()}
+                      {item.evalRunId != null && (
+                        <span>
+                          {" "}
+                          · eval <code className="font-mono">{item.evalRunId.slice(0, 8)}</code>
+                        </span>
+                      )}
                       {item.evalRunId !== undefined && item.status === "evaluating" && (
                         <span className="text-primary"> · 트레이스 탭으로</span>
                       )}

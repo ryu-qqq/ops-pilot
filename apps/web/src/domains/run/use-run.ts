@@ -27,6 +27,7 @@ import {
   updateScenario,
   type UpdateScenarioInput,
 } from "./api";
+import { feedbackKeys } from "../feedback/api";
 
 export function useRuns() {
   return useQuery({
@@ -192,6 +193,7 @@ export function useRerunRun() {
     mutationFn: rerunRun,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: runKeys.all });
+      qc.invalidateQueries({ queryKey: feedbackKeys.all });
     },
   });
 }

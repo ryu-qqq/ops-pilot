@@ -1,4 +1,4 @@
-import { FileDiff, GitCompare, ListTree, Repeat, RotateCw, Share2, X } from "lucide-react";
+import { Ban, FileDiff, GitCompare, ListTree, Repeat, RotateCw, Share2, X } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import {
@@ -18,7 +18,7 @@ import { ScenarioPanel } from "./scenario-panel";
 import { HumanScore } from "./human-score";
 import { RunRetro } from "./run-retro";
 import { InfoMark } from "../../../lib/ui";
-import { useRerunRun } from "../use-run";
+import { useCancelRun, useRerunRun, useRun } from "../use-run";
 
 export type RunViewMode = "list" | "graph";
 
@@ -46,6 +46,8 @@ export function RunsView({
   const compareActive = compareRunIds.length >= 2;
   const benchmarkActive = benchmarkRunIds.length >= 1;
   const rerun = useRerunRun();
+  const cancel = useCancelRun();
+  const { data: selectedRun } = useRun(selectedRunId);
   return (
     <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
       <Card className="p-4 space-y-3">
@@ -135,17 +137,29 @@ export function RunsView({
                   <DiffView runId={selectedRunId} />
                 </DialogContent>
               </Dialog>
+              {selectedRun?.status === "running" && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={cancel.isPending}
+                  onClick={() => cancel.mutate(selectedRunId)}
+                  title="running/pending run을 failed로 마킹 (좀비·멈춘 eval 정리)"
+                >
+                  <Ban className={`h-3.5 w-3.5 ${cancel.isPending ? "animate-pulse" : ""}`} />
+                  강제 종료
+                </Button>
+              )}
               {/* OPSP-38 follow-up: 다시 실행 — run 액션이라 그래프 밖, 뷰 무관 위치로 */}
               <Button
                 variant="outline"
                 size="sm"
-                disabled={rerun.isPending}
+                disabled={rerun.isPending || selectedRun?.status === "running"}
                 onClick={() =>
                   rerun.mutate(selectedRunId, {
                     onSuccess: (newRun) => onSelectRun(newRun.id),
                   })
                 }
-                title="같은 자산버전·시나리오·소스로 새 run 시작"
+                title="같은 자산버전·시나리오·소스로 새 run 시작 (feedback ingest 연결 retro 유지)"
               >
                 <RotateCw className={`h-3.5 w-3.5 ${rerun.isPending ? "animate-spin" : ""}`} />
                 다시 실행

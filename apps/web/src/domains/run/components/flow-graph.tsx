@@ -35,6 +35,7 @@ import { EmptyState, InlineError, Loading } from "../../../lib/ui";
 import { useTheme } from "../../../lib/use-theme";
 import { Button } from "../../../components/ui/button";
 import { useRun, useRunAnalysis, useRuns, useRunTrace, useStartAnalysis } from "../use-run";
+import { isFeedbackPipelineRun, feedbackPipelinePhase } from "../lib/feedback-run";
 import type { TraceEventView } from "../api";
 
 // OPSP-35 (b 재작성): 선택된 *1개 run* 의 trace event 흐름을 그래프로 +
@@ -216,6 +217,8 @@ export function FlowGraph({ selectedRunId, onSelectRun, showRunSelect = true }: 
   const runs = useRuns();
   const run = useRun(selectedRunId);
   const isRunning = run.data?.status === "running";
+  const feedbackRun = isFeedbackPipelineRun(run.data?.retro);
+  const feedbackPhase = feedbackPipelinePhase(run.data?.retro);
   const trace = useRunTrace(selectedRunId, isRunning);
   // OPSP-39: AI 분석 — 비동기 작업 + DB 캐시. 화면 이동해도 유실 X.
   const analysis = useRunAnalysis(selectedRunId);
@@ -402,7 +405,23 @@ export function FlowGraph({ selectedRunId, onSelectRun, showRunSelect = true }: 
       </Card>
 
       <div className="space-y-3">
-        {/* OPSP-39: AI 트레이스 분석 — 비동기·DB 캐시. 결과는 모달로. */}
+        {/* OPSP-39: AI 트레이스 분석 — harness 수동 eval 전용. feedback 파이프라인 run 은 JSON 파서가 결과를 뽑음. */}
+        {feedbackRun ? (
+          <Card className="border-muted">
+            <CardHeader className="border-b">
+              <CardTitle className="text-sm text-muted-foreground">
+                AI 트레이스 분석 — feedback run 에서는 사용하지 않음
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-2 text-xs text-muted-foreground">
+              이 run 은 ingest →{" "}
+              {feedbackPhase === "review" ? "proposal-reviewer" : "work-evaluator"} 파이프라인입니다.
+              proposal/review 결과는 마지막 JSON block 으로 자동 파싱되며, 「분석 실행」은 별도 Claude
+              호출만 추가합니다 (proposal-reviewer 를 다시 돌리지 않음). Feedback 탭에서 ingest·proposal 을
+              확인하세요.
+            </CardContent>
+          </Card>
+        ) : (
         <Card className="border-purple/40">
           <CardHeader className="border-b">
             <CardTitle className="flex items-center gap-2 text-sm">
@@ -471,6 +490,7 @@ export function FlowGraph({ selectedRunId, onSelectRun, showRunSelect = true }: 
             )}
           </CardContent>
         </Card>
+        )}
 
         {/* OPSP-36: 노드 클릭 시 그 trace event 의 raw input/output */}
         {selectedEvent !== null && (
