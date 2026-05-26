@@ -20,6 +20,7 @@ allowed-tools:
 - `tracking.notion.tasksDatabaseId` — Tasks DB (collection URI 또는 ID)
 - `knowledge.vault.path` · `knowledge.vault.rawPrefix` — wiki raw 시드
 - `tracking.notion.convention` — `engineering-os` 이면 `references/notion/engineering-os.md` Glob 후 Read
+- `git.commit` — 커밋·PR subject (`references/conventions/commit-format.md` Glob 후 Read)
 
 `tracking.jira.enabled`만 true이면 이 스킬 대신 Jira 워크플로를 안내한다.
 
@@ -37,12 +38,14 @@ Engineering OS(Notion Tasks)와 wiki·git을 **같은 작업 단위**로 묶는 
 1. Task 페이지 fetch — 스키마·현재 `상태` 확인
 2. `notion-manager`에 위임 — `시작 전` → `진행 중` (convention 또는 DB 실제 옵션)
 3. `wiki-lookup` — 관련 wiki 선례가 있으면 요약해 사용자에게 전달
-4. 작업 범위·성공 기준을 1–3줄로 확인 (모호하면 질문)
+4. `references/conventions/commit-format.md` Read — 이번 Task의 TICKET 형식 확인
+5. 작업 범위·성공 기준을 1–3줄로 확인 (모호하면 질문)
 
 ### B. 완료 (`eo-done`)
 
 입력: 동일 Task + 산출물 요약 + (선택) git commit hash/URL + wiki raw 경로.
 
+0. 커밋을 만든 경우 subject가 `references/conventions/commit-format.md` + `git.commit`과 일치하는지 확인. 불일치면 사용자에게 수정 제안 (강제 amend는 HITL).
 1. wiki raw·ADR·overview 갱신이 필요하면 `journal-recorder` 또는 `wiki-curator`·`adr` 스킬에 위임
 2. `notion-manager`에 위임:
    - `상태` → `완료`
@@ -81,4 +84,5 @@ Notion MCP `search` / `fetch`로 Task 목록 조회.
 ## 참고
 
 - convention 상세: agent-crew `references/notion/engineering-os.md`
+- 커밋·PR subject: `references/conventions/commit-format.md`
 - Cursor 일상 작업은 IDE에서, Claude Code는 평가·지침 개선에 집중

@@ -171,6 +171,10 @@ export interface IngestBundleListRow {
   status: IngestBundleStatus;
   createdAt: string;
   draftProposalCount: number;
+  approvedProposalCount: number;
+  appliedProposalCount: number;
+  commitSubject: string | null;
+  retroPreview: string | null;
   evalRunId: string | null;
   reviewRunId: string | null;
 }
@@ -186,24 +190,37 @@ export function listIngestBundlesByProject(projectId: string): IngestBundleListR
               ib.created_at AS createdAt,
               json_extract(ib.context_json, '$.evalRunId') AS evalRunId,
               json_extract(ib.context_json, '$.reviewRunId') AS reviewRunId,
+              json_extract(ib.context_json, '$.commitSubject') AS commitSubject,
+              json_extract(ib.context_json, '$.retro') AS retroRaw,
               (SELECT COUNT(*) FROM improvement_proposal p
-                 WHERE p.ingest_id = ib.id AND p.status = 'draft') AS draftProposalCount
+                 WHERE p.ingest_id = ib.id AND p.status = 'draft') AS draftProposalCount,
+              (SELECT COUNT(*) FROM improvement_proposal p
+                 WHERE p.ingest_id = ib.id AND p.status = 'approved') AS approvedProposalCount,
+              (SELECT COUNT(*) FROM improvement_proposal p
+                 WHERE p.ingest_id = ib.id AND p.status = 'applied') AS appliedProposalCount
          FROM ingest_bundle ib
         WHERE ib.project_id = ?
         ORDER BY ib.created_at DESC`,
     )
     .all(projectId) as Record<string, unknown>[];
-  return rows.map((row) => ({
-    id: row.id as string,
-    projectId: row.projectId as string,
-    notionTaskUrl: (row.notionTaskUrl as string | null) ?? null,
-    gitRef: row.gitRef as string,
-    status: row.status as IngestBundleStatus,
-    createdAt: row.createdAt as string,
-    draftProposalCount: Number(row.draftProposalCount ?? 0),
-    evalRunId: (row.evalRunId as string | null) ?? null,
-    reviewRunId: (row.reviewRunId as string | null) ?? null,
-  }));
+  return rows.map((row) => {
+    const retroRaw = row.retroRaw as string | null;
+    return {
+      id: row.id as string,
+      projectId: row.projectId as string,
+      notionTaskUrl: (row.notionTaskUrl as string | null) ?? null,
+      gitRef: row.gitRef as string,
+      status: row.status as IngestBundleStatus,
+      createdAt: row.createdAt as string,
+      draftProposalCount: Number(row.draftProposalCount ?? 0),
+      approvedProposalCount: Number(row.approvedProposalCount ?? 0),
+      appliedProposalCount: Number(row.appliedProposalCount ?? 0),
+      commitSubject: (row.commitSubject as string | null) ?? null,
+      retroPreview: retroRaw ? retroRaw.slice(0, 120) : null,
+      evalRunId: (row.evalRunId as string | null) ?? null,
+      reviewRunId: (row.reviewRunId as string | null) ?? null,
+    };
+  });
 }
 
 export function getImprovementProposal(id: string): ImprovementProposal | undefined {

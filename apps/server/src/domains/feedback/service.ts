@@ -1,6 +1,7 @@
 import type { FeedbackIngestRequest, IngestBundleDetail } from "@opspilot/shared-types";
 import { getProject } from "../project/repository.js";
-import { collectCommitDiff, DEFAULT_MAX_DIFF_BYTES } from "./diff.js";
+import { collectCommitDiff, DEFAULT_MAX_DIFF_BYTES, resolveCommitSubject } from "./diff.js";
+import { assertCommitSubjectForIngest } from "./commit-format.js";
 import { queueFeedbackEval, reprocessFeedbackEval, type FeedbackEvalSource } from "./eval-queue.js";
 import { queueProposalReview, reprocessProposalReview } from "./review-queue.js";
 import { createIngestBundle, getIngestBundle, listIngestBundlesByProject, listProposalsByIngestId } from "./repository.js";
@@ -8,7 +9,12 @@ import { readTranscriptExcerpt } from "./transcript.js";
 
 export class FeedbackIngestError extends Error {
   constructor(
-    readonly code: "NotFound" | "InvalidGitRef" | "TranscriptReadError" | "EvalSetupError",
+    readonly code:
+      | "NotFound"
+      | "InvalidGitRef"
+      | "TranscriptReadError"
+      | "EvalSetupError"
+      | "InvalidCommitSubject",
     message: string,
   ) {
     super(message);
@@ -36,6 +42,14 @@ export function ingestFeedback(input: FeedbackIngestRequest): IngestBundleDetail
   const contextJson: IngestBundleDetail["contextJson"] = {};
   if (input.retro) contextJson.retro = input.retro;
   if (diffTruncated) contextJson.diffTruncated = true;
+  const commitSubject = resolveCommitSubject(project.clonePath, input.gitRef);
+  if (commitSubject) {
+    const subjectError = assertCommitSubjectForIngest(project.clonePath, commitSubject);
+    if (subjectError) {
+      throw new FeedbackIngestError("InvalidCommitSubject", subjectError);
+    }
+    contextJson.commitSubject = commitSubject;
+  }
 
   if (input.transcriptPath) {
     try {
@@ -77,7 +91,11 @@ export function listIngestsByProject(projectId: string) {
   if (!project) {
     throw new FeedbackIngestError("NotFound", "project not found");
   }
-  return listIngestBundlesByProject(projectId);
+  return listIngestBundlesByProject(projectId).map((row) => {
+    if (row.commitSubject != null && row.commitSubject.trim() !== "") return row;
+    const subject = resolveCommitSubject(project.clonePath, row.gitRef);
+    return subject ? { ...row, commitSubject: subject } : row;
+  });
 }
 
 export async function reprocessFeedbackIngest(id: string): Promise<IngestBundleDetail> {

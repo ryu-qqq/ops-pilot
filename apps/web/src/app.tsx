@@ -10,6 +10,7 @@ import { RegistryView } from "./domains/registry/components/registry-view";
 import { RunsView, type RunViewMode } from "./domains/run/components/runs-view";
 import { SettingsDialog } from "./domains/settings/components/settings-dialog";
 import { WorkflowGuide } from "./components/workflow-guide";
+import { ServerHealthIndicator } from "./components/server-health-indicator";
 
 type Tab = "feedback" | "runs" | "registry";
 
@@ -61,6 +62,7 @@ export function App() {
           <span className="text-xs text-muted-foreground">피드백 · eval · HITL</span>
         </div>
         <div className="flex items-center gap-1">
+          <ServerHealthIndicator />
           <SettingsDialog />
           <Button
             variant="ghost"

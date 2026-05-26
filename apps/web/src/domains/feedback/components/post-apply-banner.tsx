@@ -31,8 +31,10 @@ function managedSyncText(project: Project, appliedCommit?: string | null): strin
 }
 
 export function PostApplyBanner({ project, projectId, appliedCommit }: Props) {
-  const scan = useScanProject();
+  const scan = useScanProject(projectId);
   const [copied, setCopied] = useState(false);
+  const scanDone = scan.isSuccess;
+  const scanBusy = scan.isPending;
 
   if (project.workspaceMode === "linked") {
     return (
@@ -44,15 +46,27 @@ export function PostApplyBanner({ project, projectId, appliedCommit }: Props) {
             변경은 <code className="font-mono text-xs">{project.clonePath}</code> 에 커밋되었습니다.
             Cursor에서 같은 폴더를 열면 harness를 바로 쓸 수 있습니다.
           </p>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={scan.isPending}
-            onClick={() => scan.mutate(projectId)}
-          >
-            {scan.isPending ? <Loading label="스캔 중…" /> : "레지스트리 스캔 (권장)"}
-          </Button>
+          {scanDone && scan.data !== undefined ? (
+            <p className="text-xs text-success">
+              레지스트리 스캔 완료 — 자산 {String(scan.data.scannedAssets)} · 신규버전{" "}
+              {String(scan.data.saved.versions)}
+            </p>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={scanBusy || scanDone}
+              onClick={() => scan.mutate(projectId)}
+            >
+              {scanBusy ? <Loading label="스캔 중…" /> : "레지스트리 스캔 (권장)"}
+            </Button>
+          )}
+          {scan.isError && (
+            <p className="text-xs text-destructive">
+              스캔 실패: {scan.error instanceof Error ? scan.error.message : "알 수 없는 오류"}
+            </p>
+          )}
         </AlertDescription>
       </Alert>
     );

@@ -43,13 +43,27 @@ async function parseOrThrow<T>(res: Response, schema: ZodType<T>): Promise<T> {
   return schema.parse(await res.json());
 }
 
+async function networkFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new ApiError(
+      0,
+      "OpsPilot 서버에 연결할 수 없습니다. 터미널에서 apps/server dev(:3001)가 실행 중인지 확인하세요.",
+      "NetworkError",
+      msg,
+    );
+  }
+}
+
 // 응답을 항상 shared-types Zod 로 검증 (CONVENTIONS.md 1: 단일 출처).
 export async function apiGet<T>(path: string, schema: ZodType<T>): Promise<T> {
-  return parseOrThrow(await fetch(path), schema);
+  return parseOrThrow(await networkFetch(path), schema);
 }
 
 export async function apiPost<T>(path: string, body: unknown, schema: ZodType<T>): Promise<T> {
-  const res = await fetch(path, {
+  const res = await networkFetch(path, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -59,7 +73,7 @@ export async function apiPost<T>(path: string, body: unknown, schema: ZodType<T>
 
 // OPSP-34: 시나리오 등 부분 update / 삭제용.
 export async function apiPatch<T>(path: string, body: unknown, schema: ZodType<T>): Promise<T> {
-  const res = await fetch(path, {
+  const res = await networkFetch(path, {
     method: "PATCH",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -68,12 +82,12 @@ export async function apiPatch<T>(path: string, body: unknown, schema: ZodType<T
 }
 
 export async function apiDelete<T>(path: string, schema: ZodType<T>): Promise<T> {
-  return parseOrThrow(await fetch(path, { method: "DELETE" }), schema);
+  return parseOrThrow(await networkFetch(path, { method: "DELETE" }), schema);
 }
 
 // OPSP-42: 전역 설정 등 전체 교체용.
 export async function apiPut<T>(path: string, body: unknown, schema: ZodType<T>): Promise<T> {
-  const res = await fetch(path, {
+  const res = await networkFetch(path, {
     method: "PUT",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
