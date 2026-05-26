@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Ban, Check, Expand, FileCode, Info, RefreshCw, Share2, X } from "lucide-react";
 import type { ImprovementProposal, Project, ProposalReviewMeta } from "@opspilot/shared-types";
@@ -15,6 +15,7 @@ import {
 } from "../../../components/ui/dialog";
 import { EmptyState, ErrorNotice, Loading } from "../../../lib/ui";
 import { cn } from "../../../lib/utils";
+import { usePersistedState } from "../../../lib/use-persisted-state";
 import { ProjectBar } from "../../project/components/project-bar";
 import { useProjects } from "../../project/use-project";
 import { useCancelRun } from "../../run/use-run";
@@ -49,6 +50,8 @@ const proposalVariant: Record<string, "default" | "secondary" | "destructive" | 
 };
 
 interface FeedbackViewProps {
+  projectId: string | null;
+  onProjectIdChange: (projectId: string) => void;
   onOpenEvalRun: (runId: string) => void;
 }
 
@@ -94,7 +97,14 @@ function ProposalDetailDialog({
               {(reviewMeta.conflicts ?? []).length > 0 && (
                 <p className="text-sm text-warning">conflicts: {(reviewMeta.conflicts ?? []).join(", ")}</p>
               )}
-              {reviewMeta.applyError !== undefined && (
+              {reviewMeta.applyError !== undefined && proposal.status === "approved" && (
+                <p className="text-sm text-warning">
+                  reviewer auto-apply 실패 — 「clone에 반영」으로 수동 적용 가능
+                </p>
+              )}
+              {reviewMeta.applyError !== undefined &&
+                proposal.status !== "approved" &&
+                proposal.status !== "applied" && (
                 <p className="text-sm text-destructive">apply: {reviewMeta.applyError}</p>
               )}
             </section>
@@ -165,7 +175,15 @@ function ProposalCard({
             {(reviewMeta.conflicts ?? []).length > 0 && (
               <p className="text-warning">conflicts: {(reviewMeta.conflicts ?? []).join(", ")}</p>
             )}
-            {reviewMeta.applyError !== undefined && (
+            {reviewMeta.applyError !== undefined && proposal.status === "approved" && (
+              <p className="text-xs text-warning">
+                reviewer auto-apply 실패 — 「clone에 반영」으로 수동 적용하세요
+                <span className="block text-muted-foreground">({reviewMeta.applyError})</span>
+              </p>
+            )}
+            {reviewMeta.applyError !== undefined &&
+              proposal.status !== "approved" &&
+              proposal.status !== "applied" && (
               <p className="text-destructive">apply: {reviewMeta.applyError}</p>
             )}
           </div>
@@ -335,6 +353,18 @@ function IngestDetailPanel({
             data.status !== "reviewed" && (
             <p className="text-xs text-warning">{data.contextJson.skipReviewReason}</p>
           )}
+          {data.proposals.length > 0 && evalRunId !== undefined && (
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertTitle>
+                eval 완료 — run <code className="font-mono text-xs">{evalRunId.slice(0, 8)}</code>
+              </AlertTitle>
+              <AlertDescription>
+                work-evaluator 결과는 아래 개선안 {String(data.proposals.length)}건입니다. 트레이스는
+                「eval 트레이스」 버튼으로 확인하세요.
+              </AlertDescription>
+            </Alert>
+          )}
           <div className="flex flex-wrap gap-2 pt-1">
             {evalRunId !== undefined && (
               <Button size="sm" variant="default" onClick={() => onOpenEvalRun(evalRunId)}>
@@ -434,28 +464,18 @@ function IngestDetailPanel({
   );
 }
 
-export function FeedbackView({ onOpenEvalRun }: FeedbackViewProps) {
-  const [projectId, setProjectId] = useState<string | null>(null);
-  const [selectedIngestId, setSelectedIngestId] = useState<string | null>(null);
+export function FeedbackView({ projectId, onProjectIdChange, onOpenEvalRun }: FeedbackViewProps) {
+  const [selectedIngestId, setSelectedIngestId] = usePersistedState<string | null>(
+    "opspilot.feedback.ingestId",
+    null,
+  );
   const { data: projects } = useProjects();
   const { data: ingests, isPending, isError, error } = useIngests(projectId);
 
   const selectedProject = (projects ?? []).find((p) => p.id === projectId);
 
-  const handleSelectIngest = (
-    id: string,
-    evalRunId: string | null | undefined,
-    reviewRunId: string | null | undefined,
-    status: string,
-  ) => {
+  const handleSelectIngest = (id: string) => {
     setSelectedIngestId(id);
-    if (status === "reviewing" && reviewRunId) {
-      onOpenEvalRun(reviewRunId);
-      return;
-    }
-    if (evalRunId && (status === "evaluating" || status === "pending")) {
-      onOpenEvalRun(evalRunId);
-    }
   };
 
   return (
@@ -463,7 +483,7 @@ export function FeedbackView({ onOpenEvalRun }: FeedbackViewProps) {
       <ProjectBar
         selectedProjectId={projectId}
         onSelect={(id) => {
-          setProjectId(id);
+          onProjectIdChange(id);
           setSelectedIngestId(null);
         }}
       />
@@ -502,9 +522,7 @@ export function FeedbackView({ onOpenEvalRun }: FeedbackViewProps) {
                 <li key={item.id}>
                   <button
                     type="button"
-                    onClick={() =>
-                      handleSelectIngest(item.id, item.evalRunId, item.reviewRunId, item.status)
-                    }
+                    onClick={() => handleSelectIngest(item.id)}
                     className={cn(
                       "w-full rounded-md border px-3 py-2 text-left transition-colors",
                       item.id === selectedIngestId
@@ -546,8 +564,8 @@ export function FeedbackView({ onOpenEvalRun }: FeedbackViewProps) {
               onOpenEvalRun={onOpenEvalRun}
             />
           ) : (
-            <Card className="flex min-h-[240px] items-center justify-center p-6 text-sm text-muted-foreground">
-              왼쪽 ingest 클릭 — evaluating 이면 eval 흐름 그래프가 열립니다
+            <Card className="p-6 flex min-h-[240px] items-center justify-center text-sm text-muted-foreground">
+              왼쪽 ingest 클릭 — eval·review 트레이스는 상세 패널 버튼으로 열 수 있습니다
             </Card>
           )}
         </div>

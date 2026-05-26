@@ -166,25 +166,33 @@ async function applyReviewItem(
   if (!proposal || proposal.ingestId !== ingestId) {
     return { ...meta, applyError: "proposal not found for ingest" };
   }
-  if (proposal.status !== "draft") {
-    return { ...meta, applyError: `proposal not draft (${proposal.status})` };
+
+  if (proposal.status === "applied") {
+    return { ...meta, applied: true };
   }
 
   if (item.decision === "reject") {
-    rejectProposal(item.proposalId);
+    if (proposal.status === "draft") rejectProposal(item.proposalId);
     return meta;
   }
 
-  if (item.decision === "revise") {
-    if (item.revisedContent !== undefined && item.revisedContent.trim() !== "") {
-      updateProposalContent(item.proposalId, item.revisedContent);
-    } else {
-      rejectProposal(item.proposalId);
-      return { ...meta, rationale: `${meta.rationale} (revise without content → rejected)` };
-    }
+  if (proposal.status === "rejected") {
+    return { ...meta, applyError: "proposal already rejected" };
   }
 
-  approveProposal(item.proposalId);
+  if (proposal.status === "draft") {
+    if (item.decision === "revise") {
+      if (item.revisedContent !== undefined && item.revisedContent.trim() !== "") {
+        updateProposalContent(item.proposalId, item.revisedContent);
+      } else {
+        rejectProposal(item.proposalId);
+        return { ...meta, rationale: `${meta.rationale} (revise without content → rejected)` };
+      }
+    }
+    approveProposal(item.proposalId);
+  } else if (proposal.status !== "approved") {
+    return { ...meta, applyError: `unexpected proposal status (${proposal.status})` };
+  }
 
   const current = getImprovementProposal(item.proposalId);
   if (!current) {
@@ -200,6 +208,7 @@ async function applyReviewItem(
     return {
       ...meta,
       applied: true,
+      applyError: undefined,
       rationale: `${meta.rationale} · applied ${result.appliedCommit.slice(0, 8)}`,
     };
   } catch (e) {

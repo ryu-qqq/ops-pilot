@@ -1,9 +1,9 @@
-import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/card";
 import { ProjectBar } from "../../project/components/project-bar";
 import { useProjects } from "../../project/use-project";
+import { usePersistedState } from "../../../lib/use-persisted-state";
 import { AssetAuthor } from "../../authoring/components/asset-author";
 import { BenchmarkLauncher } from "../../run/components/benchmark-launcher";
 import { RegressionLauncher } from "../../run/components/regression-launcher";
@@ -13,14 +13,23 @@ import { AssetList } from "./asset-list";
 import { VersionTimeline } from "./version-timeline";
 
 interface Props {
+  projectId: string | null;
+  onProjectIdChange: (projectId: string) => void;
   onRunCreated: (runIds: string[]) => void;
   onBenchmarkStarted: (runIds: string[]) => void;
 }
 
-export function RegistryView({ onRunCreated, onBenchmarkStarted }: Props) {
-  const [projectId, setProjectId] = useState<string | null>(null);
-  const [assetId, setAssetId] = useState<string | null>(null);
-  const [versionId, setVersionId] = useState<string | null>(null);
+export function RegistryView({
+  projectId,
+  onProjectIdChange,
+  onRunCreated,
+  onBenchmarkStarted,
+}: Props) {
+  const [assetId, setAssetId] = usePersistedState<string | null>("opspilot.registry.assetId", null);
+  const [versionId, setVersionId] = usePersistedState<string | null>(
+    "opspilot.registry.versionId",
+    null,
+  );
   const { data: projects } = useProjects();
 
   const project = (projects ?? []).find((p) => p.id === projectId) ?? null;
@@ -46,7 +55,7 @@ export function RegistryView({ onRunCreated, onBenchmarkStarted }: Props) {
         <ProjectBar
           selectedProjectId={projectId}
           onSelect={(id) => {
-            setProjectId(id);
+            onProjectIdChange(id);
             setAssetId(null);
             setVersionId(null);
           }}

@@ -4,6 +4,7 @@ import { Button } from "./components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { useTheme } from "./lib/use-theme";
+import { usePersistedState } from "./lib/use-persisted-state";
 import { FeedbackView } from "./domains/feedback/components/feedback-view";
 import { RegistryView } from "./domains/registry/components/registry-view";
 import { RunsView, type RunViewMode } from "./domains/run/components/runs-view";
@@ -13,11 +14,18 @@ import { WorkflowGuide } from "./components/workflow-guide";
 type Tab = "feedback" | "runs" | "registry";
 
 export function App() {
-  const [tab, setTab] = useState<Tab>("feedback");
-  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [tab, setTab] = usePersistedState<Tab>("opspilot.tab", "feedback");
+  const [projectId, setProjectId] = usePersistedState<string | null>("opspilot.projectId", null);
+  const [selectedRunId, setSelectedRunId] = usePersistedState<string | null>(
+    "opspilot.runs.selectedRunId",
+    null,
+  );
   const [compareRunIds, setCompareRunIds] = useState<string[]>([]);
   const [benchmarkRunIds, setBenchmarkRunIds] = useState<string[]>([]);
-  const [runViewMode, setRunViewMode] = useState<RunViewMode>("graph");
+  const [runViewMode, setRunViewMode] = usePersistedState<RunViewMode>(
+    "opspilot.runs.viewMode",
+    "graph",
+  );
   const { theme, toggle } = useTheme();
 
   const handleRunCreated = (runIds: string[]) => {
@@ -72,10 +80,14 @@ export function App() {
           <TabsTrigger value="registry">프로젝트</TabsTrigger>
         </TabsList>
         <WorkflowGuide tab={tab} />
-        <TabsContent value="feedback" className="mt-0">
-          <FeedbackView onOpenEvalRun={handleOpenEvalRun} />
+        <TabsContent value="feedback" forceMount className="mt-0 data-[state=inactive]:hidden">
+          <FeedbackView
+            projectId={projectId}
+            onProjectIdChange={setProjectId}
+            onOpenEvalRun={handleOpenEvalRun}
+          />
         </TabsContent>
-        <TabsContent value="runs" className="mt-0">
+        <TabsContent value="runs" forceMount className="mt-0 data-[state=inactive]:hidden">
           <RunsView
             selectedRunId={selectedRunId}
             onSelectRun={setSelectedRunId}
@@ -87,8 +99,10 @@ export function App() {
             onViewModeChange={setRunViewMode}
           />
         </TabsContent>
-        <TabsContent value="registry" className="mt-0">
+        <TabsContent value="registry" forceMount className="mt-0 data-[state=inactive]:hidden">
           <RegistryView
+            projectId={projectId}
+            onProjectIdChange={setProjectId}
             onRunCreated={handleRunCreated}
             onBenchmarkStarted={handleBenchmarkStarted}
           />
