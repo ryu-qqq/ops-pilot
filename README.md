@@ -126,9 +126,55 @@ cd apps/web
 corepack pnpm dev            # → http://localhost:5173
 ```
 
-브라우저로 `http://localhost:5173` 접속 → **레지스트리** 탭에서 프로젝트(git URL)를 등록·스캔 → 자산·버전 선택 → 시나리오를 입력(또는 지라/노션에서 import)하고 실행 → **실행** 탭에서 트레이스·평가 확인 → **대시보드** 탭에서 전체 현황.
+브라우저로 `http://localhost:5173` 접속 → 아래 [5분 시작 — Cursor 피드백 루프](#5분-시작--cursor-피드백-루프) 참고.
 
 > **참고** — 루트 `pnpm dev` 는 두 워크스페이스를 한 번에 띄우지만, 평가를 격리하려면(임시 `OPS_DB_PATH` 로 DB 분리) 워크스페이스별로 따로 띄우는 편이 안전하다.
+
+## 5분 시작 — Cursor 피드백 루프
+
+UI는 세 탭으로 나뉜다. **일상 루프의 중심은 피드백**, **관측은 실행 / 트레이스**, **Harness 자산·수동 실행은 프로젝트**.
+
+| 탭 | 한 줄 | 당신이 할 일 |
+|---|---|---|
+| **피드백** | Cursor 세션 → eval → 개선안 | ingest 확인 · proposal 승인/거절 · clone 반영 |
+| **실행 / 트레이스** | 모든 run 관측실 | eval/review/harness run의 흐름 그래프 · diff · 점수 |
+| **프로젝트** | 레지스트리 · 저작 · 실행 | 등록·스캔·자산 작성·시나리오 실행·버전 채택 |
+
+### 흐름 (Cursor-first)
+
+```
+Cursor 작업
+    ↓  MCP ingest_cursor_session (또는 REST ingest)
+피드백 — ingest (evaluating → done/reviewed)
+    ↓  백그라운드: work-evaluator → proposal-reviewer
+피드백 — draft 개선안 → 승인 → clone에 반영 (git 커밋)
+    ↓  (선택) agent-crew sync → 프로젝트 탭
+Harness 클론에 반영된 .claude 가 다음 Cursor/Claude Code 세션의 기준
+```
+
+**eval/review가 돌아가는 동안** — ingest를 클릭하면 **실행 / 트레이스** 탭의 흐름 그래프가 자동으로 열린다. 에이전트가 무엇을 읽고, 어떤 도구를 썼는지 여기서 본다.
+
+**개선안( proposal )** — `draft` → 사람 **승인/거절** → 승인 후 **clone에 반영**하면 등록된 프로젝트 클론(`~/.opspilot/projects/...`)에만 쓰인다. 원본 레포·ingest 시점 git ref에는 자동 push되지 않는다.
+
+### Harness 실험 (프로젝트 탭)
+
+에이전트를 *의도적으로* 바꿔가며 시험할 때:
+
+1. **프로젝트** 등록 → **스캔** → (권장) **버전 강제 훅 설치**
+2. 자산 작성 또는 agent-crew **sync**
+3. 버전 × 시나리오 **실행** → **실행 / 트레이스**에서 비교·벤치마크·채택
+
+피드백 루프(실제 업무 회고)와 harness 실험(버전 A/B)은 **같은 run 관측 UI**를 공유하지만, 시작점이 다르다.
+
+### MCP 한 줄 등록
+
+```bash
+claude mcp add --transport http opspilot http://localhost:3001/mcp
+```
+
+Cursor/Claude Code에서 `ingest_cursor_session` · `list_proposals` · `apply_proposal` 등을 호출한다. 자세한 툴 표는 아래 [Claude Code 에 등록](#claude-code-에-등록-mcp) 참고.
+
+> **UI 안내** — 각 탭 상단의 「사용법」 카드에 탭별 요약이 있다. 접으면 `localStorage`에 기억된다.
 
 ## Claude Code 에 등록 (MCP)
 
@@ -153,7 +199,7 @@ claude mcp add --transport http opspilot http://localhost:3001/mcp
 | `list_proposals` | ingest별 improvement_proposal 목록 (기본 draft) |
 | `apply_proposal` | HITL confirm 후 proposal clone 반영 |
 
-데이몬은 한 터미널에 떠 있고(상태 + 영속 sqlite), 다른 터미널의 Claude Code 세션이 MCP로 호출하는 *멀티 터미널 워크플로* 를 가정한다. 시각 분석(흐름 그래프 · diff 2-pane · 비교 매트릭스)은 여전히 대시보드(`:5173`) 몫.
+데이몬은 한 터미널에 떠 있고(상태 + 영속 sqlite), 다른 터미널의 Claude Code 세션이 MCP로 호출하는 *멀티 터미널 워크플로* 를 가정한다. 시각 분석(흐름 그래프 · diff 2-pane · 비교 매트릭스 · 피드백 ingest)은 웹 UI(`:5173`) 몫.
 
 > **참고** — Serena 같은 per-session stdio MCP 와 달리, OpsPilot 은 *상태 데이몬 + HTTP* 모델이다. 매 세션마다 새로 띄우지 않고, 한 번 떠 있는 데이몬에 모든 세션이 붙는다.
 

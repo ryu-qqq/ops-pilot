@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Check, FileCode, RefreshCw, Share2, X } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Check, Expand, FileCode, RefreshCw, Share2, X } from "lucide-react";
 import type { ImprovementProposal, ProposalReviewMeta } from "@opspilot/shared-types";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
@@ -24,6 +24,7 @@ import {
   useReprocessReviewIngest,
   useReviewIngest,
 } from "../use-feedback";
+import { IngestPipelineSteps } from "./ingest-pipeline-steps";
 
 const statusVariant: Record<string, "default" | "secondary" | "destructive" | "success" | "warning"> = {
   done: "success",
@@ -45,6 +46,67 @@ interface FeedbackViewProps {
   onOpenEvalRun: (runId: string) => void;
 }
 
+function ProposalDetailDialog({
+  proposal,
+  reviewMeta,
+  trigger,
+}: {
+  proposal: ImprovementProposal;
+  reviewMeta?: ProposalReviewMeta;
+  trigger: ReactNode;
+}) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="flex max-h-[min(90vh,900px)] max-w-3xl flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="space-y-2 border-b px-6 py-4 pr-12 text-left">
+          <DialogTitle className="flex flex-wrap items-center gap-2 text-base">
+            <Badge variant={proposalVariant[proposal.status] ?? "secondary"}>{proposal.status}</Badge>
+            <span className="font-mono text-sm font-normal text-muted-foreground">
+              {proposal.targetKind}
+            </span>
+          </DialogTitle>
+          <p className="break-all font-mono text-xs text-muted-foreground">{proposal.targetPath}</p>
+        </DialogHeader>
+        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+          <section className="space-y-1.5">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              rationale
+            </h4>
+            <p className="text-sm leading-relaxed">{proposal.rationale}</p>
+          </section>
+          {reviewMeta !== undefined && (
+            <section className="space-y-1.5 rounded-lg border border-border/80 bg-muted/30 p-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                reviewer
+              </h4>
+              <p className="text-sm">
+                <strong>{reviewMeta.decision}</strong> · {reviewMeta.risk} risk · {reviewMeta.confidence}
+                {reviewMeta.applied === true && " · auto-applied"}
+              </p>
+              <p className="text-sm text-muted-foreground">{reviewMeta.rationale}</p>
+              {(reviewMeta.conflicts ?? []).length > 0 && (
+                <p className="text-sm text-warning">conflicts: {(reviewMeta.conflicts ?? []).join(", ")}</p>
+              )}
+              {reviewMeta.applyError !== undefined && (
+                <p className="text-sm text-destructive">apply: {reviewMeta.applyError}</p>
+              )}
+            </section>
+          )}
+          <section className="space-y-1.5">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              content (apply 시 clone에 쓰임)
+            </h4>
+            <pre className="max-h-[min(50vh,420px)] overflow-auto rounded-lg border border-border/80 bg-muted/40 p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap">
+              {proposal.content}
+            </pre>
+          </section>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ProposalCard({
   proposal,
   ingestId,
@@ -64,16 +126,26 @@ function ProposalCard({
   return (
     <Card className="border-border/80">
       <CardHeader className="flex flex-row items-start justify-between gap-2 border-b pb-3">
-        <div className="min-w-0 space-y-1">
+        <div className="min-w-0 flex-1 space-y-1">
           <CardTitle className="flex flex-wrap items-center gap-2 text-sm font-medium">
             <Badge variant={proposalVariant[proposal.status] ?? "secondary"}>{proposal.status}</Badge>
             <span className="font-mono text-xs text-muted-foreground">{proposal.targetKind}</span>
           </CardTitle>
           <p className="truncate font-mono text-xs">{proposal.targetPath}</p>
         </div>
+        <ProposalDetailDialog
+          proposal={proposal}
+          reviewMeta={reviewMeta}
+          trigger={
+            <Button type="button" variant="outline" size="sm" className="shrink-0">
+              <Expand className="h-3.5 w-3.5" />
+              자세히
+            </Button>
+          }
+        />
       </CardHeader>
       <CardContent className="space-y-3 pt-3">
-        <p className="text-sm text-muted-foreground">{proposal.rationale}</p>
+        <p className="line-clamp-3 text-sm text-muted-foreground">{proposal.rationale}</p>
         {reviewMeta !== undefined && (
           <div className="rounded-md border border-border/80 bg-muted/30 p-2 text-xs space-y-1">
             <p>
@@ -90,9 +162,23 @@ function ProposalCard({
             )}
           </div>
         )}
-        <pre className="max-h-40 overflow-auto rounded-md bg-muted/50 p-2 font-mono text-xs whitespace-pre-wrap">
-          {proposal.content}
-        </pre>
+        <ProposalDetailDialog
+          proposal={proposal}
+          reviewMeta={reviewMeta}
+          trigger={
+            <button
+              type="button"
+              className="w-full rounded-md border border-dashed border-border/80 bg-muted/30 p-2 text-left transition-colors hover:border-primary/30 hover:bg-muted/50"
+            >
+              <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                content 미리보기 · 클릭하면 전체
+              </p>
+              <pre className="max-h-24 overflow-hidden font-mono text-xs leading-relaxed whitespace-pre-wrap text-foreground/90">
+                {proposal.content}
+              </pre>
+            </button>
+          }
+        />
         {proposal.appliedCommit !== null && (
           <p className="font-mono text-xs text-muted-foreground">
             applied: {proposal.appliedCommit.slice(0, 8)}
@@ -179,6 +265,7 @@ function IngestDetailPanel({
 
   return (
     <div className="space-y-4">
+      <IngestPipelineSteps data={data} />
       <Card>
         <CardHeader className="border-b pb-3">
           <CardTitle className="flex flex-wrap items-center gap-2 text-base">
@@ -205,7 +292,10 @@ function IngestDetailPanel({
           {data.contextJson.reviewError !== undefined && (
             <p className="text-destructive text-xs">{data.contextJson.reviewError}</p>
           )}
-          {data.contextJson.skipReviewReason !== undefined && (
+          {data.contextJson.skipReviewReason !== undefined &&
+            data.contextJson.reviewError === undefined &&
+            data.status !== "reviewing" &&
+            data.status !== "reviewed" && (
             <p className="text-xs text-warning">{data.contextJson.skipReviewReason}</p>
           )}
           <div className="flex flex-wrap gap-2 pt-1">

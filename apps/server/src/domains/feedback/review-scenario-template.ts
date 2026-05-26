@@ -65,8 +65,10 @@ proposal-reviewer 로 각 draft 를 검토하라.
    - cursor_rule: .cursor/rules/*.mdc 전체와 주제 중복 확인
    - workflow_patch: .github/workflows/*.yml 의 steps 와 append 시 중복·충돌 확인
 2. proposalId 마다 decision: approve | reject | revise
-3. workflow_patch 는 기본 risk=high, autoApply=false (중복 step 없고 명확한 gap 만 approve)
-4. revise 는 revisedContent 에 수정본 전체를 넣는다 (선택)
+3. **risk 는 \`low\` 또는 \`high\` 만** (medium 금지 — agent/skill/command 는 high)
+4. workflow_patch 는 기본 risk=high, autoApply=false (중복 step 없고 명확한 gap 만 approve)
+5. revise 는 revisedContent 에 수정본 전체를 넣는다 (선택)
+6. 마지막 assistant 출력은 **\`\`\`json fence** 로 끝 — 선언만 하고 생략 금지
 
 ## 출력 (JSON 만)
 ${REVIEW_JSON_BLOCK}`;

@@ -104,3 +104,19 @@ export function extractJsonObject(text: string): unknown {
   }
   throw new ClaudeAssistError("응답 JSON 의 '}' 가 닫히지 않음");
 }
+
+/** 마지막 ```json ... ``` fence 내용 파싱. OpsPilot feedback eval 출력용. */
+export function extractLastFencedJson(text: string): unknown | null {
+  const re = /```json\s*([\s\S]*?)```/gi;
+  let match: RegExpExecArray | null = null;
+  let lastBody: string | null = null;
+  while ((match = re.exec(text)) !== null) {
+    lastBody = match[1]?.trim() ?? null;
+  }
+  if (lastBody === null || lastBody === "") return null;
+  try {
+    return JSON.parse(lastBody) as unknown;
+  } catch {
+    return null;
+  }
+}

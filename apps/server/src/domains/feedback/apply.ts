@@ -32,7 +32,8 @@ function gitCommitRelPath(
   relPath: string,
   message: string,
 ): string {
-  git(project.clonePath, ["add", "--", relPath]);
+  // .cursor/ 등 gitignore 대상 harness 경로도 OpsPilot apply 로 의도적으로 커밋.
+  git(project.clonePath, ["add", "-f", "--", relPath]);
   try {
     git(project.clonePath, [
       "-c",

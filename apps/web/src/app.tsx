@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
+import { TooltipProvider } from "./components/ui/tooltip";
 import { useTheme } from "./lib/use-theme";
 import { FeedbackView } from "./domains/feedback/components/feedback-view";
 import { RegistryView } from "./domains/registry/components/registry-view";
 import { RunsView, type RunViewMode } from "./domains/run/components/runs-view";
 import { SettingsDialog } from "./domains/settings/components/settings-dialog";
+import { WorkflowGuide } from "./components/workflow-guide";
 
 type Tab = "feedback" | "runs" | "registry";
 
@@ -43,6 +45,7 @@ export function App() {
   };
 
   return (
+    <TooltipProvider delayDuration={200}>
     <main className="container mx-auto max-w-[1200px] px-6 py-8">
       <header className="mb-6 flex items-center justify-between">
         <div className="flex items-baseline gap-3">
@@ -68,6 +71,7 @@ export function App() {
           <TabsTrigger value="runs">실행 / 트레이스</TabsTrigger>
           <TabsTrigger value="registry">프로젝트</TabsTrigger>
         </TabsList>
+        <WorkflowGuide tab={tab} />
         <TabsContent value="feedback" className="mt-0">
           <FeedbackView onOpenEvalRun={handleOpenEvalRun} />
         </TabsContent>
@@ -91,5 +95,6 @@ export function App() {
         </TabsContent>
       </Tabs>
     </main>
+    </TooltipProvider>
   );
 }

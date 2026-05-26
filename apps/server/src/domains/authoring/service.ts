@@ -57,7 +57,7 @@ export function writeAsset(
     `ops(${input.kind}/${input.name}): ${input.changeSummary}\n\n` +
     `why: ${input.rationale.trim() === "" ? "(미기재)" : input.rationale}\n\n` +
     `[opspilot authored]`;
-  git(project.clonePath, ["add", "--", rel]);
+  git(project.clonePath, ["add", "-f", "--", rel]);
   let committed: string;
   try {
     git(project.clonePath, [

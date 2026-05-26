@@ -146,7 +146,11 @@ export function queueProposalReview(
       source,
       retro: JSON.stringify({ feedbackIngestId: ingestId, feedbackPhase: "review" }),
     });
-    mergeIngestContext(ingestId, { reviewRunId: run.id, reviewError: undefined });
+    mergeIngestContext(ingestId, {
+      reviewRunId: run.id,
+      reviewError: undefined,
+      skipReviewReason: undefined,
+    });
   } catch (e) {
     const msg = e instanceof RunInputError ? e.message : (e as Error).message;
     markReviewFailed(ingestId, `review startRun failed: ${msg}`);
@@ -237,6 +241,7 @@ export async function handleProposalReviewRunCompleted(runId: string): Promise<v
   mergeIngestContext(ingestId, {
     reviewSummary: parsed.review.summary,
     reviewError: undefined,
+    skipReviewReason: undefined,
     proposalReviews,
   });
   updateIngestStatus(ingestId, "reviewed");
