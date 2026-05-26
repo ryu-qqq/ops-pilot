@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { resolve } from "node:path";
 import type { Project, ProjectWorkspaceMode } from "@opspilot/shared-types";
 import { getDb } from "../../db/index.js";
 
@@ -74,4 +75,12 @@ export function getProjectByUrl(gitUrl: string): Project | undefined {
     | Record<string, unknown>
     | undefined;
   return row ? mapProjectRow(row) : undefined;
+}
+
+export function getProjectByClonePath(clonePath: string): Project | undefined {
+  const resolved = resolve(clonePath);
+  for (const p of listProjects()) {
+    if (resolve(p.clonePath) === resolved) return p;
+  }
+  return undefined;
 }

@@ -6,10 +6,19 @@ import { installHooks } from "../../domains/authoring/hooks.js";
 import {
   createProject,
   getProject,
-  getProjectByUrl,
+  getProjectByClonePath,
   listProjects,
 } from "../../domains/project/repository.js";
-import { cloneProject, ProjectCloneError, pullProject, slugFromUrl } from "../../domains/project/service.js";
+import {
+  cloneProject,
+  defaultNameFromPath,
+  linkLocalProject,
+  normalizeGitUrl,
+  ProjectCloneError,
+  ProjectLinkError,
+  pullProject,
+  slugFromUrl,
+} from "../../domains/project/service.js";
 import { scanRepo } from "../../domains/registry/scanner.js";
 import { listAssets, saveScan } from "../../domains/registry/repository.js";
 import {
@@ -20,28 +29,95 @@ import {
 
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
 
+const createLinkedProjectBody = z.object({
+  mode: z.literal("linked"),
+  localPath: z.string().min(1),
+  gitUrl: z.string().min(1).optional(),
+  name: z.string().optional(),
+});
+
+const createManagedProjectBody = z.object({
+  mode: z.literal("managed"),
+  gitUrl: z.string().min(1),
+  name: z.string().optional(),
+});
+
+// mode 생략 + gitUrl 만 → managed (v1 호환).
+const createLegacyProjectBody = z.object({
+  gitUrl: z.string().min(1),
+  name: z.string().optional(),
+});
+
+const createProjectBodySchema = z.union([
+  createLinkedProjectBody,
+  createManagedProjectBody,
+  createLegacyProjectBody,
+]);
+
+function isRegisteredGitUrl(gitUrl: string): boolean {
+  const norm = normalizeGitUrl(gitUrl);
+  return listProjects().some((p) => normalizeGitUrl(p.gitUrl) === norm);
+}
+
 const projects: FastifyPluginAsyncZod = async (fastify) => {
-  // 프로젝트 등록 = git URL 클론
+  // 프로젝트 등록 — linked(로컬 경로) | managed(git clone)
   fastify.post(
     "/projects",
     {
       schema: {
-        body: z.object({ gitUrl: z.string().min(1), name: z.string().optional() }),
+        body: createProjectBodySchema,
         response: { 200: projectSchema, 400: errorSchema },
       },
     },
     async (req, reply) => {
-      const { gitUrl } = req.body;
-      if (getProjectByUrl(gitUrl)) {
+      const body = req.body;
+
+      if ("localPath" in body) {
+        try {
+          const linked = linkLocalProject({
+            localPath: body.localPath,
+            gitUrl: body.gitUrl,
+          });
+          if (getProjectByClonePath(linked.clonePath)) {
+            return reply.status(400).send({
+              error: "Duplicate",
+              detail: `이미 등록된 로컬 경로: ${linked.clonePath}`,
+            });
+          }
+          if (isRegisteredGitUrl(linked.gitUrl)) {
+            return reply.status(400).send({
+              error: "Duplicate",
+              detail: "이미 등록된 git URL",
+            });
+          }
+          return createProject({
+            name: body.name ?? defaultNameFromPath(linked.clonePath),
+            gitUrl: linked.gitUrl,
+            clonePath: linked.clonePath,
+            defaultBranch: linked.defaultBranch,
+            workspaceMode: "linked",
+            remoteVerified: linked.remoteVerified,
+          });
+        } catch (e) {
+          if (e instanceof ProjectLinkError) {
+            return reply.status(400).send({ error: "LinkError", detail: e.message });
+          }
+          throw e;
+        }
+      }
+
+      const { gitUrl } = body;
+      if (isRegisteredGitUrl(gitUrl)) {
         return reply.status(400).send({ error: "Duplicate", detail: "이미 등록된 git URL" });
       }
       try {
         const { clonePath, defaultBranch } = cloneProject(gitUrl);
         return createProject({
-          name: req.body.name ?? slugFromUrl(gitUrl),
+          name: body.name ?? slugFromUrl(gitUrl),
           gitUrl,
           clonePath,
           defaultBranch,
+          workspaceMode: "managed",
         });
       } catch (e) {
         if (e instanceof ProjectCloneError) {
