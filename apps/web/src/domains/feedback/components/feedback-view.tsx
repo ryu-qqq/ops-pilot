@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Check, FileCode, RefreshCw, Share2, X } from "lucide-react";
-import type { ImprovementProposal } from "@opspilot/shared-types";
+import type { ImprovementProposal, ProposalReviewMeta } from "@opspilot/shared-types";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
@@ -21,12 +21,16 @@ import {
   useIngests,
   useRejectProposal,
   useReprocessIngest,
+  useReprocessReviewIngest,
+  useReviewIngest,
 } from "../use-feedback";
 
 const statusVariant: Record<string, "default" | "secondary" | "destructive" | "success" | "warning"> = {
   done: "success",
+  reviewed: "success",
   failed: "destructive",
   evaluating: "warning",
+  reviewing: "warning",
   pending: "secondary",
 };
 
@@ -45,10 +49,12 @@ function ProposalCard({
   proposal,
   ingestId,
   projectId,
+  reviewMeta,
 }: {
   proposal: ImprovementProposal;
   ingestId: string;
   projectId: string;
+  reviewMeta?: ProposalReviewMeta;
 }) {
   const approve = useApproveProposal(ingestId, projectId);
   const reject = useRejectProposal(ingestId, projectId);
@@ -68,6 +74,22 @@ function ProposalCard({
       </CardHeader>
       <CardContent className="space-y-3 pt-3">
         <p className="text-sm text-muted-foreground">{proposal.rationale}</p>
+        {reviewMeta !== undefined && (
+          <div className="rounded-md border border-border/80 bg-muted/30 p-2 text-xs space-y-1">
+            <p>
+              reviewer: <strong>{reviewMeta.decision}</strong> · {reviewMeta.risk} risk ·{" "}
+              {reviewMeta.confidence}
+              {reviewMeta.applied === true && " · auto-applied"}
+            </p>
+            <p className="text-muted-foreground">{reviewMeta.rationale}</p>
+            {(reviewMeta.conflicts ?? []).length > 0 && (
+              <p className="text-warning">conflicts: {(reviewMeta.conflicts ?? []).join(", ")}</p>
+            )}
+            {reviewMeta.applyError !== undefined && (
+              <p className="text-destructive">apply: {reviewMeta.applyError}</p>
+            )}
+          </div>
+        )}
         <pre className="max-h-40 overflow-auto rounded-md bg-muted/50 p-2 font-mono text-xs whitespace-pre-wrap">
           {proposal.content}
         </pre>
@@ -131,7 +153,10 @@ function IngestDetailPanel({
 }) {
   const { data, isPending, isError, error } = useIngestDetail(ingestId);
   const reprocess = useReprocessIngest(ingestId, projectId);
+  const review = useReviewIngest(ingestId, projectId);
+  const reprocessReview = useReprocessReviewIngest(ingestId, projectId);
   const evalRunId = data?.contextJson.evalRunId;
+  const reviewRunId = data?.contextJson.reviewRunId;
 
   if (isPending)
     return (
@@ -145,6 +170,12 @@ function IngestDetailPanel({
   const showReprocess =
     data.status === "evaluating" ||
     (data.status === "failed" && data.contextJson.evalError !== undefined && evalRunId !== undefined);
+
+  const showReviewRetry =
+    data.contextJson.reviewError !== undefined && reviewRunId !== undefined;
+
+  const showManualReview =
+    data.status === "done" && data.proposals.some((p) => p.status === "draft");
 
   return (
     <div className="space-y-4">
@@ -168,11 +199,26 @@ function IngestDetailPanel({
           {data.contextJson.evalError !== undefined && (
             <p className="text-destructive text-xs">{data.contextJson.evalError}</p>
           )}
+          {data.contextJson.reviewSummary !== undefined && (
+            <p className="text-muted-foreground text-xs">review: {data.contextJson.reviewSummary}</p>
+          )}
+          {data.contextJson.reviewError !== undefined && (
+            <p className="text-destructive text-xs">{data.contextJson.reviewError}</p>
+          )}
+          {data.contextJson.skipReviewReason !== undefined && (
+            <p className="text-xs text-warning">{data.contextJson.skipReviewReason}</p>
+          )}
           <div className="flex flex-wrap gap-2 pt-1">
             {evalRunId !== undefined && (
               <Button size="sm" variant="default" onClick={() => onOpenEvalRun(evalRunId)}>
                 <Share2 className="h-3.5 w-3.5" />
-                {data.status === "evaluating" ? "eval 실시간 트레이스" : "eval 트레이스 보기"}
+                {data.status === "evaluating" ? "eval 실시간 트레이스" : "eval 트레이스"}
+              </Button>
+            )}
+            {reviewRunId !== undefined && (
+              <Button size="sm" variant="outline" onClick={() => onOpenEvalRun(reviewRunId)}>
+                <Share2 className="h-3.5 w-3.5" />
+                {data.status === "reviewing" ? "review 실시간 트레이스" : "review 트레이스"}
               </Button>
             )}
             {showReprocess && (
@@ -186,8 +232,27 @@ function IngestDetailPanel({
                 eval 재처리
               </Button>
             )}
+            {showManualReview && (
+              <Button size="sm" variant="outline" disabled={review.isPending} onClick={() => review.mutate()}>
+                <RefreshCw className={`h-3.5 w-3.5 ${review.isPending ? "animate-spin" : ""}`} />
+                review 시작
+              </Button>
+            )}
+            {showReviewRetry && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={reprocessReview.isPending}
+                onClick={() => reprocessReview.mutate()}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${reprocessReview.isPending ? "animate-spin" : ""}`} />
+                review 재처리
+              </Button>
+            )}
           </div>
-          {reprocess.isError && <ErrorNotice error={reprocess.error} />}
+          {(reprocess.isError || review.isError || reprocessReview.isError) && (
+            <ErrorNotice error={reprocess.error ?? review.error ?? reprocessReview.error} />
+          )}
         </CardContent>
       </Card>
 
@@ -208,7 +273,13 @@ function IngestDetailPanel({
           />
         ) : (
           data.proposals.map((p) => (
-            <ProposalCard key={p.id} proposal={p} ingestId={ingestId} projectId={projectId} />
+            <ProposalCard
+              key={p.id}
+              proposal={p}
+              ingestId={ingestId}
+              projectId={projectId}
+              reviewMeta={data.contextJson.proposalReviews?.[p.id]}
+            />
           ))
         )}
       </div>
@@ -221,8 +292,17 @@ export function FeedbackView({ onOpenEvalRun }: FeedbackViewProps) {
   const [selectedIngestId, setSelectedIngestId] = useState<string | null>(null);
   const { data: ingests, isPending, isError, error } = useIngests(projectId);
 
-  const handleSelectIngest = (id: string, evalRunId: string | null | undefined, status: string) => {
+  const handleSelectIngest = (
+    id: string,
+    evalRunId: string | null | undefined,
+    reviewRunId: string | null | undefined,
+    status: string,
+  ) => {
     setSelectedIngestId(id);
+    if (status === "reviewing" && reviewRunId) {
+      onOpenEvalRun(reviewRunId);
+      return;
+    }
     if (evalRunId && (status === "evaluating" || status === "pending")) {
       onOpenEvalRun(evalRunId);
     }
@@ -257,7 +337,9 @@ export function FeedbackView({ onOpenEvalRun }: FeedbackViewProps) {
                 <li key={item.id}>
                   <button
                     type="button"
-                    onClick={() => handleSelectIngest(item.id, item.evalRunId, item.status)}
+                    onClick={() =>
+                      handleSelectIngest(item.id, item.evalRunId, item.reviewRunId, item.status)
+                    }
                     className={cn(
                       "w-full rounded-md border px-3 py-2 text-left transition-colors",
                       item.id === selectedIngestId

@@ -245,8 +245,54 @@ export const notionPageDetailSchema = z.object({
 export type NotionPageDetail = z.infer<typeof notionPageDetailSchema>;
 
 // TASK-5 MVP: Cursor 작업 ingest + evaluator 개선안.
-export const ingestBundleStatusSchema = z.enum(["pending", "evaluating", "done", "failed"]);
+export const ingestBundleStatusSchema = z.enum([
+  "pending",
+  "evaluating",
+  "done",
+  "reviewing",
+  "reviewed",
+  "failed",
+]);
 export type IngestBundleStatus = z.infer<typeof ingestBundleStatusSchema>;
+
+export const proposalReviewDecisionSchema = z.enum(["approve", "reject", "revise"]);
+export type ProposalReviewDecision = z.infer<typeof proposalReviewDecisionSchema>;
+
+export const proposalReviewConfidenceSchema = z.enum(["high", "medium", "low"]);
+export type ProposalReviewConfidence = z.infer<typeof proposalReviewConfidenceSchema>;
+
+export const proposalReviewRiskSchema = z.enum(["low", "high"]);
+export type ProposalReviewRisk = z.infer<typeof proposalReviewRiskSchema>;
+
+export const proposalReviewItemSchema = z.object({
+  proposalId: id,
+  decision: proposalReviewDecisionSchema,
+  confidence: proposalReviewConfidenceSchema,
+  risk: proposalReviewRiskSchema,
+  autoApply: z.boolean(),
+  rationale: z.string(),
+  conflicts: z.array(z.string()).default([]),
+  revisedContent: z.string().optional(),
+});
+export type ProposalReviewItem = z.infer<typeof proposalReviewItemSchema>;
+
+export const proposalReviewOutputSchema = z.object({
+  reviews: z.array(proposalReviewItemSchema),
+  summary: z.string(),
+});
+export type ProposalReviewOutput = z.infer<typeof proposalReviewOutputSchema>;
+
+export const proposalReviewMetaSchema = z.object({
+  decision: proposalReviewDecisionSchema,
+  confidence: proposalReviewConfidenceSchema,
+  risk: proposalReviewRiskSchema,
+  autoApply: z.boolean(),
+  rationale: z.string(),
+  conflicts: z.array(z.string()).optional(),
+  applied: z.boolean().optional(),
+  applyError: z.string().optional(),
+});
+export type ProposalReviewMeta = z.infer<typeof proposalReviewMetaSchema>;
 
 export const improvementProposalStatusSchema = z.enum([
   "draft",
@@ -270,8 +316,14 @@ export const ingestBundleContextSchema = z.object({
   transcriptExcerpt: z.string().optional(),
   taskTitle: z.string().optional(),
   diffTruncated: z.boolean().optional(),
+  evalSource: z.enum(["fixture", "local-claude"]).optional(),
   evalRunId: z.string().uuid().optional(),
   evalError: z.string().optional(),
+  reviewRunId: z.string().uuid().optional(),
+  reviewError: z.string().optional(),
+  reviewSummary: z.string().optional(),
+  skipReviewReason: z.string().optional(),
+  proposalReviews: z.record(z.string(), proposalReviewMetaSchema).optional(),
 });
 export type IngestBundleContext = z.infer<typeof ingestBundleContextSchema>;
 
@@ -338,6 +390,7 @@ export const ingestBundleListItemSchema = z.object({
   createdAt: ts,
   draftProposalCount: z.number().int().nonnegative(),
   evalRunId: id.nullable().optional(),
+  reviewRunId: id.nullable().optional(),
 });
 export type IngestBundleListItem = z.infer<typeof ingestBundleListItemSchema>;
 

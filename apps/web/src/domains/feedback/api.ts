@@ -41,3 +41,11 @@ export async function applyProposal(proposalId: string) {
 export async function reprocessIngest(ingestId: string) {
   return apiPost(`/api/feedback/ingest/${ingestId}/reprocess`, {}, ingestBundleDetailSchema);
 }
+
+export async function reviewIngest(ingestId: string) {
+  return apiPost(`/api/feedback/ingest/${ingestId}/review`, {}, ingestBundleDetailSchema);
+}
+
+export async function reprocessReviewIngest(ingestId: string) {
+  return apiPost(`/api/feedback/ingest/${ingestId}/reprocess-review`, {}, ingestBundleDetailSchema);
+}
