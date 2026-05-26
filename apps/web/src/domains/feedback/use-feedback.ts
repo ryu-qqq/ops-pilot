@@ -7,9 +7,15 @@ import {
   getIngests,
   rejectProposal,
   reprocessIngest,
+  reprocessReviewIngest,
+  reviewIngest,
 } from "./api";
 
 const pollIngestMs = 2000;
+
+function isIngestActive(status: string | undefined): boolean {
+  return status === "pending" || status === "evaluating" || status === "reviewing";
+}
 
 export function useIngests(projectId: string | null) {
   return useQuery({
@@ -17,9 +23,7 @@ export function useIngests(projectId: string | null) {
     queryFn: () => getIngests(projectId ?? ""),
     enabled: projectId !== null,
     refetchInterval: (q) =>
-      (q.state.data ?? []).some((i) => i.status === "pending" || i.status === "evaluating")
-        ? pollIngestMs
-        : false,
+      (q.state.data ?? []).some((i) => isIngestActive(i.status)) ? pollIngestMs : false,
   });
 }
 
@@ -28,10 +32,7 @@ export function useIngestDetail(ingestId: string | null) {
     queryKey: feedbackKeys.detail(ingestId ?? "none"),
     queryFn: () => getIngestDetail(ingestId ?? ""),
     enabled: ingestId !== null,
-    refetchInterval: (q) => {
-      const s = q.state.data?.status;
-      return s === "pending" || s === "evaluating" ? pollIngestMs : false;
-    },
+    refetchInterval: (q) => (isIngestActive(q.state.data?.status) ? pollIngestMs : false),
   });
 }
 
@@ -68,6 +69,22 @@ export function useReprocessIngest(ingestId: string, projectId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => reprocessIngest(ingestId),
+    onSuccess: () => invalidateFeedback(qc, ingestId, projectId),
+  });
+}
+
+export function useReprocessReviewIngest(ingestId: string, projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => reprocessReviewIngest(ingestId),
+    onSuccess: () => invalidateFeedback(qc, ingestId, projectId),
+  });
+}
+
+export function useReviewIngest(ingestId: string, projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => reviewIngest(ingestId),
     onSuccess: () => invalidateFeedback(qc, ingestId, projectId),
   });
 }

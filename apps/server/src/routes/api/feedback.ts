@@ -14,6 +14,8 @@ import {
   ingestFeedback,
   listIngestsByProject,
   reprocessFeedbackIngest,
+  reprocessReviewFeedbackIngest,
+  reviewFeedbackIngest,
 } from "../../domains/feedback/service.js";
 import {
   FeedbackProposalError,
@@ -97,6 +99,57 @@ const feedback: FastifyPluginAsyncZod = async (fastify) => {
     async (req, reply) => {
       try {
         return await reprocessFeedbackIngest(req.params.id);
+      } catch (e) {
+        if (e instanceof FeedbackIngestError) {
+          if (e.code === "NotFound") {
+            return reply.status(404).send({ error: "NotFound", detail: e.message });
+          }
+          return reply.status(400).send({ error: e.code, detail: e.message });
+        }
+        throw e;
+      }
+    },
+  );
+
+  fastify.post(
+    "/feedback/ingest/:id/review",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        body: z
+          .object({
+            evalSource: z.enum(["fixture", "local-claude"]).default("local-claude"),
+          })
+          .default({}),
+        response: { 200: ingestBundleDetailSchema, 400: errorSchema, 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      try {
+        return reviewFeedbackIngest(req.params.id, req.body.evalSource);
+      } catch (e) {
+        if (e instanceof FeedbackIngestError) {
+          if (e.code === "NotFound") {
+            return reply.status(404).send({ error: "NotFound", detail: e.message });
+          }
+          return reply.status(400).send({ error: e.code, detail: e.message });
+        }
+        throw e;
+      }
+    },
+  );
+
+  fastify.post(
+    "/feedback/ingest/:id/reprocess-review",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: { 200: ingestBundleDetailSchema, 400: errorSchema, 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      try {
+        return await reprocessReviewFeedbackIngest(req.params.id);
       } catch (e) {
         if (e instanceof FeedbackIngestError) {
           if (e.code === "NotFound") {

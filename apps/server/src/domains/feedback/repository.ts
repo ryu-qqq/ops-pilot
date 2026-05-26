@@ -172,6 +172,7 @@ export interface IngestBundleListRow {
   createdAt: string;
   draftProposalCount: number;
   evalRunId: string | null;
+  reviewRunId: string | null;
 }
 
 export function listIngestBundlesByProject(projectId: string): IngestBundleListRow[] {
@@ -184,6 +185,7 @@ export function listIngestBundlesByProject(projectId: string): IngestBundleListR
               ib.status,
               ib.created_at AS createdAt,
               json_extract(ib.context_json, '$.evalRunId') AS evalRunId,
+              json_extract(ib.context_json, '$.reviewRunId') AS reviewRunId,
               (SELECT COUNT(*) FROM improvement_proposal p
                  WHERE p.ingest_id = ib.id AND p.status = 'draft') AS draftProposalCount
          FROM ingest_bundle ib
@@ -200,6 +202,7 @@ export function listIngestBundlesByProject(projectId: string): IngestBundleListR
     createdAt: row.createdAt as string,
     draftProposalCount: Number(row.draftProposalCount ?? 0),
     evalRunId: (row.evalRunId as string | null) ?? null,
+    reviewRunId: (row.reviewRunId as string | null) ?? null,
   }));
 }
 
@@ -218,6 +221,16 @@ export function updateProposalStatus(
   if (!existing) return undefined;
   getDb().prepare("UPDATE improvement_proposal SET status = ? WHERE id = ?").run(status, id);
   return { ...existing, status };
+}
+
+export function updateProposalContent(
+  id: string,
+  content: string,
+): ImprovementProposal | undefined {
+  const existing = getImprovementProposal(id);
+  if (!existing) return undefined;
+  getDb().prepare("UPDATE improvement_proposal SET content = ? WHERE id = ?").run(content, id);
+  return { ...existing, content };
 }
 
 export function markProposalApplied(

@@ -10,6 +10,7 @@ export function migrate(dbPath?: string): void {
   reconcileScoreCheck(db);
   reconcileRunRetro(db);
   reconcileImprovementProposalTargetKind(db);
+  reconcileIngestBundleStatus(db);
 }
 
 // OPSP-46: 기존 DB 에 run.retro 컬럼 추가. CREATE TABLE IF NOT EXISTS 는
@@ -81,6 +82,40 @@ function reconcileImprovementProposalTargetKind(db: ReturnType<typeof getDb>): v
       ALTER TABLE improvement_proposal__new RENAME TO improvement_proposal;
       CREATE INDEX IF NOT EXISTS idx_improvement_proposal_ingest ON improvement_proposal (ingest_id);
       CREATE INDEX IF NOT EXISTS idx_improvement_proposal_status ON improvement_proposal (status);
+    `);
+  });
+  tx();
+  db.exec("PRAGMA foreign_keys=ON;");
+}
+
+// TASK-5 review phase: ingest_bundle.status CHECK 에 reviewing, reviewed 추가.
+function reconcileIngestBundleStatus(db: ReturnType<typeof getDb>): void {
+  const row = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='ingest_bundle'")
+    .get() as { sql: string } | undefined;
+  if (!row || row.sql.includes("'reviewing'")) return;
+
+  db.exec("PRAGMA foreign_keys=OFF;");
+  const tx = db.transaction(() => {
+    db.exec(`
+      CREATE TABLE ingest_bundle__new (
+        id              TEXT PRIMARY KEY,
+        project_id      TEXT NOT NULL REFERENCES project (id) ON DELETE CASCADE,
+        notion_task_url TEXT,
+        git_ref         TEXT NOT NULL,
+        diff_summary    TEXT NOT NULL,
+        context_json    TEXT NOT NULL,
+        status          TEXT NOT NULL DEFAULT 'pending'
+                        CHECK (status IN ('pending', 'evaluating', 'done', 'reviewing', 'reviewed', 'failed')),
+        created_at      TEXT NOT NULL
+      );
+      INSERT INTO ingest_bundle__new
+        SELECT id, project_id, notion_task_url, git_ref, diff_summary, context_json, status, created_at
+        FROM ingest_bundle;
+      DROP TABLE ingest_bundle;
+      ALTER TABLE ingest_bundle__new RENAME TO ingest_bundle;
+      CREATE INDEX IF NOT EXISTS idx_ingest_bundle_project ON ingest_bundle (project_id);
+      CREATE INDEX IF NOT EXISTS idx_ingest_bundle_status ON ingest_bundle (status);
     `);
   });
   tx();

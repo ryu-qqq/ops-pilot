@@ -145,7 +145,7 @@ CREATE TABLE IF NOT EXISTS ingest_bundle (
   diff_summary    TEXT NOT NULL,
   context_json    TEXT NOT NULL,
   status          TEXT NOT NULL DEFAULT 'pending'
-                  CHECK (status IN ('pending', 'evaluating', 'done', 'failed')),
+                  CHECK (status IN ('pending', 'evaluating', 'done', 'reviewing', 'reviewed', 'failed')),
   created_at      TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ingest_bundle_project ON ingest_bundle (project_id);

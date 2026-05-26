@@ -13,6 +13,7 @@ import {
 } from "../scenario/repository.js";
 import { FEEDBACK_EVAL_FIXTURE } from "./fixture.js";
 import { parseProposalsFromRun } from "./parser.js";
+import { queueProposalReview } from "./review-queue.js";
 import {
   createImprovementProposal,
   getIngestBundle,
@@ -109,6 +110,7 @@ export function queueFeedbackEval(ingestId: string, evalSource: FeedbackEvalSour
   }
 
   updateIngestStatus(ingestId, "evaluating");
+  mergeIngestContext(ingestId, { evalSource });
 
   const source =
     evalSource === "fixture" ? fixtureSource(FEEDBACK_EVAL_FIXTURE) : localClaudeSource();
@@ -156,6 +158,8 @@ export async function handleFeedbackRunCompleted(runId: string): Promise<void> {
       createImprovementProposal({ ingestId, runId, ...p });
     }
     updateIngestStatus(ingestId, "done");
+    const evalSource = ingest.contextJson.evalSource ?? "local-claude";
+    queueProposalReview(ingestId, evalSource);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     markEvalFailed(ingestId, `proposal save failed: ${msg}`);

@@ -2,7 +2,7 @@
 // REST 라우트(routes/api/*)와 같은 domains 함수를 재사용 (비즈니스 로직 중복 X).
 // 노출 툴: scan_project / list_projects / list_assets / list_scenarios /
 //          start_run / get_run / compare_runs /
-//          ingest_cursor_session / list_proposals / apply_proposal.
+//          ingest_cursor_session / list_proposals / apply_proposal / review_proposals.
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
@@ -38,6 +38,7 @@ import {
   FeedbackIngestError,
   getIngestDetail,
   ingestFeedback,
+  reviewFeedbackIngest,
 } from "../domains/feedback/service.js";
 import {
   FeedbackProposalError,
@@ -274,6 +275,11 @@ export function createMcpServer(): McpServer {
             status: bundle.status,
             evalRunId: bundle.contextJson.evalRunId ?? null,
             evalError: bundle.contextJson.evalError ?? null,
+            reviewRunId: bundle.contextJson.reviewRunId ?? null,
+            reviewError: bundle.contextJson.reviewError ?? null,
+            reviewSummary: bundle.contextJson.reviewSummary ?? null,
+            proposalReviews: bundle.contextJson.proposalReviews ?? null,
+            skipReviewReason: bundle.contextJson.skipReviewReason ?? null,
           },
           proposals: listed.proposals,
         });
@@ -300,6 +306,35 @@ export function createMcpServer(): McpServer {
       } catch (e) {
         if (e instanceof FeedbackProposalError) return errorResult(`${e.code}: ${e.message}`);
         return errorResult(`apply failed: ${(e as Error).message}`);
+      }
+    },
+  );
+
+  // 11) review_proposals — proposal-reviewer run 큐 (eval done 후 자동 또는 수동).
+  server.tool(
+    "review_proposals",
+    "ingest의 draft proposal 을 proposal-reviewer agent 로 검토합니다. approve/reject/저위험 auto-apply. eval 완료 후 자동 큐되며, 수동 재실행도 가능.",
+    {
+      ingestId: z.string().uuid(),
+      evalSource: z
+        .enum(["fixture", "local-claude"])
+        .default("local-claude")
+        .describe("fixture=결정론 검증"),
+    },
+    ({ ingestId, evalSource }) => {
+      mcpLog.mcp("review_proposals");
+      try {
+        const detail = reviewFeedbackIngest(ingestId, evalSource);
+        return jsonResult({
+          ingestId: detail.id,
+          status: detail.status,
+          reviewRunId: detail.contextJson.reviewRunId ?? null,
+          skipReviewReason: detail.contextJson.skipReviewReason ?? null,
+          hint: "review 완료까지 list_proposals 폴링 — status reviewed 또는 done+reviewError.",
+        });
+      } catch (e) {
+        if (e instanceof FeedbackIngestError) return errorResult(`${e.code}: ${e.message}`);
+        return errorResult(`review failed: ${(e as Error).message}`);
       }
     },
   );
