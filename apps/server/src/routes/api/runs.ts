@@ -9,7 +9,11 @@ import {
 } from "@opspilot/shared-types";
 import { RunInputError, startRun } from "../../domains/run/service.js";
 import { relinkFeedbackRunOnRerun } from "../../domains/feedback/rerun-link.js";
-import { DEMO_FIXTURE, fixtureSource, localClaudeSource } from "../../domains/run/source.js";
+import {
+  DEMO_FIXTURE,
+  fixtureSource,
+  localClaudeSource,
+} from "../../domains/run/source.js";
 import {
   cancelRun,
   getRun,
@@ -22,9 +26,16 @@ import {
   setRunRetro,
 } from "../../domains/run/repository.js";
 import { aggregateBenchmark } from "../../domains/run/benchmark.js";
-import { getAnalysis, startAnalysis } from "../../domains/assist/analysis-store.js";
+import {
+  getAnalysis,
+  startAnalysis,
+} from "../../domains/assist/analysis-store.js";
 import { traceAnalysisSchema } from "../../domains/assist/analyze-trace.js";
-import { createScore, listScores, listScoresForRuns } from "../../domains/score/repository.js";
+import {
+  createScore,
+  listScores,
+  listScoresForRuns,
+} from "../../domains/score/repository.js";
 
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
 
@@ -75,7 +86,10 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
           source: z.enum(["fixture", "local-claude"]).default("local-claude"),
           fixtureEvents: z.array(z.unknown()).optional(),
         }),
-        response: { 200: z.object({ runs: z.array(runSchema) }), 400: errorSchema },
+        response: {
+          200: z.object({ runs: z.array(runSchema) }),
+          400: errorSchema,
+        },
       },
     },
     async (req, reply) => {
@@ -94,7 +108,9 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
         return { runs };
       } catch (e) {
         if (e instanceof RunInputError) {
-          return reply.status(400).send({ error: "BadRequest", detail: e.message });
+          return reply
+            .status(400)
+            .send({ error: "BadRequest", detail: e.message });
         }
         throw e;
       }
@@ -113,7 +129,10 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
           source: z.enum(["fixture", "local-claude"]).default("local-claude"),
           fixtureEvents: z.array(z.unknown()).optional(),
         }),
-        response: { 200: z.object({ runs: z.array(runSchema) }), 400: errorSchema },
+        response: {
+          200: z.object({ runs: z.array(runSchema) }),
+          400: errorSchema,
+        },
       },
     },
     async (req, reply) => {
@@ -132,7 +151,9 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
         return { runs };
       } catch (e) {
         if (e instanceof RunInputError) {
-          return reply.status(400).send({ error: "BadRequest", detail: e.message });
+          return reply
+            .status(400)
+            .send({ error: "BadRequest", detail: e.message });
         }
         throw e;
       }
@@ -152,7 +173,10 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
           n: z.number().int().min(1).max(10),
           fixtureEvents: z.array(z.unknown()).optional(),
         }),
-        response: { 200: z.object({ runs: z.array(runSchema) }), 400: errorSchema },
+        response: {
+          200: z.object({ runs: z.array(runSchema) }),
+          400: errorSchema,
+        },
       },
     },
     async (req, reply) => {
@@ -171,7 +195,9 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
         return { runs };
       } catch (e) {
         if (e instanceof RunInputError) {
-          return reply.status(400).send({ error: "BadRequest", detail: e.message });
+          return reply
+            .status(400)
+            .send({ error: "BadRequest", detail: e.message });
         }
         throw e;
       }
@@ -193,9 +219,110 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
         .map((s) => s.trim())
         .filter((s) => s !== "");
       if (ids.length < 1 || ids.length > 10) {
-        return reply.status(400).send({ error: "BadRequest", detail: "ids 1~10개" });
+        return reply
+          .status(400)
+          .send({ error: "BadRequest", detail: "ids 1~10개" });
       }
       return aggregateBenchmark(ids);
+    },
+  );
+
+  // T4-d: baseline 대조군 — 같은 (asset_version × scenario) 를 자산 있음 N회 + 자산 없음 N회.
+  // passRate(with)−passRate(without) = 이 자산이 시나리오에 더하는 가치. local-claude 만 의미.
+  fastify.post(
+    "/runs/baseline-benchmark",
+    {
+      schema: {
+        body: z.object({
+          assetVersionId: z.string().uuid(),
+          scenarioId: z.string().uuid(),
+          source: z.enum(["fixture", "local-claude"]).default("local-claude"),
+          n: z.number().int().min(1).max(8),
+          fixtureEvents: z.array(z.unknown()).optional(),
+        }),
+        response: {
+          200: z.object({
+            withRuns: z.array(runSchema),
+            withoutRuns: z.array(runSchema),
+          }),
+          400: errorSchema,
+        },
+      },
+    },
+    async (req, reply) => {
+      const { assetVersionId, scenarioId, source, n, fixtureEvents } = req.body;
+      const mkSource = () =>
+        source === "fixture"
+          ? fixtureSource(fixtureEvents ?? DEMO_FIXTURE)
+          : localClaudeSource();
+      try {
+        const withRuns = Array.from({ length: n }, () =>
+          startRun({ assetVersionId, scenarioId, source: mkSource() }),
+        );
+        const withoutRuns = Array.from({ length: n }, () =>
+          startRun({
+            assetVersionId,
+            scenarioId,
+            source: mkSource(),
+            disableAsset: true,
+          }),
+        );
+        return { withRuns, withoutRuns };
+      } catch (e) {
+        if (e instanceof RunInputError) {
+          return reply
+            .status(400)
+            .send({ error: "BadRequest", detail: e.message });
+        }
+        throw e;
+      }
+    },
+  );
+
+  // T4-d: baseline delta 집계 — with/without 두 run 셋의 통과율 차이.
+  fastify.get(
+    "/runs/baseline-aggregate",
+    {
+      schema: {
+        querystring: z.object({
+          with: z.string().min(1),
+          without: z.string().min(1),
+        }),
+        response: {
+          200: z.object({
+            with: benchmarkAggregateSchema,
+            without: benchmarkAggregateSchema,
+            passRateDelta: z.number(),
+          }),
+          400: errorSchema,
+        },
+      },
+    },
+    async (req, reply) => {
+      const parse = (csv: string) =>
+        csv
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s !== "");
+      const withIds = parse(req.query.with);
+      const withoutIds = parse(req.query.without);
+      if (
+        withIds.length < 1 ||
+        withoutIds.length < 1 ||
+        withIds.length > 8 ||
+        withoutIds.length > 8
+      ) {
+        return reply
+          .status(400)
+          .send({ error: "BadRequest", detail: "with·without 각 1~8개" });
+      }
+      const withAgg = aggregateBenchmark(withIds);
+      const withoutAgg = aggregateBenchmark(withoutIds);
+      return {
+        with: withAgg,
+        without: withoutAgg,
+        passRateDelta: withAgg.passRate - withoutAgg.passRate,
+      };
     },
   );
 
@@ -226,20 +353,32 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
       },
     },
     async (req, reply) => {
-      const ids = req.query.ids.split(",").map((s) => s.trim()).filter((s) => s !== "");
+      const ids = req.query.ids
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s !== "");
       if (ids.length === 0 || ids.length > 10) {
-        return reply.status(400).send({ error: "BadRequest", detail: "ids 1~10개" });
+        return reply
+          .status(400)
+          .send({ error: "BadRequest", detail: "ids 1~10개" });
       }
-      const runs = ids.map((id) => getRun(id)).filter((r): r is NonNullable<typeof r> => r !== undefined);
+      const runs = ids
+        .map((id) => getRun(id))
+        .filter((r): r is NonNullable<typeof r> => r !== undefined);
       const runIds = runs.map((r) => r.id);
       const diffCounts = listRunDiffCounts(runIds);
       const lastTexts = listLastAssistantTexts(runIds);
       const scoresByRun = listScoresForRuns(runIds);
       const scenarioNames = listRunScenarioNames(runIds);
       // 한 run 에 같은 scorer 가 여러 행이면 가장 최근(createdAt 오름차순이므로 마지막).
-      const pickLatest = (runId: string, scorer: "assertion" | "llm_judge" | "human") => {
-        const list = (scoresByRun[runId] ?? []).filter((s) => s.scorer === scorer);
-        return list.length === 0 ? null : list[list.length - 1] ?? null;
+      const pickLatest = (
+        runId: string,
+        scorer: "assertion" | "llm_judge" | "human",
+      ) => {
+        const list = (scoresByRun[runId] ?? []).filter(
+          (s) => s.scorer === scorer,
+        );
+        return list.length === 0 ? null : (list[list.length - 1] ?? null);
       };
       return {
         items: runs.map((run) => ({
@@ -257,7 +396,9 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
 
   fastify.post(
     "/runs",
-    { schema: { body: runBody, response: { 200: runSchema, 400: errorSchema } } },
+    {
+      schema: { body: runBody, response: { 200: runSchema, 400: errorSchema } },
+    },
     async (req, reply) => {
       const { assetVersionId, scenarioId, source, fixtureEvents } = req.body;
       const runnerSource =
@@ -269,7 +410,9 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
         return startRun({ assetVersionId, scenarioId, source: runnerSource });
       } catch (e) {
         if (e instanceof RunInputError) {
-          return reply.status(400).send({ error: "BadRequest", detail: e.message });
+          return reply
+            .status(400)
+            .send({ error: "BadRequest", detail: e.message });
         }
         throw e;
       }
@@ -292,7 +435,10 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (req, reply) => {
       const run = getRun(req.params.id);
-      if (!run) return reply.status(404).send({ error: "NotFound", detail: "run not found" });
+      if (!run)
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "run not found" });
       return run;
     },
   );
@@ -309,7 +455,10 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (req, reply) => {
       const updated = setRunRetro(req.params.id, req.body.retro);
-      if (!updated) return reply.status(404).send({ error: "NotFound", detail: "run not found" });
+      if (!updated)
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "run not found" });
       return updated;
     },
   );
@@ -325,20 +474,28 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (req, reply) => {
       const old = getRun(req.params.id);
-      if (!old) return reply.status(404).send({ error: "NotFound", detail: "run not found" });
+      if (!old)
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "run not found" });
       try {
         // OPSP-44: cwd 는 서버가 assetVersionId → clonePath 로 자동 유도 — 별도 조회 불필요.
         const newRun = startRun({
           assetVersionId: old.assetVersionId,
           scenarioId: old.scenarioId,
-          source: old.runner === "fixture" ? fixtureSource(DEMO_FIXTURE) : localClaudeSource(),
+          source:
+            old.runner === "fixture"
+              ? fixtureSource(DEMO_FIXTURE)
+              : localClaudeSource(),
           retro: old.retro ?? null,
         });
         relinkFeedbackRunOnRerun(old, newRun.id);
         return newRun;
       } catch (e) {
         if (e instanceof RunInputError) {
-          return reply.status(400).send({ error: "BadRequest", detail: e.message });
+          return reply
+            .status(400)
+            .send({ error: "BadRequest", detail: e.message });
         }
         throw e;
       }
@@ -359,7 +516,9 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (req, reply) => {
       if (!getRun(req.params.id)) {
-        return reply.status(404).send({ error: "NotFound", detail: "run not found" });
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "run not found" });
       }
       return { cancelled: cancelRun(req.params.id) };
     },
@@ -372,14 +531,19 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
       schema: {
         params: z.object({ id: z.string().uuid() }),
         response: {
-          200: z.object({ started: z.boolean(), reason: z.string().optional() }),
+          200: z.object({
+            started: z.boolean(),
+            reason: z.string().optional(),
+          }),
           404: errorSchema,
         },
       },
     },
     async (req, reply) => {
       if (!getRun(req.params.id)) {
-        return reply.status(404).send({ error: "NotFound", detail: "run not found" });
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "run not found" });
       }
       return startAnalysis(req.params.id);
     },
@@ -460,7 +624,9 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (req, reply) => {
       if (!getRun(req.params.id)) {
-        return reply.status(404).send({ error: "NotFound", detail: "run not found" });
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "run not found" });
       }
       return createScore({ runId: req.params.id, ...req.body });
     },

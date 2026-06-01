@@ -103,7 +103,9 @@ export function listAssets(projectId: string): Asset[] {
 }
 
 export function assetExists(id: string): boolean {
-  return getDb().prepare("SELECT 1 FROM asset WHERE id = ?").get(id) !== undefined;
+  return (
+    getDb().prepare("SELECT 1 FROM asset WHERE id = ?").get(id) !== undefined
+  );
 }
 
 export function getAsset(id: string): Asset | undefined {
@@ -128,22 +130,30 @@ export function latestContent(assetId: string): string | undefined {
 }
 
 export function assetVersionExists(id: string): boolean {
-  return getDb().prepare("SELECT 1 FROM asset_version WHERE id = ?").get(id) !== undefined;
+  return (
+    getDb().prepare("SELECT 1 FROM asset_version WHERE id = ?").get(id) !==
+    undefined
+  );
 }
 
 // 실행 격리용: asset_version → asset → project 의 클론경로·커밋.
 export function versionExecContext(
   assetVersionId: string,
-): { clonePath: string; gitCommit: string } | undefined {
+):
+  | { clonePath: string; gitCommit: string; kind: string; name: string }
+  | undefined {
   return getDb()
     .prepare(
-      `SELECT p.clone_path AS clonePath, av.git_commit AS gitCommit
+      `SELECT p.clone_path AS clonePath, av.git_commit AS gitCommit,
+              a.kind AS kind, a.name AS name
        FROM asset_version av
        JOIN asset a ON a.id = av.asset_id
        JOIN project p ON p.id = a.project_id
        WHERE av.id = ?`,
     )
-    .get(assetVersionId) as { clonePath: string; gitCommit: string } | undefined;
+    .get(assetVersionId) as
+    | { clonePath: string; gitCommit: string; kind: string; name: string }
+    | undefined;
 }
 
 export function listVersions(assetId: string): AssetVersionSummary[] {
