@@ -169,3 +169,26 @@ CREATE TABLE IF NOT EXISTS improvement_proposal (
 );
 CREATE INDEX IF NOT EXISTS idx_improvement_proposal_ingest ON improvement_proposal (ingest_id);
 CREATE INDEX IF NOT EXISTS idx_improvement_proposal_status ON improvement_proposal (status);
+
+-- ADR-0001: 작업 기반 자동 평가 — transcript 무상 신호(reference signal).
+-- ⚠️ "품질 점수"가 아니라 "참고 신호"다. 정정 왕복이 많다고 자산이 나쁜 게 아님.
+-- 단위 = 세션(JSONL 1파일 = session_id). 주기/수동 전수 스캔이 멱등 upsert 한다.
+-- (session_id, asset_key) UNIQUE — 재스캔 시 중복 없이 갱신.
+-- asset_key 는 등록된 asset 의 FK가 아니다(빌트인·미등록 자산도 발화하므로 텍스트로
+-- kind:name 정규화 키를 둔다). 프로젝트 매핑은 cwd 로 한다(usage 도메인과 동일).
+CREATE TABLE IF NOT EXISTS asset_work_metric (
+  id                     TEXT PRIMARY KEY,
+  session_id             TEXT NOT NULL,
+  asset_key              TEXT NOT NULL,                 -- 정규화 키 'kind:name'
+  kind                   TEXT NOT NULL CHECK (kind IN ('agent', 'skill')),
+  name                   TEXT NOT NULL,
+  cwd                    TEXT NOT NULL,                 -- 발화 cwd(절대경로) — 프로젝트 매핑
+  invocation_count       INTEGER NOT NULL DEFAULT 0,    -- 세션 내 발화 횟수
+  correction_roundtrips  INTEGER NOT NULL DEFAULT 0,    -- ⚠️ reference signal (품질 점수 아님)
+  first_seen             TEXT,                          -- 발화 윈도가 걸친 첫 timestamp
+  last_seen              TEXT,                          -- 〃 마지막 timestamp
+  scanned_at             TEXT NOT NULL,                 -- 마지막 upsert 시각
+  UNIQUE (session_id, asset_key)
+);
+CREATE INDEX IF NOT EXISTS idx_asset_work_metric_session ON asset_work_metric (session_id);
+CREATE INDEX IF NOT EXISTS idx_asset_work_metric_cwd ON asset_work_metric (cwd);

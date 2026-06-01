@@ -1,4 +1,8 @@
-import { projectUsageReportSchema } from "@opspilot/shared-types";
+import {
+  projectUsageReportSchema,
+  projectWorkMetricReportSchema,
+  workMetricScanResultSchema,
+} from "@opspilot/shared-types";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { getProject } from "../../domains/project/repository.js";
@@ -6,6 +10,10 @@ import {
   assetUsageForProject,
   scanTranscriptUsage,
 } from "../../domains/usage/service.js";
+import {
+  runWorkMetricScan,
+  workMetricsForProject,
+} from "../../domains/usage/work-metric-service.js";
 
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
 
@@ -82,6 +90,38 @@ const usage: FastifyPluginAsyncZod = async (fastify) => {
         skills: rank(scan.skills),
       };
     },
+  );
+
+  // ADR-0001: 작업 기반 자동 평가 — transcript 무상 신호(reference signal).
+  // ⚠️ 정정 왕복은 "품질 점수"가 아니라 "참고 신호"다. 응답에 라벨을 싣는다.
+
+  // 프로젝트의 자산별 작업 지표(발화·정정 왕복 집계). 저장된 지표를 읽기만 한다(스캔 X).
+  fastify.get(
+    "/usage/work-metrics",
+    {
+      schema: {
+        querystring: z.object({ projectId: z.string().uuid() }),
+        response: {
+          200: projectWorkMetricReportSchema,
+          404: errorSchema,
+        },
+      },
+    },
+    async (req, reply) => {
+      const project = getProject(req.query.projectId);
+      if (!project)
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "project not found" });
+      return workMetricsForProject(project);
+    },
+  );
+
+  // 수동 전수 스캔 트리거 — 모든 세션을 재스캔해 멱등 upsert. (부팅 시 1회도 동일 함수.)
+  fastify.post(
+    "/usage/work-metrics/scan",
+    { schema: { response: { 200: workMetricScanResultSchema } } },
+    async () => runWorkMetricScan(),
   );
 };
 
