@@ -1,15 +1,21 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   getAssetLint,
   getAssetScenarios,
   getProjectAssetLint,
   getProjectAssetUsage,
+  getProjectWorkMetrics,
   getUsageGlobal,
   getProjectAssets,
   getVersions,
   improveTriggerDescription,
   registryKeys,
   runTriggerEval,
+  scanWorkMetrics,
   suggestTriggerQueries,
 } from "./api";
 
@@ -28,6 +34,29 @@ export function useProjectAssetUsage(projectId: string | null) {
     queryFn: () => getProjectAssetUsage(projectId ?? ""),
     enabled: projectId !== null,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+// ADR-0001 카드D: 자산별 작업 신호(참고용). 스캔 비용이 있어 staleTime 길게.
+export function useProjectWorkMetrics(projectId: string | null) {
+  return useQuery({
+    queryKey: registryKeys.workMetrics(projectId ?? "none"),
+    queryFn: () => getProjectWorkMetrics(projectId ?? ""),
+    enabled: projectId !== null,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+// 수동 전수 스캔 후 해당 프로젝트 작업 신호 무효화 (projectId = mutation 변수).
+export function useScanWorkMetrics() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (_vars: { projectId: string }) => scanWorkMetrics(),
+    onSuccess: (_data, { projectId }) => {
+      void qc.invalidateQueries({
+        queryKey: registryKeys.workMetrics(projectId),
+      });
+    },
   });
 }
 

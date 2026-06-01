@@ -6,10 +6,12 @@ import {
   improveResultSchema,
   projectAssetLintSchema,
   projectUsageReportSchema,
+  projectWorkMetricReportSchema,
   usageGlobalSchema,
   scenarioSchema,
   triggerEvalResultSchema,
   triggerSuggestResponseSchema,
+  workMetricScanResultSchema,
 } from "@opspilot/shared-types";
 import { apiGet, apiPost } from "../../lib/api-client";
 
@@ -32,6 +34,8 @@ export const registryKeys = {
     [...registryKeys.all, "project-lint", projectId] as const,
   usageGlobal: (days: number) =>
     [...registryKeys.all, "usage-global", days] as const,
+  workMetrics: (projectId: string) =>
+    [...registryKeys.all, "work-metrics", projectId] as const,
   versions: (assetId: string) =>
     [...registryKeys.all, "versions", assetId] as const,
   scenarios: (assetId: string) =>
@@ -69,6 +73,19 @@ export async function getProjectAssetUsage(projectId: string) {
     `/api/usage/assets?projectId=${projectId}`,
     projectUsageReportSchema,
   );
+}
+
+// ADR-0001 카드D: 자산별 작업 신호(참고용) — ⚠️ 품질 점수 아님(reference signal).
+export async function getProjectWorkMetrics(projectId: string) {
+  return apiGet(
+    `/api/usage/work-metrics?projectId=${projectId}`,
+    projectWorkMetricReportSchema,
+  );
+}
+
+// 수동 전수 스캔 트리거 (멱등 upsert). 패칭만 — 무효화는 호출부 훅에서.
+export async function scanWorkMetrics() {
+  return apiPost("/api/usage/work-metrics/scan", {}, workMetricScanResultSchema);
 }
 
 // T4: 트리거 정확도 평가 (description 이 켜져야 할 때 켜지나). 둘 다 로컬 claude spawn.
