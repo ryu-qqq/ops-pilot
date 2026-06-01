@@ -56,8 +56,15 @@ export function useRunTriggerEval() {
   return useMutation({
     mutationFn: (args: {
       assetId: string;
-      queries: string[];
+      positives: string[];
+      negatives: string[];
       runsPerQuery: number;
-    }) => runTriggerEval(args.assetId, args.queries, args.runsPerQuery),
+    }) =>
+      runTriggerEval(
+        args.assetId,
+        args.positives,
+        args.negatives,
+        args.runsPerQuery,
+      ),
   });
 }

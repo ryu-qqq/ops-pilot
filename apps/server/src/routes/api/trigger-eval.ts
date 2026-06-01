@@ -32,9 +32,7 @@ const triggerEval: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (req, reply) => {
       try {
-        return {
-          queries: await suggestTriggerQueries(req.body.assetId, req.body.n),
-        };
+        return await suggestTriggerQueries(req.body.assetId, req.body.n);
       } catch (e) {
         if (e instanceof TriggerEvalError) {
           return reply
@@ -53,7 +51,8 @@ const triggerEval: FastifyPluginAsyncZod = async (fastify) => {
       schema: {
         body: z.object({
           assetId: z.string().uuid(),
-          queries: z.array(z.string().min(1)).min(1).max(20),
+          positives: z.array(z.string().min(1)).min(1).max(20),
+          negatives: z.array(z.string().min(1)).max(20).default([]),
           runsPerQuery: z.number().int().min(1).max(5).default(3),
         }),
         response: {
@@ -64,9 +63,13 @@ const triggerEval: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (req, reply) => {
       try {
+        const labeled = [
+          ...req.body.positives.map((text) => ({ text, shouldTrigger: true })),
+          ...req.body.negatives.map((text) => ({ text, shouldTrigger: false })),
+        ];
         return await evaluateTrigger(
           req.body.assetId,
-          req.body.queries,
+          labeled,
           req.body.runsPerQuery,
         );
       } catch (e) {

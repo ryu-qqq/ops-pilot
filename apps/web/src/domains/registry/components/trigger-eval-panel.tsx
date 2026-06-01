@@ -21,7 +21,14 @@ function rateColor(rate: number): string {
   return "text-red-600 dark:text-red-400";
 }
 
-// T4: 선택된 스킬/에이전트의 description 이 "켜져야 할 때 켜지나"를 측정하는 패널.
+function lines(text: string): string[] {
+  return text
+    .split("\n")
+    .map((q) => q.trim())
+    .filter(Boolean);
+}
+
+// T4: 선택된 스킬/에이전트의 description 이 "켜져야 할 때 켜지고 아닐 때 안 켜지나"를 측정.
 // 자산 사용량(T3)이 "안 쓰인다"를 보여주면, 여기서 그 이유가 트리거 실패인지 진단.
 export function TriggerEvalPanel({ projectId, assetId }: Props) {
   const { data: assets } = useAssets(projectId);
@@ -29,7 +36,8 @@ export function TriggerEvalPanel({ projectId, assetId }: Props) {
     () => (assets ?? []).find((a) => a.id === assetId) ?? null,
     [assets, assetId],
   );
-  const [queriesText, setQueriesText] = useState("");
+  const [positivesText, setPositivesText] = useState("");
+  const [negativesText, setNegativesText] = useState("");
   const [runsPerQuery, setRunsPerQuery] = useState(3);
   const suggest = useSuggestTriggerQueries();
   const run = useRunTriggerEval();
@@ -38,10 +46,9 @@ export function TriggerEvalPanel({ projectId, assetId }: Props) {
   if (asset === null || (asset.kind !== "agent" && asset.kind !== "skill"))
     return null;
 
-  const queries = queriesText
-    .split("\n")
-    .map((q) => q.trim())
-    .filter(Boolean);
+  const positives = lines(positivesText);
+  const negatives = lines(negativesText);
+  const totalCalls = (positives.length + negatives.length) * runsPerQuery;
 
   return (
     <Card className="space-y-3 p-4">
@@ -57,9 +64,10 @@ export function TriggerEvalPanel({ projectId, assetId }: Props) {
         </span>
       </div>
       <p className="text-xs text-muted-foreground">
-        이 {asset.kind} 의 description 이 <b>켜져야 할 때 켜지는지</b>{" "}
-        측정합니다. should-trigger 쿼리(한 줄에 하나)를 넣고 평가하면 각 쿼리를{" "}
-        {runsPerQuery}회 실제 <code>claude</code> 로 던져 발화율을 냅니다.{" "}
+        이 {asset.kind} 의 description 이{" "}
+        <b>켜져야 할 때 켜지고, 아닐 때 안 켜지는지</b> 측정합니다. 쿼리(한 줄에
+        하나)를 넣고 평가하면 각 쿼리를 {runsPerQuery}회 실제{" "}
+        <code>claude</code> 로 던집니다.{" "}
         <b className="text-amber-600 dark:text-amber-400">실 토큰을 소모</b>
         합니다.
       </p>
@@ -72,7 +80,12 @@ export function TriggerEvalPanel({ projectId, assetId }: Props) {
           onClick={() =>
             suggest.mutate(
               { assetId: asset.id, n: 5 },
-              { onSuccess: (qs) => setQueriesText(qs.join("\n")) },
+              {
+                onSuccess: (qs) => {
+                  setPositivesText(qs.positives.join("\n"));
+                  setNegativesText(qs.negatives.join("\n"));
+                },
+              },
             )
           }
         >
@@ -94,41 +107,69 @@ export function TriggerEvalPanel({ projectId, assetId }: Props) {
         </label>
         <Button
           size="sm"
-          disabled={run.isPending || queries.length === 0}
+          disabled={run.isPending || positives.length === 0}
           onClick={() =>
-            run.mutate({ assetId: asset.id, queries, runsPerQuery })
+            run.mutate({
+              assetId: asset.id,
+              positives,
+              negatives,
+              runsPerQuery,
+            })
           }
-          title={queries.length === 0 ? "쿼리를 먼저 넣으세요" : ""}
+          title={
+            positives.length === 0 ? "should-trigger 쿼리를 먼저 넣으세요" : ""
+          }
         >
           {run.isPending
-            ? `평가 중… (${String(queries.length * runsPerQuery)}회 호출)`
+            ? `평가 중… (${String(totalCalls)}회 호출)`
             : "트리거 평가 실행"}
         </Button>
       </div>
 
-      <Textarea
-        value={queriesText}
-        onChange={(e) => setQueriesText(e.target.value)}
-        placeholder={
-          "should-trigger 쿼리를 한 줄에 하나씩…\n예: 결제 모듈 메시지큐 결정 문서로 남겨줘"
-        }
-        className="min-h-[88px] font-mono text-xs"
-      />
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div className="space-y-1">
+          <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+            ✓ should-trigger (켜져야 함)
+          </span>
+          <Textarea
+            value={positivesText}
+            onChange={(e) => setPositivesText(e.target.value)}
+            placeholder={"켜져야 하는 요청 (한 줄에 하나)"}
+            className="min-h-[88px] font-mono text-xs"
+          />
+        </div>
+        <div className="space-y-1">
+          <span className="text-[11px] font-medium text-red-600 dark:text-red-400">
+            ✗ should-NOT (안 켜져야 함 · near-miss)
+          </span>
+          <Textarea
+            value={negativesText}
+            onChange={(e) => setNegativesText(e.target.value)}
+            placeholder={"키워드는 겹치지만 켜지면 안 되는 함정 요청 (선택)"}
+            className="min-h-[88px] font-mono text-xs"
+          />
+        </div>
+      </div>
 
       {suggest.isError && <ErrorNotice error={suggest.error} />}
       {run.isError && <ErrorNotice error={run.error} />}
 
       {run.data && (
         <div className="space-y-2 rounded-md border p-3">
-          <div className="flex items-baseline gap-2">
-            <span className="text-xs text-muted-foreground">전체 트리거율</span>
-            <span
-              className={`text-lg font-bold tabular-nums ${rateColor(run.data.overallRate)}`}
-            >
-              {Math.round(run.data.overallRate * 100)}%
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <span className="text-xs">
+              <span className="text-muted-foreground">정확도 </span>
+              <span
+                className={`text-lg font-bold tabular-nums ${rateColor(run.data.accuracy)}`}
+              >
+                {Math.round(run.data.accuracy * 100)}%
+              </span>
             </span>
             <span className="text-xs text-muted-foreground">
-              ({run.data.queries.length}쿼리 × {run.data.runsPerQuery}회)
+              발화율 ↑{Math.round(run.data.positiveRate * 100)}%
+              {run.data.negativeFireRate !== null && (
+                <> · 오발화 ↓{Math.round(run.data.negativeFireRate * 100)}%</>
+              )}
             </span>
           </div>
           <ul className="space-y-1">
@@ -137,20 +178,41 @@ export function TriggerEvalPanel({ projectId, assetId }: Props) {
                 key={i}
                 className="flex items-start justify-between gap-2 text-xs"
               >
-                <span className="flex-1 truncate" title={q.query}>
-                  {q.query}
+                <span className="flex min-w-0 flex-1 items-start gap-1">
+                  <span
+                    className={
+                      q.shouldTrigger
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-red-600 dark:text-red-400"
+                    }
+                    title={q.shouldTrigger ? "should-trigger" : "should-NOT"}
+                  >
+                    {q.shouldTrigger ? "▲" : "▽"}
+                  </span>
+                  <span className="truncate" title={q.query}>
+                    {q.query}
+                  </span>
                 </span>
-                <span
-                  className={`tabular-nums font-medium ${rateColor(q.triggerRate)}`}
-                >
-                  {q.triggered}/{q.runs}
+                <span className="flex items-center gap-1 tabular-nums">
+                  <span className="text-muted-foreground">
+                    {q.triggered}/{q.runs}
+                  </span>
+                  <span
+                    className={
+                      q.pass
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-red-600 dark:text-red-400"
+                    }
+                  >
+                    {q.pass ? "✓" : "✗"}
+                  </span>
                 </span>
               </li>
             ))}
           </ul>
           <p className="text-[10px] text-muted-foreground">
-            낮으면 description 이 이 의도를 못 잡는 것 — 트리거 문구를 더
-            구체적으로 고쳐보세요. (should-NOT·자동개선은 후속)
+            ✗ 가 많으면 description 이 의도를 못 잡는 것 — 트리거 문구를 더
+            구체적으로 고쳐보세요. (자동개선 루프는 후속)
           </p>
         </div>
       )}
