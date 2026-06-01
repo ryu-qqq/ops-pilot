@@ -157,6 +157,19 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
               copiedDirs: z.array(z.string()),
               lockPath: z.string(),
               missingFeedbackAgents: z.array(z.string()),
+              tagSource: z.enum(["override", "project-yaml-newer", "lock"]),
+              mustReference: z.object({
+                applied: z.boolean(),
+                items: z.array(z.string()),
+                targets: z.array(
+                  z.object({
+                    ide: z.enum(["claude-code", "cursor"]),
+                    targetPath: z.string(),
+                    action: z.enum(["injected", "replaced", "removed"]),
+                  }),
+                ),
+                reason: z.string().optional(),
+              }),
             }),
             driftBefore: z.object({
               drift: z.boolean(),
