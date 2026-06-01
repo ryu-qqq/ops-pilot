@@ -1,11 +1,27 @@
 import { useQuery } from "@tanstack/react-query";
-import { getAssetScenarios, getProjectAssets, getVersions, registryKeys } from "./api";
+import {
+  getAssetScenarios,
+  getProjectAssetUsage,
+  getProjectAssets,
+  getVersions,
+  registryKeys,
+} from "./api";
 
 export function useAssets(projectId: string | null) {
   return useQuery({
     queryKey: registryKeys.assets(projectId ?? "none"),
     queryFn: () => getProjectAssets(projectId ?? ""),
     enabled: projectId !== null,
+  });
+}
+
+// T3: 자산 사용량(transcript 스캔). 스캔 비용이 있어 stale 시간을 길게.
+export function useProjectAssetUsage(projectId: string | null) {
+  return useQuery({
+    queryKey: registryKeys.assetUsage(projectId ?? "none"),
+    queryFn: () => getProjectAssetUsage(projectId ?? ""),
+    enabled: projectId !== null,
+    staleTime: 5 * 60 * 1000,
   });
 }
 
