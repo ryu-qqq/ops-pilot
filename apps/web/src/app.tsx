@@ -6,16 +6,17 @@ import { TooltipProvider } from "./components/ui/tooltip";
 import { useTheme } from "./lib/use-theme";
 import { usePersistedState } from "./lib/use-persisted-state";
 import { FeedbackView } from "./domains/feedback/components/feedback-view";
+import { OverviewView } from "./domains/registry/components/overview-view";
 import { RegistryView } from "./domains/registry/components/registry-view";
 import { RunsView, type RunViewMode } from "./domains/run/components/runs-view";
 import { SettingsDialog } from "./domains/settings/components/settings-dialog";
 import { WorkflowGuide } from "./components/workflow-guide";
 import { ServerHealthIndicator } from "./components/server-health-indicator";
 
-type Tab = "feedback" | "runs" | "registry";
+type Tab = "overview" | "feedback" | "runs" | "registry";
 
 export function App() {
-  const [tab, setTab] = usePersistedState<Tab>("opspilot.tab", "feedback");
+  const [tab, setTab] = usePersistedState<Tab>("opspilot.tab.v2", "overview");
   const [projectId, setProjectId] = usePersistedState<string | null>("opspilot.projectId", null);
   const [selectedRunId, setSelectedRunId] = usePersistedState<string | null>(
     "opspilot.runs.selectedRunId",
@@ -59,7 +60,7 @@ export function App() {
       <header className="mb-6 flex items-center justify-between">
         <div className="flex items-baseline gap-3">
           <h1 className="text-xl font-semibold tracking-tight">OpsPilot</h1>
-          <span className="text-xs text-muted-foreground">피드백 · eval · HITL</span>
+          <span className="text-xs text-muted-foreground">사용량 · eval · HITL</span>
         </div>
         <div className="flex items-center gap-1">
           <ServerHealthIndicator />
@@ -77,11 +78,19 @@ export function App() {
       </header>
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="space-y-4">
         <TabsList>
+          <TabsTrigger value="overview">개요</TabsTrigger>
           <TabsTrigger value="feedback">피드백</TabsTrigger>
           <TabsTrigger value="runs">실행 / 트레이스</TabsTrigger>
           <TabsTrigger value="registry">프로젝트</TabsTrigger>
         </TabsList>
         <WorkflowGuide tab={tab} />
+        <TabsContent value="overview" forceMount className="mt-0 data-[state=inactive]:hidden">
+          <OverviewView
+            projectId={projectId}
+            onProjectIdChange={setProjectId}
+            onOpenProjectTab={() => setTab("registry")}
+          />
+        </TabsContent>
         <TabsContent value="feedback" forceMount className="mt-0 data-[state=inactive]:hidden">
           <FeedbackView
             projectId={projectId}

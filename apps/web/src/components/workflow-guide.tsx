@@ -5,12 +5,33 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 
 const STORAGE_KEY = "opspilot-workflow-guide";
 
-type GuideTab = "feedback" | "runs" | "registry";
+type GuideTab = "overview" | "feedback" | "runs" | "registry";
 
 const GUIDES: Record<
   GuideTab,
   { headline: string; steps: { label: string; detail: string }[]; footnote?: string }
 > = {
+  overview: {
+    headline: "내 자산이 제대로·일관되게 쓰이나 — 한눈에",
+    steps: [
+      {
+        label: "① Top 5",
+        detail:
+          "위 리더보드는 최근 7/30일 내 로컬 세션 전체에서 가장 많이 쓴 에이전트·스킬입니다. 프로젝트와 무관하게 항상 채워집니다.",
+      },
+      {
+        label: "② 미사용 N",
+        detail:
+          "아래 자산 헬스에서 프로젝트를 고르면 미사용(prune 후보)·형식 오류가 한눈에 보입니다. 호출된 적 없는 자산이 prune 1순위입니다.",
+      },
+      {
+        label: "③ 자세히",
+        detail:
+          "행을 누르거나 「프로젝트 탭에서 자세히」로 넘어가면 버전·시나리오·트리거 평가까지 깊게 봅니다.",
+      },
+    ],
+    footnote: "여기는 보는 화면. 등록·스캔·저작·실행은 프로젝트 탭에서.",
+  },
   feedback: {
     headline: "Cursor 작업 → eval → 개선안 검토 (HITL)",
     steps: [
