@@ -1,19 +1,27 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { claudeAssetKindSchema, assetSchema, cursorHarnessSyncResultSchema, projectSchema } from "@opspilot/shared-types";
+import {
+  claudeAssetKindSchema,
+  assetSchema,
+  cursorHarnessSyncResultSchema,
+  projectAssetLintSchema,
+  projectSchema,
+} from "@opspilot/shared-types";
 import { AuthoringError, writeAsset } from "../../domains/authoring/service.js";
 import { installHooks } from "../../domains/authoring/hooks.js";
-import {
-  getProject,
-  listProjects,
-} from "../../domains/project/repository.js";
+import { validateFrontmatter } from "../../domains/asset-lint/validate.js";
+import { getProject, listProjects } from "../../domains/project/repository.js";
 import {
   ProjectRegisterError,
   registerProject,
 } from "../../domains/project/register.js";
 import { pullProject } from "../../domains/project/service.js";
 import { scanRepo } from "../../domains/registry/scanner.js";
-import { listAssets, saveScan } from "../../domains/registry/repository.js";
+import {
+  latestContent,
+  listAssets,
+  saveScan,
+} from "../../domains/registry/repository.js";
 import {
   AgentCrewSyncError,
   checkAgentCrewDrift,
@@ -88,7 +96,11 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
 
   fastify.get(
     "/projects",
-    { schema: { response: { 200: z.object({ projects: z.array(projectSchema) }) } } },
+    {
+      schema: {
+        response: { 200: z.object({ projects: z.array(projectSchema) }) },
+      },
+    },
     async () => ({ projects: listProjects() }),
   );
 
@@ -102,7 +114,10 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
           200: z.object({
             scannedAssets: z.number().int(),
             scannedVersions: z.number().int(),
-            saved: z.object({ assets: z.number().int(), versions: z.number().int() }),
+            saved: z.object({
+              assets: z.number().int(),
+              versions: z.number().int(),
+            }),
             agentCrewDrift: z.object({
               drift: z.boolean(),
               lockTag: z.string().nullable(),
@@ -117,13 +132,18 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (req, reply) => {
       const project = getProject(req.params.id);
-      if (!project) return reply.status(404).send({ error: "NotFound", detail: "project not found" });
+      if (!project)
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "project not found" });
       pullProject(project.clonePath);
       let scanned;
       try {
         scanned = scanRepo(project.clonePath);
       } catch (e) {
-        return reply.status(400).send({ error: "ScanError", detail: (e as Error).message });
+        return reply
+          .status(400)
+          .send({ error: "ScanError", detail: (e as Error).message });
       }
       const saved = saveScan(project.id, scanned);
       const agentCrewDrift = checkAgentCrewDrift(project);
@@ -143,7 +163,10 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
         params: z.object({ id: z.string().uuid() }),
         body: z
           .object({
-            tag: z.string().regex(/^v\d+\.\d+\.\d+$/).optional(),
+            tag: z
+              .string()
+              .regex(/^v\d+\.\d+\.\d+$/)
+              .optional(),
             scan: z.boolean().default(true),
           })
           .default({ scan: true }),
@@ -181,7 +204,10 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
               .object({
                 scannedAssets: z.number().int(),
                 scannedVersions: z.number().int(),
-                saved: z.object({ assets: z.number().int(), versions: z.number().int() }),
+                saved: z.object({
+                  assets: z.number().int(),
+                  versions: z.number().int(),
+                }),
               })
               .optional(),
           }),
@@ -192,12 +218,20 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (req, reply) => {
       const project = getProject(req.params.id);
-      if (!project) return reply.status(404).send({ error: "NotFound", detail: "project not found" });
+      if (!project)
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "project not found" });
       try {
-        return syncAgentCrewForProject(project, { tag: req.body.tag, scan: req.body.scan });
+        return syncAgentCrewForProject(project, {
+          tag: req.body.tag,
+          scan: req.body.scan,
+        });
       } catch (e) {
         if (e instanceof AgentCrewSyncError) {
-          return reply.status(400).send({ error: "AgentCrewSyncError", detail: e.message });
+          return reply
+            .status(400)
+            .send({ error: "AgentCrewSyncError", detail: e.message });
         }
         throw e;
       }
@@ -234,7 +268,10 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (req, reply) => {
       const project = getProject(req.params.id);
-      if (!project) return reply.status(404).send({ error: "NotFound", detail: "project not found" });
+      if (!project)
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "project not found" });
       try {
         return syncCursorHarnessForProject(project, {
           dryRun: req.body.dryRun,
@@ -242,7 +279,9 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
         });
       } catch (e) {
         if (e instanceof HarnessBridgeSyncError) {
-          return reply.status(400).send({ error: "HarnessBridgeSyncError", detail: e.message });
+          return reply
+            .status(400)
+            .send({ error: "HarnessBridgeSyncError", detail: e.message });
         }
         throw e;
       }
@@ -265,7 +304,10 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
         response: {
           200: z.object({
             committed: z.string(),
-            scanned: z.object({ assets: z.number().int(), versions: z.number().int() }),
+            scanned: z.object({
+              assets: z.number().int(),
+              versions: z.number().int(),
+            }),
           }),
           400: errorSchema,
           404: errorSchema,
@@ -274,12 +316,17 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (req, reply) => {
       const project = getProject(req.params.id);
-      if (!project) return reply.status(404).send({ error: "NotFound", detail: "project not found" });
+      if (!project)
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "project not found" });
       try {
         return writeAsset(project, req.body);
       } catch (e) {
         if (e instanceof AuthoringError) {
-          return reply.status(400).send({ error: "AuthoringError", detail: e.message });
+          return reply
+            .status(400)
+            .send({ error: "AuthoringError", detail: e.message });
         }
         throw e;
       }
@@ -305,7 +352,10 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (req, reply) => {
       const project = getProject(req.params.id);
-      if (!project) return reply.status(404).send({ error: "NotFound", detail: "project not found" });
+      if (!project)
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "project not found" });
       return installHooks(project);
     },
   );
@@ -315,14 +365,50 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
     {
       schema: {
         params: z.object({ id: z.string().uuid() }),
-        response: { 200: z.object({ assets: z.array(assetSchema) }), 404: errorSchema },
+        response: {
+          200: z.object({ assets: z.array(assetSchema) }),
+          404: errorSchema,
+        },
       },
     },
     async (req, reply) => {
       if (!getProject(req.params.id)) {
-        return reply.status(404).send({ error: "NotFound", detail: "project not found" });
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "project not found" });
       }
       return { assets: listAssets(req.params.id) };
+    },
+  );
+
+  // T5: 프로젝트 전 자산 배치 frontmatter lint (자산 헬스 대시보드 — claude 없이 동기).
+  fastify.get(
+    "/projects/:id/asset-lint",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: { 200: projectAssetLintSchema, 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      if (!getProject(req.params.id)) {
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "project not found" });
+      }
+      const items = listAssets(req.params.id).map((a) => {
+        const lint = validateFrontmatter(a.kind, latestContent(a.id) ?? "");
+        return {
+          assetId: a.id,
+          kind: a.kind,
+          name: a.name,
+          ok: lint.ok,
+          errorCount: lint.issues.filter((i) => i.severity === "error").length,
+          warningCount: lint.issues.filter((i) => i.severity === "warning")
+            .length,
+        };
+      });
+      return { items };
     },
   );
 };

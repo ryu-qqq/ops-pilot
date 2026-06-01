@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/card";
@@ -9,8 +10,8 @@ import { BenchmarkLauncher } from "../../run/components/benchmark-launcher";
 import { RegressionLauncher } from "../../run/components/regression-launcher";
 import { RunLauncher } from "../../run/components/run-launcher";
 import { ScenarioManager } from "../../run/components/scenario-manager";
+import { AssetHealthDashboard } from "./asset-health-dashboard";
 import { AssetLint } from "./asset-lint";
-import { AssetList } from "./asset-list";
 import { TriggerEvalPanel } from "./trigger-eval-panel";
 import { VersionTimeline } from "./version-timeline";
 
@@ -21,6 +22,9 @@ interface Props {
   onBenchmarkStarted: (runIds: string[]) => void;
 }
 
+// T5: "프로젝트" 탭을 자산 헬스(쓰임·검증·prune) 대시보드 중심으로 재편.
+// 저작은 후순위(접힘) — 보통 터미널/agent-crew creator 로 만들어 커밋·자동 등록.
+// 행을 고르면 아래에 상세(버전·검증·시나리오·트리거 평가·실행)가 펼쳐진다.
 export function RegistryView({
   projectId,
   onProjectIdChange,
@@ -35,20 +39,9 @@ export function RegistryView({
     "opspilot.registry.versionId",
     null,
   );
+  const [showAuthor, setShowAuthor] = useState(false);
   const { data: projects } = useProjects();
-
   const project = (projects ?? []).find((p) => p.id === projectId) ?? null;
-  // OPSP-33 (b): 다음 스텝 시각 가이드 — 단계별로 *한 곳*만 펄스.
-  const nextStep: "project" | "asset" | "version" | "benchmark" =
-    project === null
-      ? "project"
-      : assetId === null
-        ? "asset"
-        : versionId === null
-          ? "version"
-          : "benchmark";
-  const pulse = (step: typeof nextStep) =>
-    step === nextStep ? "opspilot-next-step" : "";
 
   const handleSelectAsset = (id: string | null) => {
     setAssetId(id);
@@ -57,95 +50,84 @@ export function RegistryView({
 
   return (
     <div className="space-y-4">
-      <div className={pulse("project")}>
-        <ProjectBar
-          selectedProjectId={projectId}
-          onSelect={(id) => {
-            onProjectIdChange(id);
-            setAssetId(null);
-            setVersionId(null);
-          }}
+      <ProjectBar
+        selectedProjectId={projectId}
+        onSelect={(id) => {
+          onProjectIdChange(id);
+          setAssetId(null);
+          setVersionId(null);
+        }}
+      />
+
+      {/* 허브: 자산 헬스 대시보드 */}
+      <Card className="p-4">
+        <div className="mb-3 flex items-start justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-semibold">자산 헬스</h2>
+            <p className="text-xs text-muted-foreground">
+              쓰임·검증·prune 한눈에. 행을 클릭하면 아래에서
+              버전·평가·시나리오가 펼쳐집니다.
+            </p>
+          </div>
+          {project !== null && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAuthor((v) => !v)}
+              title="보통 터미널/creator 로 만들지만, 여기서 직접 작성·편집할 수도 있습니다"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {assetId === null ? "새 자산" : "편집/새 자산"}
+            </Button>
+          )}
+        </div>
+        <AssetHealthDashboard
+          projectId={projectId}
+          selectedId={assetId}
+          onSelect={handleSelectAsset}
         />
-      </div>
-      {/* 첫 줄: 자산 패널 + git 버전 타임라인 — 같은 grid row 에서 동일 높이 stretch */}
-      <div className="grid items-stretch gap-4 lg:grid-cols-[320px_1fr]">
-        <Card className={`flex flex-col p-4 ${pulse("asset")}`}>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-muted-foreground">
-              자산 (Claude · Cursor harness)
+      </Card>
+
+      {/* 저작 (후순위 — 접힘) */}
+      {showAuthor && project !== null && (
+        <AssetAuthor projectId={project.id} selectedAssetId={assetId} />
+      )}
+
+      {/* 선택 자산 상세 */}
+      {assetId !== null && project !== null && (
+        <>
+          <AssetLint assetId={assetId} />
+          <Card className="flex flex-col p-4">
+            <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
+              git 버전 타임라인
             </h2>
-            {project !== null && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleSelectAsset(null)}
-                disabled={assetId === null}
-                title={
-                  assetId === null
-                    ? "이미 새 자산 작성 모드입니다"
-                    : "선택 해제 → 아래 폼이 새 자산 작성 모드로 전환"
-                }
-              >
-                <Plus className="h-3.5 w-3.5" />
-                새로 만들기
-              </Button>
-            )}
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            <AssetList
-              projectId={projectId}
-              selectedId={assetId}
-              onSelect={handleSelectAsset}
-            />
-          </div>
-        </Card>
-        <Card className={`flex flex-col p-4 ${pulse("version")}`}>
-          <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
-            git 버전 타임라인
-          </h2>
-          <div className="flex-1 overflow-y-auto">
             <VersionTimeline
               assetId={assetId}
               selectedVersionId={versionId}
               onSelectVersion={setVersionId}
             />
-          </div>
-        </Card>
-      </div>
-
-      {/* 폼·실행 영역 — grid 밖 전체 너비, 시각 흐름 분리 */}
-      {project !== null && (
-        <AssetAuthor projectId={project.id} selectedAssetId={assetId} />
-      )}
-      {/* T4-c: 선택 자산 frontmatter 검증 (저작 게이트와 동일 규칙) */}
-      {assetId !== null && project !== null && <AssetLint assetId={assetId} />}
-      {/* OPSP-34: 자산 선택 시 그 자산의 시나리오 목록·본문·편집·삭제 */}
-      {assetId !== null && project !== null && (
-        <ScenarioManager assetId={assetId} />
-      )}
-      {/* T4: 선택 자산이 skill/agent 면 트리거 정확도 평가 패널 */}
-      {assetId !== null && project !== null && (
-        <TriggerEvalPanel projectId={project.id} assetId={assetId} />
-      )}
-      {assetId !== null && versionId !== null && project !== null && (
-        <>
-          <RunLauncher
-            assetId={assetId}
-            assetVersionId={versionId}
-            onLaunched={onRunCreated}
-          />
-          <RegressionLauncher
-            assetId={assetId}
-            assetVersionId={versionId}
-            onLaunched={onRunCreated}
-          />
-          <div className={pulse("benchmark")}>
-            <BenchmarkLauncher
-              assetId={assetId}
-              assetVersionId={versionId}
-              onLaunched={onBenchmarkStarted}
-            />
-          </div>
+          </Card>
+          <ScenarioManager assetId={assetId} />
+          <TriggerEvalPanel projectId={project.id} assetId={assetId} />
+          {versionId !== null && (
+            <>
+              <RunLauncher
+                assetId={assetId}
+                assetVersionId={versionId}
+                onLaunched={onRunCreated}
+              />
+              <RegressionLauncher
+                assetId={assetId}
+                assetVersionId={versionId}
+                onLaunched={onRunCreated}
+              />
+              <BenchmarkLauncher
+                assetId={assetId}
+                assetVersionId={versionId}
+                onLaunched={onBenchmarkStarted}
+              />
+            </>
+          )}
         </>
       )}
     </div>

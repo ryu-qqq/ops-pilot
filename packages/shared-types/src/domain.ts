@@ -578,3 +578,18 @@ export const assetLintResultSchema = z.object({
   issues: z.array(lintIssueSchema),
 });
 export type AssetLintResult = z.infer<typeof assetLintResultSchema>;
+
+// 프로젝트 전 자산 배치 lint (자산 헬스 대시보드용 — claude 없이 동기).
+export const projectAssetLintSchema = z.object({
+  items: z.array(
+    z.object({
+      assetId: id,
+      kind: assetKindSchema,
+      name: z.string(),
+      ok: z.boolean(),
+      errorCount: z.number().int(),
+      warningCount: z.number().int(),
+    }),
+  ),
+});
+export type ProjectAssetLint = z.infer<typeof projectAssetLintSchema>;

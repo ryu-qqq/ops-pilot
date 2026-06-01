@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   getAssetLint,
   getAssetScenarios,
+  getProjectAssetLint,
   getProjectAssetUsage,
   getProjectAssets,
   getVersions,
@@ -43,6 +44,15 @@ export function useAssetVersions(assetId: string | null) {
     queryKey: registryKeys.versions(assetId ?? "none"),
     queryFn: () => getVersions(assetId ?? ""),
     enabled: assetId !== null,
+  });
+}
+
+// T5: 프로젝트 전 자산 배치 lint (헬스 대시보드).
+export function useProjectAssetLint(projectId: string | null) {
+  return useQuery({
+    queryKey: registryKeys.projectLint(projectId ?? "none"),
+    queryFn: () => getProjectAssetLint(projectId ?? ""),
+    enabled: projectId !== null,
   });
 }
 

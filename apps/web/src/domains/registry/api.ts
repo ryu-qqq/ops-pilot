@@ -4,6 +4,7 @@ import {
   assetSchema,
   assetVersionSchema,
   improveResultSchema,
+  projectAssetLintSchema,
   projectUsageReportSchema,
   scenarioSchema,
   triggerEvalResultSchema,
@@ -26,6 +27,8 @@ export const registryKeys = {
   assetUsage: (projectId: string) =>
     [...registryKeys.all, "asset-usage", projectId] as const,
   lint: (assetId: string) => [...registryKeys.all, "lint", assetId] as const,
+  projectLint: (projectId: string) =>
+    [...registryKeys.all, "project-lint", projectId] as const,
   versions: (assetId: string) =>
     [...registryKeys.all, "versions", assetId] as const,
   scenarios: (assetId: string) =>
@@ -42,6 +45,14 @@ export async function getProjectAssets(projectId: string) {
 // T4-c: 자산 frontmatter lint (검증 게이트와 동일 규칙).
 export async function getAssetLint(assetId: string) {
   return apiGet(`/api/registry/assets/${assetId}/lint`, assetLintResultSchema);
+}
+
+// T5: 프로젝트 전 자산 배치 lint (헬스 대시보드).
+export async function getProjectAssetLint(projectId: string) {
+  return apiGet(
+    `/api/projects/${projectId}/asset-lint`,
+    projectAssetLintSchema,
+  );
 }
 
 // T3: 자산별 transcript 사용량 (만들고 안 쓰는 자산 식별).
