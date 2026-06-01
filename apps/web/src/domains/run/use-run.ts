@@ -12,6 +12,7 @@ import {
   getRuns,
   getRunsCompare,
   getRunTrace,
+  gradeRun,
   getScenario,
   getScenariosForAsset,
   getScores,
@@ -142,6 +143,19 @@ export function useScores(runId: string | null) {
     queryKey: runKeys.scores(runId ?? "none"),
     queryFn: () => getScores(runId ?? ""),
     enabled: runId !== null,
+  });
+}
+
+// T4-e: LLM grader — run 단일 자동채점. 성공 시 score(llm_judge) 가 저장되므로
+// scores 캐시(사람평가 카드와 공유) + 비교 뷰 judge 행 갱신 위해 runs 캐시 무효화.
+export function useGradeRun(runId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => gradeRun(runId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: runKeys.scores(runId) });
+      qc.invalidateQueries({ queryKey: runKeys.all });
+    },
   });
 }
 
