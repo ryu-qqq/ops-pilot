@@ -2,7 +2,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   getAssetLint,
   getAssetScenarios,
+  getProjectAssetLint,
   getProjectAssetUsage,
+  getUsageGlobal,
   getProjectAssets,
   getVersions,
   improveTriggerDescription,
@@ -43,6 +45,24 @@ export function useAssetVersions(assetId: string | null) {
     queryKey: registryKeys.versions(assetId ?? "none"),
     queryFn: () => getVersions(assetId ?? ""),
     enabled: assetId !== null,
+  });
+}
+
+// T5: 전역 사용량 리더보드 (최근 N일). staleTime 길게(스캔 비용).
+export function useUsageGlobal(days: number) {
+  return useQuery({
+    queryKey: registryKeys.usageGlobal(days),
+    queryFn: () => getUsageGlobal(days),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+// T5: 프로젝트 전 자산 배치 lint (헬스 대시보드).
+export function useProjectAssetLint(projectId: string | null) {
+  return useQuery({
+    queryKey: registryKeys.projectLint(projectId ?? "none"),
+    queryFn: () => getProjectAssetLint(projectId ?? ""),
+    enabled: projectId !== null,
   });
 }
 

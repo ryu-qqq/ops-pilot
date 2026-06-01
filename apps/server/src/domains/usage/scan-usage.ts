@@ -25,6 +25,8 @@ export interface UsageScanResult {
 
 export interface ScanOptions {
   includeWorktrees?: boolean;
+  /** 이 ISO 시각 이후 호출만 집계 (최근 N일 리더보드용). 미지정이면 전체 기간. */
+  sinceIso?: string;
 }
 
 function transcriptsRoot(): string {
@@ -96,6 +98,7 @@ export function scanTranscriptUsage(opts: ScanOptions = {}): UsageScanResult {
       const cwd = typeof d.cwd === "string" ? d.cwd : "";
       if (!opts.includeWorktrees && isWorktreeCwd(cwd)) continue;
       const ts = typeof d.timestamp === "string" ? d.timestamp : "";
+      if (opts.sinceIso && (!ts || ts < opts.sinceIso)) continue; // 기간 필터(리더보드)
       const normCwd = cwd.replace(/\/$/, "");
       const msg = d.message as { content?: unknown } | undefined;
       const content = msg?.content;
