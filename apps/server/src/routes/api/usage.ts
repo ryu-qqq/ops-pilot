@@ -1,3 +1,4 @@
+import { projectUsageReportSchema } from "@opspilot/shared-types";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { getProject } from "../../domains/project/repository.js";
@@ -7,18 +8,6 @@ import {
 } from "../../domains/usage/service.js";
 
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
-
-const assetUsageSchema = z.object({
-  kind: z.string(),
-  name: z.string(),
-  supported: z.boolean(),
-  inProjectCount: z.number().int(),
-  inProjectLastUsed: z.string().nullable(),
-  totalCount: z.number().int(),
-  totalLastUsed: z.string().nullable(),
-  totalProjectCount: z.number().int(),
-  neverUsed: z.boolean(),
-});
 
 const rankRowSchema = z.object({
   name: z.string(),
@@ -37,21 +26,7 @@ const usage: FastifyPluginAsyncZod = async (fastify) => {
       schema: {
         querystring: z.object({ projectId: z.string().uuid() }),
         response: {
-          200: z.object({
-            projectId: z.string(),
-            projectName: z.string(),
-            clonePath: z.string(),
-            scannedSessions: z.number().int(),
-            assets: z.array(assetUsageSchema),
-            unmatchedUsage: z.array(
-              z.object({
-                kind: z.enum(["agent", "skill"]),
-                name: z.string(),
-                count: z.number().int(),
-                lastUsed: z.string().nullable(),
-              }),
-            ),
-          }),
+          200: projectUsageReportSchema,
           404: errorSchema,
         },
       },

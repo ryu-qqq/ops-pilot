@@ -20,7 +20,12 @@ export type ClaudeAssetKind = z.infer<typeof claudeAssetKindSchema>;
 export const assetScopeSchema = z.enum(["project", "user", "plugin"]);
 export type AssetScope = z.infer<typeof assetScopeSchema>;
 
-export const runStatusSchema = z.enum(["pending", "running", "succeeded", "failed"]);
+export const runStatusSchema = z.enum([
+  "pending",
+  "running",
+  "succeeded",
+  "failed",
+]);
 export type RunStatus = z.infer<typeof runStatusSchema>;
 
 export const traceEventTypeSchema = z.enum([
@@ -34,7 +39,12 @@ export const traceEventTypeSchema = z.enum([
 ]);
 export type TraceEventType = z.infer<typeof traceEventTypeSchema>;
 
-export const scorerSchema = z.enum(["schema", "assertion", "llm_judge", "human"]);
+export const scorerSchema = z.enum([
+  "schema",
+  "assertion",
+  "llm_judge",
+  "human",
+]);
 export type Scorer = z.infer<typeof scorerSchema>;
 
 const id = z.string().uuid();
@@ -196,7 +206,9 @@ export const benchmarkAggregateSchema = z.object({
   completionTokens: numericStatsSchema.nullable(),
   costUsd: numericStatsSchema.nullable(),
   // assertion 자동 평가(OPSP-20) 점수 분포 — 없으면 null.
-  assertion: numericStatsSchema.extend({ passN: z.number().int().nonnegative() }).nullable(),
+  assertion: numericStatsSchema
+    .extend({ passN: z.number().int().nonnegative() })
+    .nullable(),
   // LLM judge(OPSP-10 follow-up) — 있으면.
   judge: numericStatsSchema.nullable(),
 });
@@ -272,11 +284,19 @@ export const ingestBundleStatusSchema = z.enum([
 ]);
 export type IngestBundleStatus = z.infer<typeof ingestBundleStatusSchema>;
 
-export const proposalReviewDecisionSchema = z.enum(["approve", "reject", "revise"]);
-export type ProposalReviewDecision = z.infer<typeof proposalReviewDecisionSchema>;
+export const proposalReviewDecisionSchema = z.enum([
+  "approve",
+  "reject",
+  "revise",
+]);
+export type ProposalReviewDecision = z.infer<
+  typeof proposalReviewDecisionSchema
+>;
 
 export const proposalReviewConfidenceSchema = z.enum(["high", "medium", "low"]);
-export type ProposalReviewConfidence = z.infer<typeof proposalReviewConfidenceSchema>;
+export type ProposalReviewConfidence = z.infer<
+  typeof proposalReviewConfidenceSchema
+>;
 
 export const proposalReviewRiskSchema = z.enum(["low", "high"]);
 export type ProposalReviewRisk = z.infer<typeof proposalReviewRiskSchema>;
@@ -317,7 +337,9 @@ export const improvementProposalStatusSchema = z.enum([
   "rejected",
   "applied",
 ]);
-export type ImprovementProposalStatus = z.infer<typeof improvementProposalStatusSchema>;
+export type ImprovementProposalStatus = z.infer<
+  typeof improvementProposalStatusSchema
+>;
 
 export const improvementTargetKindSchema = z.enum([
   "cursor_rule",
@@ -378,7 +400,12 @@ export const feedbackIngestRequestSchema = z.object({
   notionTaskUrl: z.string().optional(),
   retro: z.string().optional(),
   transcriptPath: z.string().optional(),
-  maxDiffBytes: z.number().int().positive().max(1024 * 1024).optional(),
+  maxDiffBytes: z
+    .number()
+    .int()
+    .positive()
+    .max(1024 * 1024)
+    .optional(),
   /** 기본 local-claude. 검증·CI는 fixture. */
   evalSource: z.enum(["fixture", "local-claude"]).default("local-claude"),
 });
@@ -401,14 +428,18 @@ export const cursorHarnessSyncResultSchema = z.object({
   staleDerivedRules: z.array(z.string()),
   skippedReason: z.string().optional(),
 });
-export type CursorHarnessSyncResult = z.infer<typeof cursorHarnessSyncResultSchema>;
+export type CursorHarnessSyncResult = z.infer<
+  typeof cursorHarnessSyncResultSchema
+>;
 
 export const feedbackProposalApplyResponseSchema = z.object({
   proposal: improvementProposalSchema,
   appliedCommit: z.string(),
   cursorHarnessSync: cursorHarnessSyncResultSchema.nullable().optional(),
 });
-export type FeedbackProposalApplyResponse = z.infer<typeof feedbackProposalApplyResponseSchema>;
+export type FeedbackProposalApplyResponse = z.infer<
+  typeof feedbackProposalApplyResponseSchema
+>;
 
 export const ingestBundleListItemSchema = z.object({
   id,
@@ -430,4 +461,42 @@ export type IngestBundleListItem = z.infer<typeof ingestBundleListItemSchema>;
 export const ingestBundleListResponseSchema = z.object({
   ingests: z.array(ingestBundleListItemSchema),
 });
-export type IngestBundleListResponse = z.infer<typeof ingestBundleListResponseSchema>;
+export type IngestBundleListResponse = z.infer<
+  typeof ingestBundleListResponseSchema
+>;
+
+// 자산 사용량 — 로컬 Claude Code transcript 스캔 기반 (T3).
+export const assetUsageSchema = z.object({
+  kind: z.string(),
+  name: z.string(),
+  // transcript 로 사용량 추적 가능한 종류인가 (agent·skill). command·cursor_*는 false.
+  supported: z.boolean(),
+  // 이 프로젝트(clonePath) 안에서의 호출.
+  inProjectCount: z.number().int(),
+  inProjectLastUsed: z.string().nullable(),
+  // 모든 프로젝트 합산.
+  totalCount: z.number().int(),
+  totalLastUsed: z.string().nullable(),
+  totalProjectCount: z.number().int(),
+  // supported 자산이 전체 0회 — 만들고 한 번도 안 씀.
+  neverUsed: z.boolean(),
+});
+export type AssetUsage = z.infer<typeof assetUsageSchema>;
+
+export const projectUsageReportSchema = z.object({
+  projectId: id,
+  projectName: z.string(),
+  clonePath: z.string(),
+  scannedSessions: z.number().int(),
+  assets: z.array(assetUsageSchema),
+  // 호출됐지만 이 프로젝트의 정의된 자산이 아닌 것 (빌트인·타 프로젝트 자산).
+  unmatchedUsage: z.array(
+    z.object({
+      kind: z.enum(["agent", "skill"]),
+      name: z.string(),
+      count: z.number().int(),
+      lastUsed: z.string().nullable(),
+    }),
+  ),
+});
+export type ProjectUsageReport = z.infer<typeof projectUsageReportSchema>;
