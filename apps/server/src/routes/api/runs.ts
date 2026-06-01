@@ -27,6 +27,11 @@ import {
 } from "../../domains/run/repository.js";
 import { aggregateBenchmark } from "../../domains/run/benchmark.js";
 import {
+  GradeError,
+  gradeResultSchema,
+  gradeRunAssertions,
+} from "../../domains/score/llm-grade.js";
+import {
   getAnalysis,
   startAnalysis,
 } from "../../domains/assist/analysis-store.js";
@@ -323,6 +328,37 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
         without: withoutAgg,
         passRateDelta: withAgg.passRate - withoutAgg.passRate,
       };
+    },
+  );
+
+  // T4-e: LLM grader — substring 자동채점 보강. 표면준수 FAIL + assertion 변별력 비평.
+  // 로컬 claude spawn(실 토큰). 결과는 score(llm_judge)로도 저장.
+  fastify.post(
+    "/runs/:id/grade",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: {
+          200: gradeResultSchema.extend({
+            runId: z.string(),
+            passed: z.boolean(),
+            score: z.number(),
+          }),
+          400: errorSchema,
+        },
+      },
+    },
+    async (req, reply) => {
+      try {
+        return await gradeRunAssertions(req.params.id);
+      } catch (e) {
+        if (e instanceof GradeError) {
+          return reply
+            .status(400)
+            .send({ error: "GradeError", detail: e.message });
+        }
+        throw e;
+      }
     },
   );
 
