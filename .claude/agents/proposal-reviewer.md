@@ -65,3 +65,4 @@ allowed-tools:
 
 - **← work-evaluator** — draft proposals
 - **→ proposal-applier / OpsPilot apply** — approve + low risk만 자동 반영; workflow_patch는 사람 또는 applier가 confirm 후 apply
+- **→ context-preprocessor (권장)** — clone의 기존 `.cursor/rules`·`.github/workflows`·`.claude/` 자산을 *통째 Read* 하기 전 `context-preprocessor` skill로 메타데이터 JSON만 추출해 중복·충돌 1차 판정. 정확 비교 필요할 때만 원본 Read.

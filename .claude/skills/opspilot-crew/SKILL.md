@@ -20,6 +20,8 @@ description: OpsPilot 고도화 의제를 받아 전용 팀(backend-dev·fronten
 
 | 역할 | 담당 자산 | 비고 |
 |---|---|---|
+| 제품 방향(PO) | `opspilot-po` | 신규(전용) |
+| UX 설계 | `opspilot-designer` | 신규(전용) |
 | 백엔드 개발 | `opspilot-backend-dev` | 신규(전용) |
 | 프론트 개발 | `opspilot-frontend-dev` | 신규(전용) |
 | 컨벤션 리뷰 | `opspilot-reviewer` | 신규(전용) |
@@ -28,21 +30,22 @@ description: OpsPilot 고도화 의제를 받아 전용 팀(backend-dev·fronten
 | 작업 관리(PM) | `notion-manager` + `engineering-os` 스킬 | 기존 재사용 (Engineering OS Task) |
 | 기록 | `journal-recorder`·`wiki-curator`·`notion-doc-writer` | 기존 재사용 |
 
-> PO(제품 방향)·디자이너·전용 테스터는 아직 전용 에이전트가 없다 — MVP에선 이 스킬과 사용자가 겸한다. 후속 단계에서 `opspilot-po`·`opspilot-designer` 추가.
+> 전용 테스터는 아직 없다 — `test-strategist`(계획) + dev의 검증으로 커버, 후속 단계에서 검토.
 
 ## 파이프라인 (의제 한 건)
 
 ```
-의제 접수·정리 → 작업 분해 → 구현 위임 → 검증 → 채점 → 기록 → 커밋·머지
+의제 접수·가치판단 → 작업 분해 → (UI면)설계 → 구현 위임 → 검증 → 채점 → 기록 → 커밋·머지
 ```
 
-1. **의제 접수·정리** (HITL) — 무엇을·왜·**성공기준**을 사용자와 확정. 모호하면 묻는다(가정 금지). 작은 의제면 분해 생략.
+1. **의제 접수·가치판단** (HITL) — `opspilot-po`로 North Star 대비 가치·**성공기준**·범위·우선순위를 정리. 보류·범위축소 권고도 받는다. 모호하면 묻는다(가정 금지).
 2. **작업 분해** — 프론트/백엔드/공유(shared-types) 갈래로 나눈다. 필요하면 `engineering-os`로 Engineering OS Task(`TASK-xxx`) 발행·`진행 중`.
-3. **구현 위임** — `main`에서 `feat/...` 브랜치(직접 커밋 금지). 백엔드는 `opspilot-backend-dev`, 프론트는 `opspilot-frontend-dev`. 독립 작업이면 병렬, shared-types 변경은 먼저 합의.
-4. **검증** — `opspilot-reviewer`로 컨벤션·운영함정 리뷰 + (필요시)`test-strategist` 테스트 계획 + 빌드/타입/lint. UI는 Playwright 실연동.
-5. **채점** — `work-evaluator`로 작업 4원칙(가정·최소·범위·검증) 채점.
-6. **기록** — 의미 있으면 `journal-recorder`(vault 시드)·`notion-manager`(Task 완료, Wiki ADR·Commit 필드).
-7. **커밋·머지** (HITL) — 한국어 커밋, 루프 닫히면 `main --no-ff` 머지.
+3. **설계** (UI 의제일 때) — `opspilot-designer`로 정보구조·레이아웃·상태·컴포넌트 매핑 스펙을 받아 frontend 구현의 입력으로.
+4. **구현 위임** — `main`에서 `feat/...` 브랜치(직접 커밋 금지). 백엔드는 `opspilot-backend-dev`, 프론트는 `opspilot-frontend-dev`(designer 스펙 반영). 독립 작업이면 병렬, shared-types 변경은 먼저 합의.
+5. **검증** — `opspilot-reviewer`로 컨벤션·운영함정 리뷰 + (필요시)`test-strategist` 테스트 계획 + 빌드/타입/lint. UI는 Playwright 실연동.
+6. **채점** — `work-evaluator`로 작업 4원칙(가정·최소·범위·검증) 채점.
+7. **기록** — 의미 있으면 `journal-recorder`(vault 시드)·`notion-manager`(Task 완료, Wiki ADR·Commit 필드).
+8. **커밋·머지** (HITL) — 한국어 커밋, 루프 닫히면 `main --no-ff` 머지.
 
 ## 경계 (지킬 것)
 

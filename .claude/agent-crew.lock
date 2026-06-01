@@ -1,10 +1,9 @@
-# agent-crew 핀 — ops-pilot .claude/ 동기화 기준
-# OpsPilot sync_agent_crew 또는 수동 rsync
-version: v0.6.0
-commit: b20ae7bbcfcbedb27815a6f369a1c679ed67e43a
+# agent-crew 핀 — OpsPilot sync_agent_crew 로 갱신
+version: v0.10.0
+commit: 2caff42da1451b015a294a6962a5f8f246df2c82
 source: git@github.com:ryu-qqq/agent-crew.git
-tag: v0.6.0
-syncedAt: "2026-05-26T08:30:00Z"
+tag: v0.10.0
+syncedAt: "2026-06-01T06:38:47.255Z"
 includes:
   - agents/
   - skills/
