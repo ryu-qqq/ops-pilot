@@ -1,9 +1,22 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { assetVersionSchema, scenarioSchema } from "@opspilot/shared-types";
-import { assetExists, latestContent, listVersions } from "../../domains/registry/repository.js";
+import {
+  assetLintResultSchema,
+  assetVersionSchema,
+  scenarioSchema,
+} from "@opspilot/shared-types";
+import { validateFrontmatter } from "../../domains/asset-lint/validate.js";
+import {
+  getAsset,
+  assetExists,
+  latestContent,
+  listVersions,
+} from "../../domains/registry/repository.js";
 import { listScenariosByAsset } from "../../domains/scenario/repository.js";
-import { AuthoringError, adoptVersion } from "../../domains/authoring/service.js";
+import {
+  AuthoringError,
+  adoptVersion,
+} from "../../domains/authoring/service.js";
 
 const versionSummarySchema = assetVersionSchema.omit({ content: true });
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
@@ -15,14 +28,39 @@ const registry: FastifyPluginAsyncZod = async (fastify) => {
     {
       schema: {
         params: z.object({ id: z.string().uuid() }),
-        response: { 200: z.object({ versions: z.array(versionSummarySchema) }), 404: errorSchema },
+        response: {
+          200: z.object({ versions: z.array(versionSummarySchema) }),
+          404: errorSchema,
+        },
       },
     },
     async (req, reply) => {
       if (!assetExists(req.params.id)) {
-        return reply.status(404).send({ error: "NotFound", detail: "asset not found" });
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "asset not found" });
       }
       return { versions: listVersions(req.params.id) };
+    },
+  );
+
+  // T4-c: frontmatter 검증 게이트 — 자산 최신 버전의 frontmatter lint.
+  fastify.get(
+    "/registry/assets/:id/lint",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: { 200: assetLintResultSchema, 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      const asset = getAsset(req.params.id);
+      if (!asset)
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "asset not found" });
+      const content = latestContent(req.params.id) ?? "";
+      return validateFrontmatter(asset.kind, content);
     },
   );
 
@@ -32,12 +70,17 @@ const registry: FastifyPluginAsyncZod = async (fastify) => {
     {
       schema: {
         params: z.object({ id: z.string().uuid() }),
-        response: { 200: z.object({ scenarios: z.array(scenarioSchema) }), 404: errorSchema },
+        response: {
+          200: z.object({ scenarios: z.array(scenarioSchema) }),
+          404: errorSchema,
+        },
       },
     },
     async (req, reply) => {
       if (!assetExists(req.params.id)) {
-        return reply.status(404).send({ error: "NotFound", detail: "asset not found" });
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "asset not found" });
       }
       return { scenarios: listScenariosByAsset(req.params.id) };
     },
@@ -53,7 +96,10 @@ const registry: FastifyPluginAsyncZod = async (fastify) => {
         response: {
           200: z.object({
             committed: z.string(),
-            scanned: z.object({ assets: z.number().int(), versions: z.number().int() }),
+            scanned: z.object({
+              assets: z.number().int(),
+              versions: z.number().int(),
+            }),
           }),
           400: errorSchema,
         },
@@ -64,7 +110,9 @@ const registry: FastifyPluginAsyncZod = async (fastify) => {
         return adoptVersion(req.params.id, req.body.note);
       } catch (e) {
         if (e instanceof AuthoringError) {
-          return reply.status(400).send({ error: "AuthoringError", detail: e.message });
+          return reply
+            .status(400)
+            .send({ error: "AuthoringError", detail: e.message });
         }
         throw e;
       }
@@ -83,7 +131,9 @@ const registry: FastifyPluginAsyncZod = async (fastify) => {
     async (req, reply) => {
       const content = latestContent(req.params.id);
       if (content === undefined) {
-        return reply.status(404).send({ error: "NotFound", detail: "content not found" });
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "content not found" });
       }
       return { content };
     },

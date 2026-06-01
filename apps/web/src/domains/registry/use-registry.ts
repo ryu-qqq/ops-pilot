@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
+  getAssetLint,
   getAssetScenarios,
   getProjectAssetUsage,
   getProjectAssets,
@@ -41,6 +42,15 @@ export function useAssetVersions(assetId: string | null) {
   return useQuery({
     queryKey: registryKeys.versions(assetId ?? "none"),
     queryFn: () => getVersions(assetId ?? ""),
+    enabled: assetId !== null,
+  });
+}
+
+// T4-c: 자산 frontmatter lint (GET — 가벼움).
+export function useAssetLint(assetId: string | null) {
+  return useQuery({
+    queryKey: registryKeys.lint(assetId ?? "none"),
+    queryFn: () => getAssetLint(assetId ?? ""),
     enabled: assetId !== null,
   });
 }
