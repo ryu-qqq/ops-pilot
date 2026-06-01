@@ -1,10 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   getAssetScenarios,
   getProjectAssetUsage,
   getProjectAssets,
   getVersions,
   registryKeys,
+  runTriggerEval,
+  suggestTriggerQueries,
 } from "./api";
 
 export function useAssets(projectId: string | null) {
@@ -39,5 +41,23 @@ export function useAssetVersions(assetId: string | null) {
     queryKey: registryKeys.versions(assetId ?? "none"),
     queryFn: () => getVersions(assetId ?? ""),
     enabled: assetId !== null,
+  });
+}
+
+// T4: 트리거 평가 — 로컬 claude spawn(실 토큰)이라 query 가 아닌 mutation(명시 실행).
+export function useSuggestTriggerQueries() {
+  return useMutation({
+    mutationFn: ({ assetId, n }: { assetId: string; n: number }) =>
+      suggestTriggerQueries(assetId, n),
+  });
+}
+
+export function useRunTriggerEval() {
+  return useMutation({
+    mutationFn: (args: {
+      assetId: string;
+      queries: string[];
+      runsPerQuery: number;
+    }) => runTriggerEval(args.assetId, args.queries, args.runsPerQuery),
   });
 }

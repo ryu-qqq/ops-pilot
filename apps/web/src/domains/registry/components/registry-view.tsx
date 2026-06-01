@@ -10,6 +10,7 @@ import { RegressionLauncher } from "../../run/components/regression-launcher";
 import { RunLauncher } from "../../run/components/run-launcher";
 import { ScenarioManager } from "../../run/components/scenario-manager";
 import { AssetList } from "./asset-list";
+import { TriggerEvalPanel } from "./trigger-eval-panel";
 import { VersionTimeline } from "./version-timeline";
 
 interface Props {
@@ -25,7 +26,10 @@ export function RegistryView({
   onRunCreated,
   onBenchmarkStarted,
 }: Props) {
-  const [assetId, setAssetId] = usePersistedState<string | null>("opspilot.registry.assetId", null);
+  const [assetId, setAssetId] = usePersistedState<string | null>(
+    "opspilot.registry.assetId",
+    null,
+  );
   const [versionId, setVersionId] = usePersistedState<string | null>(
     "opspilot.registry.versionId",
     null,
@@ -42,7 +46,8 @@ export function RegistryView({
         : versionId === null
           ? "version"
           : "benchmark";
-  const pulse = (step: typeof nextStep) => (step === nextStep ? "opspilot-next-step" : "");
+  const pulse = (step: typeof nextStep) =>
+    step === nextStep ? "opspilot-next-step" : "";
 
   const handleSelectAsset = (id: string | null) => {
     setAssetId(id);
@@ -94,7 +99,9 @@ export function RegistryView({
           </div>
         </Card>
         <Card className={`flex flex-col p-4 ${pulse("version")}`}>
-          <h2 className="mb-3 text-sm font-semibold text-muted-foreground">git 버전 타임라인</h2>
+          <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
+            git 버전 타임라인
+          </h2>
           <div className="flex-1 overflow-y-auto">
             <VersionTimeline
               assetId={assetId}
@@ -110,7 +117,13 @@ export function RegistryView({
         <AssetAuthor projectId={project.id} selectedAssetId={assetId} />
       )}
       {/* OPSP-34: 자산 선택 시 그 자산의 시나리오 목록·본문·편집·삭제 */}
-      {assetId !== null && project !== null && <ScenarioManager assetId={assetId} />}
+      {assetId !== null && project !== null && (
+        <ScenarioManager assetId={assetId} />
+      )}
+      {/* T4: 선택 자산이 skill/agent 면 트리거 정확도 평가 패널 */}
+      {assetId !== null && project !== null && (
+        <TriggerEvalPanel projectId={project.id} assetId={assetId} />
+      )}
       {assetId !== null && versionId !== null && project !== null && (
         <>
           <RunLauncher
