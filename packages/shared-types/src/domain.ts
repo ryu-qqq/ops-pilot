@@ -500,3 +500,31 @@ export const projectUsageReportSchema = z.object({
   ),
 });
 export type ProjectUsageReport = z.infer<typeof projectUsageReportSchema>;
+
+// 트리거 정확도 평가 — description 이 켜져야 할 때 켜지나 (T4, skill-creator 차용).
+export const triggerQueryResultSchema = z.object({
+  query: z.string(),
+  runs: z.number().int(),
+  triggered: z.number().int(),
+  triggerRate: z.number(),
+  firstTools: z.array(z.string()),
+});
+export type TriggerQueryResult = z.infer<typeof triggerQueryResultSchema>;
+
+export const triggerEvalResultSchema = z.object({
+  assetId: z.string(),
+  kind: z.enum(["agent", "skill"]),
+  name: z.string(),
+  runsPerQuery: z.number().int(),
+  // 쿼리별 트리거율 평균 (should-trigger 쿼리 기준 — 높을수록 좋음).
+  overallRate: z.number(),
+  queries: z.array(triggerQueryResultSchema),
+});
+export type TriggerEvalResult = z.infer<typeof triggerEvalResultSchema>;
+
+export const triggerSuggestResponseSchema = z.object({
+  queries: z.array(z.string()),
+});
+export type TriggerSuggestResponse = z.infer<
+  typeof triggerSuggestResponseSchema
+>;

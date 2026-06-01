@@ -1,3 +1,7 @@
+import {
+  triggerEvalResultSchema,
+  triggerSuggestResponseSchema,
+} from "@opspilot/shared-types";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import {
@@ -21,7 +25,7 @@ const triggerEval: FastifyPluginAsyncZod = async (fastify) => {
           n: z.number().int().min(1).max(12).default(5),
         }),
         response: {
-          200: z.object({ queries: z.array(z.string()) }),
+          200: triggerSuggestResponseSchema,
           400: errorSchema,
         },
       },
@@ -53,22 +57,7 @@ const triggerEval: FastifyPluginAsyncZod = async (fastify) => {
           runsPerQuery: z.number().int().min(1).max(5).default(3),
         }),
         response: {
-          200: z.object({
-            assetId: z.string(),
-            kind: z.enum(["agent", "skill"]),
-            name: z.string(),
-            runsPerQuery: z.number().int(),
-            overallRate: z.number(),
-            queries: z.array(
-              z.object({
-                query: z.string(),
-                runs: z.number().int(),
-                triggered: z.number().int(),
-                triggerRate: z.number(),
-                firstTools: z.array(z.string()),
-              }),
-            ),
-          }),
+          200: triggerEvalResultSchema,
           400: errorSchema,
         },
       },

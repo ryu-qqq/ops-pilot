@@ -4,8 +4,10 @@ import {
   assetVersionSchema,
   projectUsageReportSchema,
   scenarioSchema,
+  triggerEvalResultSchema,
+  triggerSuggestResponseSchema,
 } from "@opspilot/shared-types";
-import { apiGet } from "../../lib/api-client";
+import { apiGet, apiPost } from "../../lib/api-client";
 
 // 목록용 버전(콘텐츠 제외) — 백엔드 응답과 1:1.
 export const versionSummarySchema = assetVersionSchema.omit({ content: true });
@@ -39,6 +41,29 @@ export async function getProjectAssetUsage(projectId: string) {
   return apiGet(
     `/api/usage/assets?projectId=${projectId}`,
     projectUsageReportSchema,
+  );
+}
+
+// T4: 트리거 정확도 평가 (description 이 켜져야 할 때 켜지나). 둘 다 로컬 claude spawn.
+export async function suggestTriggerQueries(assetId: string, n: number) {
+  return (
+    await apiPost(
+      "/api/trigger-eval/suggest",
+      { assetId, n },
+      triggerSuggestResponseSchema,
+    )
+  ).queries;
+}
+
+export async function runTriggerEval(
+  assetId: string,
+  queries: string[],
+  runsPerQuery: number,
+) {
+  return apiPost(
+    "/api/trigger-eval/run",
+    { assetId, queries, runsPerQuery },
+    triggerEvalResultSchema,
   );
 }
 
