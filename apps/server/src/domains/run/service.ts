@@ -1,19 +1,41 @@
+import { rmSync } from "node:fs";
+import { join } from "node:path";
 import type { Run } from "@opspilot/shared-types";
 import { mcpLog } from "../../mcp/log.js";
-import { assetVersionExists, versionExecContext } from "../registry/repository.js";
+import {
+  assetVersionExists,
+  versionExecContext,
+} from "../registry/repository.js";
 import { getScenario } from "../scenario/repository.js";
 import { evaluateAssertionsForRun } from "../score/auto-evaluate.js";
 import { collectDiffFiles } from "./diff.js";
-import { extractUsage, normalizeEvent, type NormalizedEvent, type RunUsage } from "./normalizer.js";
+import {
+  extractUsage,
+  normalizeEvent,
+  type NormalizedEvent,
+  type RunUsage,
+} from "./normalizer.js";
 import { notifyRunCompleted } from "./completion.js";
-import { appendTrace, createRun, finishRun, getRun, saveRunDiff } from "./repository.js";
+import {
+  appendTrace,
+  createRun,
+  finishRun,
+  getRun,
+  saveRunDiff,
+} from "./repository.js";
 import type { RunnerSource } from "./source.js";
 import { createWorktree, removeWorktree } from "./worktree.js";
 
 export class RunInputError extends Error {}
 
 function sysEvent(name: string, output: unknown): NormalizedEvent {
-  return { type: "system", name, input: null, output, raw: { type: "opspilot", name, output } };
+  return {
+    type: "system",
+    name,
+    input: null,
+    output,
+    raw: { type: "opspilot", name, output },
+  };
 }
 
 interface RunParams {
@@ -22,10 +44,24 @@ interface RunParams {
   source: RunnerSource;
   /** OPSP-46 retro — feedback ingest 연결 등 내부 메타용 JSON 문자열 */
   retro?: string | null;
+  /** baseline 대조군 — worktree 에서 이 자산 파일을 제거하고 실행 (자산 없을 때 결과). */
+  disableAsset?: boolean;
+}
+
+// 자산 종류 → clone .claude 상대경로 (authoring assetRelPath 와 동일 규약).
+function assetClaudeRelPath(kind: string, name: string): string | null {
+  if (kind === "agent") return join(".claude", "agents", `${name}.md`);
+  if (kind === "command") return join(".claude", "commands", `${name}.md`);
+  if (kind === "skill") return join(".claude", "skills", name);
+  return null; // cursor_* 등은 baseline 미지원
 }
 
 // 백그라운드 실행 루프 (run 행은 이미 생성됨). local-claude 는 worktree 격리.
-async function runLoop(runId: string, scenarioInput: string, params: RunParams): Promise<void> {
+async function runLoop(
+  runId: string,
+  scenarioInput: string,
+  params: RunParams,
+): Promise<void> {
   let seq = 0;
   let usage: RunUsage | null = null;
   let cleanup: (() => void) | null = null;
@@ -37,6 +73,22 @@ async function runLoop(runId: string, scenarioInput: string, params: RunParams):
     if (params.source.kind === "local-claude") {
       const wt = createWorktree(ctx.clonePath, ctx.gitCommit, runId);
       cwd = wt;
+      // baseline 대조군: worktree 에서 평가 대상 자산 파일을 제거 → 자산 없이 같은 시나리오 실행.
+      if (params.disableAsset) {
+        const rel = assetClaudeRelPath(ctx.kind, ctx.name);
+        if (rel) {
+          rmSync(join(wt, rel), { recursive: true, force: true });
+          appendTrace(
+            runId,
+            seq,
+            sysEvent("baseline", {
+              disabledAsset: `${ctx.kind}/${ctx.name}`,
+              removed: rel,
+            }),
+          );
+          seq += 1;
+        }
+      }
       // OPSP-30: worktree 폐기 직전 diff 수집 — 격리라 base↔실행 후가 곧 에이전트 작업.
       cleanup = () => {
         try {
@@ -47,7 +99,11 @@ async function runLoop(runId: string, scenarioInput: string, params: RunParams):
         }
         removeWorktree(ctx.clonePath, wt);
       };
-      appendTrace(runId, seq, sysEvent("worktree", { ref: ctx.gitCommit, path: wt }));
+      appendTrace(
+        runId,
+        seq,
+        sysEvent("worktree", { ref: ctx.gitCommit, path: wt }),
+      );
       seq += 1;
     }
     for await (const raw of params.source.run({ prompt: scenarioInput, cwd })) {
