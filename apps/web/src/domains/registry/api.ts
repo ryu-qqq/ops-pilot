@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   assetSchema,
   assetVersionSchema,
+  improveResultSchema,
   projectUsageReportSchema,
   scenarioSchema,
   triggerEvalResultSchema,
@@ -46,25 +47,35 @@ export async function getProjectAssetUsage(projectId: string) {
 
 // T4: 트리거 정확도 평가 (description 이 켜져야 할 때 켜지나). 둘 다 로컬 claude spawn.
 export async function suggestTriggerQueries(assetId: string, n: number) {
-  return (
-    await apiPost(
-      "/api/trigger-eval/suggest",
-      { assetId, n },
-      triggerSuggestResponseSchema,
-    )
-  ).queries;
+  return apiPost(
+    "/api/trigger-eval/suggest",
+    { assetId, n },
+    triggerSuggestResponseSchema,
+  );
 }
 
 export async function runTriggerEval(
   assetId: string,
-  queries: string[],
+  positives: string[],
+  negatives: string[],
   runsPerQuery: number,
 ) {
   return apiPost(
     "/api/trigger-eval/run",
-    { assetId, queries, runsPerQuery },
+    { assetId, positives, negatives, runsPerQuery },
     triggerEvalResultSchema,
   );
+}
+
+// T4-b: description 자동개선 루프 (반복 × 쿼리 × runs 회 claude — 비싸다).
+export async function improveTriggerDescription(args: {
+  assetId: string;
+  positives: string[];
+  negatives: string[];
+  runsPerQuery: number;
+  maxIterations: number;
+}) {
+  return apiPost("/api/trigger-eval/improve", args, improveResultSchema);
 }
 
 export async function getVersions(assetId: string) {
