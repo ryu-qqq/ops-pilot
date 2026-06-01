@@ -518,6 +518,55 @@ export const projectUsageReportSchema = z.object({
 });
 export type ProjectUsageReport = z.infer<typeof projectUsageReportSchema>;
 
+// ADR-0001 작업 기반 자동 평가 — transcript 무상 신호(reference signal).
+// ⚠️ 이 지표는 "품질 점수"가 아니라 "참고 신호(reference signal)"다.
+// 정정 왕복이 많다고 자산이 나쁜 게 아니다 — 작업 난도·탐색·사용자 변심이 혼란변수.
+// 단위 = 세션(JSONL 1파일 = sessionId). 트리거 = 주기/수동 전수 스캔(멱등 upsert).
+
+// 프로젝트의 자산별 작업 지표 집계 응답.
+export const projectWorkMetricRowSchema = z.object({
+  kind: z.enum(["agent", "skill"]),
+  name: z.string(),
+  // 이 프로젝트(clonePath) 안에서 이 자산이 발화된 세션 수.
+  sessionCount: z.number().int().nonnegative(),
+  // 세션 합산 발화 횟수.
+  totalInvocations: z.number().int().nonnegative(),
+  // 세션 합산 정정 왕복 — ⚠️ reference signal(품질 점수 아님).
+  // 좁힌 정의: 자산 발화마다 "발화 직후 사용자가 처음 끼어든 타이핑 1회"만 그 발화의
+  // 정정으로 센다(발화별 0/1, corr ≤ invocationCount). tool_result·system-reminder 등
+  // 자동 주입 메시지는 배제 (ADR-0001 §정정왕복 경계).
+  totalCorrectionRoundtrips: z.number().int().nonnegative(),
+  // 발화당 평균 정정 왕복 (참고용). 발화 0이면 null.
+  avgCorrectionRoundtrips: z.number().nullable(),
+  firstSeen: z.string().nullable(),
+  lastSeen: z.string().nullable(),
+});
+export type ProjectWorkMetricRow = z.infer<typeof projectWorkMetricRowSchema>;
+
+export const projectWorkMetricReportSchema = z.object({
+  // ⚠️ 응답 전체가 reference signal — UI 라벨로 "품질 점수" 오독 방지 (ADR-0001).
+  signalType: z.literal("reference"),
+  signalNote: z.string(),
+  projectId: id,
+  projectName: z.string(),
+  clonePath: z.string(),
+  // 마지막 전수 스캔으로 저장된 세션×자산 row 수(이 프로젝트 한정).
+  metricCount: z.number().int().nonnegative(),
+  assets: z.array(projectWorkMetricRowSchema),
+});
+export type ProjectWorkMetricReport = z.infer<
+  typeof projectWorkMetricReportSchema
+>;
+
+// 수동 전수 스캔 트리거 결과 (멱등 upsert).
+export const workMetricScanResultSchema = z.object({
+  scannedSessions: z.number().int().nonnegative(),
+  // upsert 된 (sessionId, assetKey) row 수.
+  upsertedMetrics: z.number().int().nonnegative(),
+  scannedAt: ts,
+});
+export type WorkMetricScanResult = z.infer<typeof workMetricScanResultSchema>;
+
 // 트리거 정확도 평가 — description 이 켜져야 할 때 켜지고 아닐 때 안 켜지나 (T4, skill-creator 차용).
 export const triggerQueryResultSchema = z.object({
   query: z.string(),
