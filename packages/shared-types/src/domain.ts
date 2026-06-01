@@ -538,3 +538,29 @@ export const triggerSuggestResponseSchema = z.object({
 export type TriggerSuggestResponse = z.infer<
   typeof triggerSuggestResponseSchema
 >;
+
+// description 자동개선 루프 결과 (T4-b). 실패 케이스로 description 후보를 만들어
+// train/test 로 재측정, test 정확도 최댓값을 best 로 고른다. 제안만(자동커밋 X).
+export const improveIterationSchema = z.object({
+  iteration: z.number().int(),
+  description: z.string(),
+  trainAccuracy: z.number(),
+  testAccuracy: z.number(),
+});
+export type ImproveIteration = z.infer<typeof improveIterationSchema>;
+
+export const improveResultSchema = z.object({
+  assetId: z.string(),
+  kind: z.enum(["agent", "skill"]),
+  name: z.string(),
+  runsPerQuery: z.number().int(),
+  trainCount: z.number().int(),
+  testCount: z.number().int(),
+  originalDescription: z.string(),
+  bestDescription: z.string(),
+  bestTestAccuracy: z.number(),
+  // best 가 원본과 다른가 (개선안이 나왔나).
+  improved: z.boolean(),
+  iterations: z.array(improveIterationSchema),
+});
+export type ImproveResult = z.infer<typeof improveResultSchema>;

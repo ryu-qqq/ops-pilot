@@ -1,4 +1,5 @@
 import {
+  improveResultSchema,
   triggerEvalResultSchema,
   triggerSuggestResponseSchema,
 } from "@opspilot/shared-types";
@@ -7,8 +8,16 @@ import { z } from "zod";
 import {
   TriggerEvalError,
   evaluateTrigger,
+  improveDescriptionLoop,
   suggestTriggerQueries,
 } from "../../domains/trigger-eval/service.js";
+
+function labeled(positives: string[], negatives: string[]) {
+  return [
+    ...positives.map((text) => ({ text, shouldTrigger: true })),
+    ...negatives.map((text) => ({ text, shouldTrigger: false })),
+  ];
+}
 
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
 
@@ -63,14 +72,50 @@ const triggerEval: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (req, reply) => {
       try {
-        const labeled = [
-          ...req.body.positives.map((text) => ({ text, shouldTrigger: true })),
-          ...req.body.negatives.map((text) => ({ text, shouldTrigger: false })),
-        ];
         return await evaluateTrigger(
           req.body.assetId,
-          labeled,
+          labeled(req.body.positives, req.body.negatives),
           req.body.runsPerQuery,
+        );
+      } catch (e) {
+        if (e instanceof TriggerEvalError) {
+          return reply
+            .status(400)
+            .send({ error: "TriggerEvalError", detail: e.message });
+        }
+        throw e;
+      }
+    },
+  );
+
+  // description 자동개선 루프 — 실패 케이스로 description 후보 생성·재측정, best 제안.
+  // 비싸다(반복 × 쿼리 × runsPerQuery 회 claude). 자산은 수정 안 하고 제안만 반환.
+  fastify.post(
+    "/trigger-eval/improve",
+    {
+      schema: {
+        body: z.object({
+          assetId: z.string().uuid(),
+          positives: z.array(z.string().min(1)).min(1).max(20),
+          negatives: z.array(z.string().min(1)).max(20).default([]),
+          runsPerQuery: z.number().int().min(1).max(3).default(2),
+          maxIterations: z.number().int().min(1).max(5).default(3),
+        }),
+        response: {
+          200: improveResultSchema,
+          400: errorSchema,
+        },
+      },
+    },
+    async (req, reply) => {
+      try {
+        return await improveDescriptionLoop(
+          req.body.assetId,
+          labeled(req.body.positives, req.body.negatives),
+          {
+            runsPerQuery: req.body.runsPerQuery,
+            maxIterations: req.body.maxIterations,
+          },
         );
       } catch (e) {
         if (e instanceof TriggerEvalError) {

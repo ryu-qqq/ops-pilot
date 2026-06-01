@@ -4,6 +4,7 @@ import {
   getProjectAssetUsage,
   getProjectAssets,
   getVersions,
+  improveTriggerDescription,
   registryKeys,
   runTriggerEval,
   suggestTriggerQueries,
@@ -67,4 +68,8 @@ export function useRunTriggerEval() {
         args.runsPerQuery,
       ),
   });
+}
+
+export function useImproveTriggerDescription() {
+  return useMutation({ mutationFn: improveTriggerDescription });
 }

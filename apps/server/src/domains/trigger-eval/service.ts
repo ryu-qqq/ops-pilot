@@ -1,4 +1,5 @@
 import type {
+  ImproveResult,
   TriggerEvalResult,
   TriggerQueryResult,
 } from "@opspilot/shared-types";
@@ -96,15 +97,24 @@ ${content.slice(0, 4000)}
   return { positives, negatives };
 }
 
-/** 한 자산을 라벨된 쿼리 셋으로 평가. 각 쿼리를 runsPerQuery 회 probe. */
-export async function evaluateTrigger(
-  assetId: string,
-  queries: LabeledQuery[],
-  runsPerQuery = 3,
-): Promise<TriggerEvalResult> {
-  const { kind, name, content } = requireTriggerable(assetId);
-  if (queries.length === 0) throw new TriggerEvalError("queries 가 비어있음");
+interface ProbeSetResult {
+  queries: TriggerQueryResult[];
+  positiveRate: number;
+  negativeFireRate: number | null;
+  accuracy: number;
+}
 
+const avgRate = (rows: TriggerQueryResult[]) =>
+  rows.reduce((s, r) => s + r.triggerRate, 0) / rows.length;
+
+/** 주어진 content(=특정 description) 로 라벨 쿼리 셋을 probe. 루프·평가 공통 코어. */
+async function runProbeSet(
+  kind: TriggerKind,
+  name: string,
+  content: string,
+  queries: LabeledQuery[],
+  runsPerQuery: number,
+): Promise<ProbeSetResult> {
   const results: TriggerQueryResult[] = [];
   for (const { text, shouldTrigger } of queries) {
     let triggered = 0;
@@ -131,21 +141,186 @@ export async function evaluateTrigger(
       firstTools,
     });
   }
-
   const positives = results.filter((r) => r.shouldTrigger);
   const negatives = results.filter((r) => !r.shouldTrigger);
-  const avg = (rows: TriggerQueryResult[]) =>
-    rows.reduce((s, r) => s + r.triggerRate, 0) / rows.length;
+  return {
+    queries: results,
+    positiveRate: positives.length === 0 ? 0 : avgRate(positives),
+    negativeFireRate: negatives.length === 0 ? null : avgRate(negatives),
+    accuracy:
+      results.reduce((s, r) => s + (r.pass ? 1 : 0), 0) / results.length,
+  };
+}
+
+/** 한 자산을 라벨된 쿼리 셋으로 평가. 각 쿼리를 runsPerQuery 회 probe. */
+export async function evaluateTrigger(
+  assetId: string,
+  queries: LabeledQuery[],
+  runsPerQuery = 3,
+): Promise<TriggerEvalResult> {
+  const { kind, name, content } = requireTriggerable(assetId);
+  if (queries.length === 0) throw new TriggerEvalError("queries 가 비어있음");
+  const set = await runProbeSet(kind, name, content, queries, runsPerQuery);
+  return { assetId, kind, name, runsPerQuery, ...set };
+}
+
+// ── description 자동개선 루프 ────────────────────────────────
+
+/** frontmatter 첫 description 라인 추출 (없으면 빈 문자열). */
+export function extractDescription(content: string): string {
+  return content.match(/^description:\s*(.+)$/m)?.[1]?.trim() ?? "";
+}
+
+/** frontmatter 의 description 라인을 새 값으로 교체 (단일 라인 plain scalar). */
+export function withDescription(content: string, description: string): string {
+  const oneLine = description.replace(/\s*\n\s*/g, " ").trim();
+  if (/^description:\s*.+$/m.test(content)) {
+    return content.replace(/^description:\s*.+$/m, `description: ${oneLine}`);
+  }
+  // frontmatter 가 없으면 맨 위에 최소 frontmatter 삽입.
+  return `---\ndescription: ${oneLine}\n---\n\n${content}`;
+}
+
+/** train 결과의 실패(켜졌어야/안켜졌어야)로부터 개선된 description 후보를 생성. */
+export async function improveDescription(
+  kind: TriggerKind,
+  name: string,
+  content: string,
+  current: string,
+  trainResults: TriggerQueryResult[],
+): Promise<string> {
+  const failedTriggers = trainResults
+    .filter((r) => r.shouldTrigger && !r.pass)
+    .map((r) => r.query);
+  const falseTriggers = trainResults
+    .filter((r) => !r.shouldTrigger && !r.pass)
+    .map((r) => r.query);
+  const body = content.replace(/^---[\s\S]*?---\n?/, "").slice(0, 2500);
+  const prompt = `Claude Code ${kind} "${name}" 의 description(자동 발화 트리거 문구)을 개선한다.
+
+현재 description:
+${current}
+
+본문 발췌:
+${body}
+
+평가 실패 사례:
+- 켜졌어야 하는데 안 켜진 요청(failed): ${failedTriggers.length ? JSON.stringify(failedTriggers, null, 0) : "없음"}
+- 안 켜졌어야 하는데 켜진 요청(false): ${falseTriggers.length ? JSON.stringify(falseTriggers, null, 0) : "없음"}
+
+failed 는 더 잘 잡고 false 는 배제하도록 description 을 다시 써라.
+- 개별 쿼리에 과적합하지 말고 사용자 의도의 더 넓은 범주로 일반화.
+- 한 줄, 1024자 이내. 트리거 신호가 구체적이어야 한다(언제 부르는지).
+- 반드시 아래 JSON 한 객체만 출력. 코드펜스 금지.
+{ "description": "..." }`;
+
+  const raw = await runClaudeOnce(prompt, { timeoutMs: 90_000 });
+  let obj: unknown;
+  try {
+    obj = extractJsonObject(raw);
+  } catch (e) {
+    throw new TriggerEvalError(`개선 응답 파싱 실패: ${(e as Error).message}`);
+  }
+  const desc = (obj as { description?: unknown }).description;
+  if (typeof desc !== "string" || desc.trim() === "") {
+    throw new TriggerEvalError("개선된 description 이 비어있음");
+  }
+  return desc
+    .replace(/\s*\n\s*/g, " ")
+    .trim()
+    .slice(0, 1024);
+}
+
+/** shouldTrigger 로 층화해 holdout 비율만큼 test 로 분리 (과적합 방지, 결정적). */
+export function splitTrainTest(
+  queries: LabeledQuery[],
+  holdout: number,
+): { train: LabeledQuery[]; test: LabeledQuery[] } {
+  const train: LabeledQuery[] = [];
+  const test: LabeledQuery[] = [];
+  for (const group of [true, false]) {
+    const rows = queries.filter((q) => q.shouldTrigger === group);
+    const nTest = Math.floor(rows.length * holdout);
+    rows.forEach((q, i) => (i < nTest ? test : train).push(q));
+  }
+  // train 이 비면 안 됨 — 모두 train 으로.
+  if (train.length === 0) return { train: queries, test: [] };
+  return { train, test };
+}
+
+export interface ImproveOptions {
+  runsPerQuery?: number;
+  maxIterations?: number;
+  holdout?: number;
+}
+
+/**
+ * description 자동개선 루프 (skill-creator run_loop 판).
+ * train 으로 개선·반복, test 정확도 최댓값을 best 로 고른다. 자산은 수정하지 않고 제안만 반환.
+ */
+export async function improveDescriptionLoop(
+  assetId: string,
+  queries: LabeledQuery[],
+  opts: ImproveOptions = {},
+): Promise<ImproveResult> {
+  const runsPerQuery = opts.runsPerQuery ?? 2;
+  const maxIterations = opts.maxIterations ?? 3;
+  const holdout = opts.holdout ?? 0.4;
+  const { kind, name, content } = requireTriggerable(assetId);
+  if (queries.length < 2)
+    throw new TriggerEvalError("개선 루프는 쿼리 2개 이상 필요");
+
+  const original = extractDescription(content);
+  const { train, test } = splitTrainTest(queries, holdout);
+  const iterations: ImproveResult["iterations"] = [];
+  let current = original;
+  let best = { description: original, testAccuracy: -1 };
+
+  for (let iter = 0; iter <= maxIterations; iter += 1) {
+    const probeContent = withDescription(content, current);
+    const trainSet = await runProbeSet(
+      kind,
+      name,
+      probeContent,
+      train,
+      runsPerQuery,
+    );
+    const testSet =
+      test.length > 0
+        ? await runProbeSet(kind, name, probeContent, test, runsPerQuery)
+        : null;
+    const testAccuracy = testSet ? testSet.accuracy : trainSet.accuracy;
+    iterations.push({
+      iteration: iter,
+      description: current,
+      trainAccuracy: trainSet.accuracy,
+      testAccuracy,
+    });
+    if (testAccuracy > best.testAccuracy)
+      best = { description: current, testAccuracy };
+
+    if (trainSet.accuracy === 1 || iter === maxIterations) break;
+    current = await improveDescription(
+      kind,
+      name,
+      content,
+      current,
+      trainSet.queries,
+    );
+  }
+
   return {
     assetId,
     kind,
     name,
     runsPerQuery,
-    positiveRate: positives.length === 0 ? 0 : avg(positives),
-    negativeFireRate: negatives.length === 0 ? null : avg(negatives),
-    accuracy:
-      results.reduce((s, r) => s + (r.pass ? 1 : 0), 0) / results.length,
-    queries: results,
+    trainCount: train.length,
+    testCount: test.length,
+    originalDescription: original,
+    bestDescription: best.description,
+    bestTestAccuracy: best.testAccuracy,
+    improved: best.description.trim() !== original.trim(),
+    iterations,
   };
 }
 

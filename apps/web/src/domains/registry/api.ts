@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   assetSchema,
   assetVersionSchema,
+  improveResultSchema,
   projectUsageReportSchema,
   scenarioSchema,
   triggerEvalResultSchema,
@@ -64,6 +65,17 @@ export async function runTriggerEval(
     { assetId, positives, negatives, runsPerQuery },
     triggerEvalResultSchema,
   );
+}
+
+// T4-b: description 자동개선 루프 (반복 × 쿼리 × runs 회 claude — 비싸다).
+export async function improveTriggerDescription(args: {
+  assetId: string;
+  positives: string[];
+  negatives: string[];
+  runsPerQuery: number;
+  maxIterations: number;
+}) {
+  return apiPost("/api/trigger-eval/improve", args, improveResultSchema);
 }
 
 export async function getVersions(assetId: string) {

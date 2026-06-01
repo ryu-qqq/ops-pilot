@@ -6,6 +6,7 @@ import { Textarea } from "../../../components/ui/textarea";
 import { ErrorNotice } from "../../../lib/ui";
 import {
   useAssets,
+  useImproveTriggerDescription,
   useRunTriggerEval,
   useSuggestTriggerQueries,
 } from "../use-registry";
@@ -41,6 +42,7 @@ export function TriggerEvalPanel({ projectId, assetId }: Props) {
   const [runsPerQuery, setRunsPerQuery] = useState(3);
   const suggest = useSuggestTriggerQueries();
   const run = useRunTriggerEval();
+  const improve = useImproveTriggerDescription();
 
   // 트리거 평가는 description 으로 발화되는 agent·skill 만 대상.
   if (asset === null || (asset.kind !== "agent" && asset.kind !== "skill"))
@@ -123,6 +125,23 @@ export function TriggerEvalPanel({ projectId, assetId }: Props) {
           {run.isPending
             ? `평가 중… (${String(totalCalls)}회 호출)`
             : "트리거 평가 실행"}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={improve.isPending || positives.length === 0}
+          onClick={() =>
+            improve.mutate({
+              assetId: asset.id,
+              positives,
+              negatives,
+              runsPerQuery,
+              maxIterations: 3,
+            })
+          }
+          title="실패 케이스로 description 후보를 만들어 재측정, 가장 정확한 안을 제안 (반복 × 쿼리 × 회 — 매우 비쌈)"
+        >
+          {improve.isPending ? "개선 중… (오래 걸림)" : "description 자동개선"}
         </Button>
       </div>
 
@@ -211,9 +230,58 @@ export function TriggerEvalPanel({ projectId, assetId }: Props) {
             ))}
           </ul>
           <p className="text-[10px] text-muted-foreground">
-            ✗ 가 많으면 description 이 의도를 못 잡는 것 — 트리거 문구를 더
-            구체적으로 고쳐보세요. (자동개선 루프는 후속)
+            ✗ 가 많으면 description 이 의도를 못 잡는 것 — 아래 「description
+            자동개선」으로 더 나은 안을 제안받으세요.
           </p>
+        </div>
+      )}
+
+      {improve.isError && <ErrorNotice error={improve.error} />}
+
+      {improve.data && (
+        <div className="space-y-2 rounded-md border p-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium">description 자동개선</span>
+            {improve.data.improved ? (
+              <Badge variant="success" className="text-[10px]">
+                개선안 발견 · test{" "}
+                {Math.round(improve.data.bestTestAccuracy * 100)}%
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="text-[10px]">
+                개선 불필요 (이미 충분)
+              </Badge>
+            )}
+            <span className="text-[10px] text-muted-foreground">
+              {improve.data.iterations.length}회 반복 · train
+              {improve.data.trainCount}/test{improve.data.testCount}
+            </span>
+          </div>
+          {improve.data.improved && (
+            <div className="space-y-1">
+              <div>
+                <span className="text-[10px] text-muted-foreground">원본</span>
+                <p className="rounded bg-muted/50 p-1.5 text-xs">
+                  {improve.data.originalDescription}
+                </p>
+              </div>
+              <div>
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                  제안
+                </span>
+                <Textarea
+                  readOnly
+                  value={improve.data.bestDescription}
+                  className="min-h-[64px] text-xs"
+                  onFocus={(e) => e.currentTarget.select()}
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                자산은 자동 수정하지 않습니다 — 위 제안을 복사해 자산
+                description 에 반영하세요.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </Card>
