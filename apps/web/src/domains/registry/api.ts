@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  assetLintResultSchema,
   assetSchema,
   assetVersionSchema,
   improveResultSchema,
@@ -24,6 +25,7 @@ export const registryKeys = {
     [...registryKeys.all, "assets", projectId] as const,
   assetUsage: (projectId: string) =>
     [...registryKeys.all, "asset-usage", projectId] as const,
+  lint: (assetId: string) => [...registryKeys.all, "lint", assetId] as const,
   versions: (assetId: string) =>
     [...registryKeys.all, "versions", assetId] as const,
   scenarios: (assetId: string) =>
@@ -35,6 +37,11 @@ const scenariosResponse = z.object({ scenarios: z.array(scenarioSchema) });
 export async function getProjectAssets(projectId: string) {
   return (await apiGet(`/api/projects/${projectId}/assets`, assetsResponse))
     .assets;
+}
+
+// T4-c: 자산 frontmatter lint (검증 게이트와 동일 규칙).
+export async function getAssetLint(assetId: string) {
+  return apiGet(`/api/registry/assets/${assetId}/lint`, assetLintResultSchema);
 }
 
 // T3: 자산별 transcript 사용량 (만들고 안 쓰는 자산 식별).

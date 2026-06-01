@@ -564,3 +564,17 @@ export const improveResultSchema = z.object({
   iterations: z.array(improveIterationSchema),
 });
 export type ImproveResult = z.infer<typeof improveResultSchema>;
+
+// frontmatter 검증 게이트 (T4-c) — Claude Code frontmatter 규칙 + 트리거 관점 lint.
+export const lintIssueSchema = z.object({
+  severity: z.enum(["error", "warning"]),
+  field: z.string(),
+  message: z.string(),
+});
+export type LintIssue = z.infer<typeof lintIssueSchema>;
+
+export const assetLintResultSchema = z.object({
+  ok: z.boolean(), // error 0 건
+  issues: z.array(lintIssueSchema),
+});
+export type AssetLintResult = z.infer<typeof assetLintResultSchema>;

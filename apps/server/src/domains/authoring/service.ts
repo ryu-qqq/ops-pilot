@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import type { AssetKind, Project } from "@opspilot/shared-types";
 import { getDb } from "../../db/index.js";
 import { getProject } from "../project/repository.js";
+import { validateFrontmatter } from "../asset-lint/validate.js";
 import { getAsset, latestContent, saveScan } from "../registry/repository.js";
 import { scanRepo } from "../registry/scanner.js";
 
@@ -46,11 +47,23 @@ export function writeAsset(
   if (input.changeSummary.trim() === "") {
     throw new AuthoringError("변경 요약(무엇)은 필수 — 버저닝 강제");
   }
+  // frontmatter 검증 게이트 — 깨진 frontmatter·트리거 안 될 description 을 저작 시점에 차단.
+  const lint = validateFrontmatter(input.kind, input.content);
+  const errors = lint.issues.filter((i) => i.severity === "error");
+  if (errors.length > 0) {
+    throw new AuthoringError(
+      `frontmatter 검증 실패: ${errors.map((e) => `${e.field} — ${e.message}`).join("; ")}`,
+    );
+  }
 
   const rel = assetRelPath(input.kind, input.name);
   const abs = join(project.clonePath, rel);
   mkdirSync(dirname(abs), { recursive: true });
-  writeFileSync(abs, input.content.endsWith("\n") ? input.content : `${input.content}\n`, "utf8");
+  writeFileSync(
+    abs,
+    input.content.endsWith("\n") ? input.content : `${input.content}\n`,
+    "utf8",
+  );
 
   // 구조화 커밋: 무엇/왜를 메시지에 강제로 박는다. (사람이 까먹어도 자동)
   const message =
@@ -73,7 +86,9 @@ export function writeAsset(
     ]);
     committed = git(project.clonePath, ["rev-parse", "HEAD"]);
   } catch (e) {
-    throw new AuthoringError(`커밋 실패(변경 없음?): ${(e as Error).message.slice(0, 300)}`);
+    throw new AuthoringError(
+      `커밋 실패(변경 없음?): ${(e as Error).message.slice(0, 300)}`,
+    );
   }
 
   // 커밋 = 버전. 재스캔으로 asset_version 자동 적재 (멱등).
@@ -96,7 +111,9 @@ export function adoptVersion(
     .prepare(
       "SELECT content, git_commit AS gitCommit, asset_id AS assetId FROM asset_version WHERE id = ?",
     )
-    .get(assetVersionId) as { content: string; gitCommit: string; assetId: string } | undefined;
+    .get(assetVersionId) as
+    | { content: string; gitCommit: string; assetId: string }
+    | undefined;
   if (!ver) throw new AuthoringError("자산 버전을 찾을 수 없습니다");
 
   const asset = getAsset(ver.assetId);
@@ -107,7 +124,9 @@ export function adoptVersion(
   // 채택할 내용이 이미 현재 최신과 같으면 거부 — no-op 커밋 방지(친화 메시지).
   const latest = latestContent(ver.assetId);
   if (latest !== undefined && latest.trimEnd() === ver.content.trimEnd()) {
-    throw new AuthoringError("이 버전의 내용이 이미 현재 최신과 같습니다 — 채택 불필요");
+    throw new AuthoringError(
+      "이 버전의 내용이 이미 현재 최신과 같습니다 — 채택 불필요",
+    );
   }
 
   const short = ver.gitCommit.slice(0, 8);
@@ -116,6 +135,9 @@ export function adoptVersion(
     name: asset.name,
     content: ver.content,
     changeSummary: `버전 ${short} 채택 (앞으로 감기)`,
-    rationale: note.trim() === "" ? `버전 ${short} 을(를) 현재 버전으로 채택` : note.trim(),
+    rationale:
+      note.trim() === ""
+        ? `버전 ${short} 을(를) 현재 버전으로 채택`
+        : note.trim(),
   });
 }

@@ -9,6 +9,7 @@ import { BenchmarkLauncher } from "../../run/components/benchmark-launcher";
 import { RegressionLauncher } from "../../run/components/regression-launcher";
 import { RunLauncher } from "../../run/components/run-launcher";
 import { ScenarioManager } from "../../run/components/scenario-manager";
+import { AssetLint } from "./asset-lint";
 import { AssetList } from "./asset-list";
 import { TriggerEvalPanel } from "./trigger-eval-panel";
 import { VersionTimeline } from "./version-timeline";
@@ -116,6 +117,8 @@ export function RegistryView({
       {project !== null && (
         <AssetAuthor projectId={project.id} selectedAssetId={assetId} />
       )}
+      {/* T4-c: 선택 자산 frontmatter 검증 (저작 게이트와 동일 규칙) */}
+      {assetId !== null && project !== null && <AssetLint assetId={assetId} />}
       {/* OPSP-34: 자산 선택 시 그 자산의 시나리오 목록·본문·편집·삭제 */}
       {assetId !== null && project !== null && (
         <ScenarioManager assetId={assetId} />
