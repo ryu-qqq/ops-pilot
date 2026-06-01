@@ -181,6 +181,27 @@ export async function judgeRuns(runIds: string[]) {
   return apiPost("/api/assist/judge-runs", { runIds }, judgeResultSchema);
 }
 
+// T4-e: LLM grader — 단일 run 자동채점. 표면준수(단어만 언급)는 FAIL,
+// + 각 assertion 의 변별력 비평. 결과는 score(llm_judge) 로도 저장됨.
+export const runGradeResultSchema = z.object({
+  runId: z.string(),
+  passed: z.boolean(),
+  score: z.number(),
+  results: z.array(
+    z.object({
+      assertion: z.string(),
+      passed: z.boolean(),
+      evidence: z.string(),
+    }),
+  ),
+  critique: z.string(),
+});
+export type RunGradeResult = z.infer<typeof runGradeResultSchema>;
+
+export async function gradeRun(runId: string) {
+  return apiPost(`/api/runs/${runId}/grade`, {}, runGradeResultSchema);
+}
+
 // OPSP-37 (3): 한 run trace AI 분석. OPSP-39: 비동기 작업화 + DB 캐시.
 const traceAnalysisSchema = z.object({
   summary: z.string(),

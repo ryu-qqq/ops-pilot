@@ -15,6 +15,7 @@ import { DiffView } from "./diff-view";
 import { RunList } from "./run-list";
 import { TraceView } from "./trace-view";
 import { ScenarioPanel } from "./scenario-panel";
+import { GradePanel } from "./grade-panel";
 import { HumanScore } from "./human-score";
 import { RunRetro } from "./run-retro";
 import { InfoMark } from "../../../lib/ui";
@@ -181,6 +182,7 @@ export function RunsView({
             </CardHeader>
             <CardContent className="space-y-3 pt-4">
               <ScenarioPanel runId={selectedRunId} />
+              <GradePanel runId={selectedRunId} />
               <HumanScore runId={selectedRunId} />
               <RunRetro runId={selectedRunId} />
               <TraceView runId={selectedRunId} />
