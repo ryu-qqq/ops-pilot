@@ -4,6 +4,7 @@ import {
   getAssetScenarios,
   getProjectAssetLint,
   getProjectAssetUsage,
+  getUsageGlobal,
   getProjectAssets,
   getVersions,
   improveTriggerDescription,
@@ -44,6 +45,15 @@ export function useAssetVersions(assetId: string | null) {
     queryKey: registryKeys.versions(assetId ?? "none"),
     queryFn: () => getVersions(assetId ?? ""),
     enabled: assetId !== null,
+  });
+}
+
+// T5: 전역 사용량 리더보드 (최근 N일). staleTime 길게(스캔 비용).
+export function useUsageGlobal(days: number) {
+  return useQuery({
+    queryKey: registryKeys.usageGlobal(days),
+    queryFn: () => getUsageGlobal(days),
+    staleTime: 5 * 60 * 1000,
   });
 }
 

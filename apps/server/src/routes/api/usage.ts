@@ -41,22 +41,31 @@ const usage: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
-  // 전역 랭킹 — 모든 transcript 합산 (어떤 자산이 가장/가장 안 쓰이나).
+  // 전역 랭킹 — 모든 transcript 합산. days=N 이면 최근 N일만 (리더보드).
   fastify.get(
     "/usage/global",
     {
       schema: {
+        querystring: z.object({
+          days: z.coerce.number().int().min(1).max(365).optional(),
+        }),
         response: {
           200: z.object({
             scannedSessions: z.number().int(),
+            days: z.number().int().nullable(),
             agents: z.array(rankRowSchema),
             skills: z.array(rankRowSchema),
           }),
         },
       },
     },
-    async () => {
-      const scan = scanTranscriptUsage();
+    async (req) => {
+      const days = req.query.days ?? null;
+      const sinceIso =
+        days === null
+          ? undefined
+          : new Date(Date.now() - days * 86_400_000).toISOString();
+      const scan = scanTranscriptUsage({ sinceIso });
       const rank = (table: typeof scan.agents) =>
         Object.entries(table)
           .map(([name, s]) => ({
@@ -68,6 +77,7 @@ const usage: FastifyPluginAsyncZod = async (fastify) => {
           .sort((a, b) => b.count - a.count);
       return {
         scannedSessions: scan.scannedSessions,
+        days,
         agents: rank(scan.agents),
         skills: rank(scan.skills),
       };

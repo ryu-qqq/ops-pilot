@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
-import type { AssetUsage } from "@opspilot/shared-types";
-import { Badge } from "../../../components/ui/badge";
+import type { AssetKind, AssetUsage } from "@opspilot/shared-types";
 import { EmptyState, ErrorNotice, Loading } from "../../../lib/ui";
 import { cn } from "../../../lib/utils";
 import {
@@ -21,7 +20,8 @@ interface LintRow {
   warningCount: number;
 }
 
-type Filter = "all" | "unused" | "issues";
+type StatusFilter = "all" | "unused" | "issues";
+type KindFilter = "all" | AssetKind;
 
 const KIND_LABEL: Record<string, string> = {
   agent: "agent",
@@ -32,51 +32,84 @@ const KIND_LABEL: Record<string, string> = {
   cursor_rule: "cursor·rule",
 };
 
-// T5: 자산 헬스 대시보드 — 쓰임(T3)·검증(T4-c)·prune 신호를 한 표에. 평가 중심 UI 의 허브.
-function UsageCell({ usage }: { usage?: AssetUsage }) {
-  if (!usage || !usage.supported)
-    return <span className="text-muted-foreground">—</span>;
-  if (usage.neverUsed)
-    return (
-      <Badge variant="warning" className="text-[10px]">
-        미사용
-      </Badge>
-    );
-  if (usage.inProjectCount > 0)
-    return (
-      <span
-        className="tabular-nums"
-        title={`이 프로젝트 ${String(usage.inProjectCount)}회 · 전체 ${String(usage.totalCount)}회`}
-      >
-        {usage.inProjectCount}회
-      </span>
-    );
+type Tone = "green" | "slate" | "amber" | "red" | "muted";
+const TONE: Record<Tone, string> = {
+  green: "bg-emerald-500",
+  slate: "bg-slate-400",
+  amber: "bg-amber-500",
+  red: "bg-red-500",
+  muted: "bg-muted-foreground/30",
+};
+function Dot({ tone }: { tone: Tone }) {
   return (
-    <Badge
-      variant="info"
-      className="text-[10px]"
-      title="다른 프로젝트에서만 사용됨"
-    >
-      타프로젝트 {usage.totalCount}
-    </Badge>
+    <span
+      className={cn(
+        "inline-block h-1.5 w-1.5 shrink-0 rounded-full",
+        TONE[tone],
+      )}
+    />
   );
 }
 
-function LintCell({ lint }: { lint?: LintRow }) {
+// 사용: 일관 형식 = [점] 여기 / 전체. 점 색이 상태(쓰임/타프로젝트/미사용)를 인코딩.
+function UsageCell({ usage }: { usage?: AssetUsage }) {
+  if (!usage || !usage.supported)
+    return <span className="text-muted-foreground">—</span>;
+  const tone: Tone =
+    usage.inProjectCount > 0
+      ? "green"
+      : usage.totalCount > 0
+        ? "slate"
+        : "amber";
+  const title =
+    usage.inProjectCount > 0
+      ? `이 프로젝트 ${String(usage.inProjectCount)}회 · 전체 ${String(usage.totalCount)}회`
+      : usage.totalCount > 0
+        ? `이 프로젝트 0회 · 다른 곳 ${String(usage.totalCount)}회 (공용 crew 자산일 수 있음)`
+        : "어디서도 호출된 적 없음 (prune 후보)";
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 tabular-nums"
+      title={title}
+    >
+      <Dot tone={tone} />
+      <span className="font-medium">{usage.inProjectCount}</span>
+      <span className="text-xs text-muted-foreground">
+        / {usage.totalCount}
+      </span>
+    </span>
+  );
+}
+
+// 형식(frontmatter lint): 점 + 라벨로 일관.
+function FormatCell({ lint }: { lint?: LintRow }) {
   if (!lint) return <span className="text-muted-foreground">—</span>;
   if (lint.errorCount > 0)
     return (
-      <Badge variant="destructive" className="text-[10px]">
-        error {lint.errorCount}
-      </Badge>
+      <span
+        className="inline-flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400"
+        title="frontmatter 형식 오류 — 자동 발화가 안 됨"
+      >
+        <Dot tone="red" /> error {lint.errorCount}
+      </span>
     );
   if (lint.warningCount > 0)
     return (
-      <Badge variant="warning" className="text-[10px]">
-        warn {lint.warningCount}
-      </Badge>
+      <span
+        className="inline-flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400"
+        title="형식 경고 (kebab-case·짧은 description 등)"
+      >
+        <Dot tone="amber" /> warn {lint.warningCount}
+      </span>
     );
-  return <span className="text-emerald-600 dark:text-emerald-400">✓</span>;
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+      title="frontmatter 형식 통과"
+    >
+      <Dot tone="green" /> 정상
+    </span>
+  );
 }
 
 export function AssetHealthDashboard({
@@ -87,7 +120,8 @@ export function AssetHealthDashboard({
   const { data: assets, isPending, isError, error } = useAssets(projectId);
   const { data: usage } = useProjectAssetUsage(projectId);
   const { data: lint } = useProjectAssetLint(projectId);
-  const [filter, setFilter] = useState<Filter>("all");
+  const [status, setStatus] = useState<StatusFilter>("all");
+  const [kind, setKind] = useState<KindFilter>("all");
 
   const usageMap = useMemo(() => {
     const m = new Map<string, AssetUsage>();
@@ -100,19 +134,24 @@ export function AssetHealthDashboard({
     return m;
   }, [lint]);
 
+  const kinds = useMemo(
+    () => [...new Set((assets ?? []).map((a) => a.kind))],
+    [assets],
+  );
+
   const rows = useMemo(() => {
     const enriched = (assets ?? []).map((a) => ({
       asset: a,
       usage: usageMap.get(`${a.kind}:${a.name}`),
       lint: lintMap.get(a.id),
     }));
-    // 문제 먼저: 검증 error → 미사용 → 그 외. 같은 등급 내 이름순.
     const rank = (r: (typeof enriched)[number]) =>
       (r.lint?.errorCount ?? 0) > 0 ? 0 : r.usage?.neverUsed ? 1 : 2;
     return enriched
+      .filter((r) => (kind === "all" ? true : r.asset.kind === kind))
       .filter((r) => {
-        if (filter === "unused") return r.usage?.neverUsed ?? false;
-        if (filter === "issues")
+        if (status === "unused") return r.usage?.neverUsed ?? false;
+        if (status === "issues")
           return (
             (r.lint?.errorCount ?? 0) > 0 || (r.lint?.warningCount ?? 0) > 0
           );
@@ -121,7 +160,7 @@ export function AssetHealthDashboard({
       .sort(
         (x, y) => rank(x) - rank(y) || x.asset.name.localeCompare(y.asset.name),
       );
-  }, [assets, usageMap, lintMap, filter]);
+  }, [assets, usageMap, lintMap, status, kind]);
 
   const summary = useMemo(() => {
     const us = usage?.assets ?? [];
@@ -135,7 +174,7 @@ export function AssetHealthDashboard({
           u.inProjectCount === 0 &&
           u.totalCount > 0,
       ).length,
-      lintErrors: (lint?.items ?? []).filter((l) => l.errorCount > 0).length,
+      formatErrors: (lint?.items ?? []).filter((l) => l.errorCount > 0).length,
     };
   }, [assets, usage, lint]);
 
@@ -143,7 +182,7 @@ export function AssetHealthDashboard({
     return (
       <EmptyState
         title="프로젝트를 먼저 선택하세요"
-        hint="위 바에서 프로젝트를 등록·선택하면 자산 헬스(쓰임·검증·prune)가 여기 표시됩니다."
+        hint="위 바에서 프로젝트를 등록·선택하면 Toolkit(쓰임·형식·prune)이 여기 표시됩니다."
       />
     );
   if (isPending) return <Loading label="자산 불러오는 중…" />;
@@ -152,58 +191,94 @@ export function AssetHealthDashboard({
     return (
       <EmptyState
         title="아직 자산이 없어요"
-        hint="터미널/creator 로 .claude 에 자산을 만들고 커밋하거나, 상단 ‘스캔’으로 적재하세요."
+        hint="터미널/creator 로 .claude 에 만들고 커밋하면 자동 등록됩니다. (또는 상단 ‘스캔’)"
       />
     );
 
-  const FilterTab = ({ value, label }: { value: Filter; label: string }) => (
+  const Chip = ({
+    active,
+    onClick,
+    children,
+  }: {
+    active: boolean;
+    onClick: () => void;
+    children: React.ReactNode;
+  }) => (
     <button
       type="button"
-      onClick={() => setFilter(value)}
+      onClick={onClick}
       className={cn(
         "rounded-md px-2 py-1 text-xs transition-colors",
-        filter === value
+        active
           ? "bg-primary text-primary-foreground"
           : "text-muted-foreground hover:bg-accent",
       )}
     >
-      {label}
+      {children}
     </button>
   );
 
   return (
     <div className="space-y-3">
-      {/* 요약 배너 — prune 유도 */}
+      {/* 요약 배너 */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border bg-muted/30 px-3 py-2 text-xs">
         <span className="font-medium">자산 {summary.total}</span>
         {summary.unused > 0 && (
-          <span className="text-amber-600 dark:text-amber-400">
-            ⚠ 미사용 {summary.unused}
+          <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+            <Dot tone="amber" /> 미사용 {summary.unused}
           </span>
         )}
         {summary.otherOnly > 0 && (
-          <span className="text-muted-foreground">
-            타프로젝트만 {summary.otherOnly}
+          <span
+            className="inline-flex items-center gap-1 text-muted-foreground"
+            title="이 프로젝트에선 안 쓰지만 다른 곳에서 쓰임 (공용 crew 자산)"
+          >
+            <Dot tone="slate" /> 다른 곳만 {summary.otherOnly}
           </span>
         )}
-        {summary.lintErrors > 0 && (
-          <span className="text-red-600 dark:text-red-400">
-            ✗ 검증 error {summary.lintErrors}
+        {summary.formatErrors > 0 && (
+          <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400">
+            <Dot tone="red" /> 형식 error {summary.formatErrors}
           </span>
         )}
-        {summary.unused === 0 && summary.lintErrors === 0 && (
+        {summary.unused === 0 && summary.formatErrors === 0 && (
           <span className="text-emerald-600 dark:text-emerald-400">
-            ✓ 미사용·검증오류 없음
+            ✓ 미사용·형식오류 없음
           </span>
         )}
-        <span className="ml-auto inline-flex gap-1">
-          <FilterTab value="all" label="전체" />
-          <FilterTab
-            value="unused"
-            label={`미사용 ${String(summary.unused)}`}
-          />
-          <FilterTab value="issues" label="검증이슈" />
-        </span>
+      </div>
+
+      {/* 필터 */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="inline-flex gap-1 rounded-md border p-0.5">
+          <Chip active={status === "all"} onClick={() => setStatus("all")}>
+            전체
+          </Chip>
+          <Chip
+            active={status === "unused"}
+            onClick={() => setStatus("unused")}
+          >
+            미사용 {summary.unused}
+          </Chip>
+          <Chip
+            active={status === "issues"}
+            onClick={() => setStatus("issues")}
+          >
+            형식이슈
+          </Chip>
+        </div>
+        {kinds.length > 1 && (
+          <div className="inline-flex gap-1 rounded-md border p-0.5">
+            <Chip active={kind === "all"} onClick={() => setKind("all")}>
+              모든 종류
+            </Chip>
+            {kinds.map((k) => (
+              <Chip key={k} active={kind === k} onClick={() => setKind(k)}>
+                {KIND_LABEL[k] ?? k}
+              </Chip>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 헬스 테이블 */}
@@ -212,9 +287,19 @@ export function AssetHealthDashboard({
           <thead className="bg-muted/50 text-xs text-muted-foreground">
             <tr>
               <th className="px-3 py-1.5 text-left font-medium">자산</th>
-              <th className="w-20 px-2 py-1.5 text-left font-medium">사용</th>
-              <th className="w-24 px-2 py-1.5 text-left font-medium">검증</th>
-              <th className="w-24 px-2 py-1.5 text-left font-medium">최근</th>
+              <th
+                className="w-24 px-2 py-1.5 text-left font-medium"
+                title="이 프로젝트 / 전체 호출 수"
+              >
+                사용
+              </th>
+              <th
+                className="w-24 px-2 py-1.5 text-left font-medium"
+                title="frontmatter 형식 검사"
+              >
+                형식
+              </th>
+              <th className="w-20 px-2 py-1.5 text-left font-medium">최근</th>
             </tr>
           </thead>
           <tbody>
@@ -242,22 +327,21 @@ export function AssetHealthDashboard({
                       ? "bg-primary/10"
                       : "hover:bg-accent/50",
                   )}
-                  title="클릭하면 아래에서 상세(버전·평가·시나리오) 표시"
                 >
                   <td className="px-3 py-1.5">
-                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <span className="mr-1 text-[10px] uppercase tracking-wide text-muted-foreground">
                       {KIND_LABEL[asset.kind] ?? asset.kind}
-                    </span>{" "}
+                    </span>
                     <span className="font-medium">{asset.name}</span>
                   </td>
-                  <td className="px-2 py-1.5 text-xs">
+                  <td className="px-2 py-1.5 text-sm">
                     <UsageCell usage={u} />
                   </td>
                   <td className="px-2 py-1.5">
-                    <LintCell lint={l} />
+                    <FormatCell lint={l} />
                   </td>
                   <td className="px-2 py-1.5 text-xs tabular-nums text-muted-foreground">
-                    {last ? last.slice(0, 10) : "—"}
+                    {last ? last.slice(5, 10) : "—"}
                   </td>
                 </tr>
               );

@@ -6,6 +6,7 @@ import {
   improveResultSchema,
   projectAssetLintSchema,
   projectUsageReportSchema,
+  usageGlobalSchema,
   scenarioSchema,
   triggerEvalResultSchema,
   triggerSuggestResponseSchema,
@@ -29,6 +30,8 @@ export const registryKeys = {
   lint: (assetId: string) => [...registryKeys.all, "lint", assetId] as const,
   projectLint: (projectId: string) =>
     [...registryKeys.all, "project-lint", projectId] as const,
+  usageGlobal: (days: number) =>
+    [...registryKeys.all, "usage-global", days] as const,
   versions: (assetId: string) =>
     [...registryKeys.all, "versions", assetId] as const,
   scenarios: (assetId: string) =>
@@ -53,6 +56,11 @@ export async function getProjectAssetLint(projectId: string) {
     `/api/projects/${projectId}/asset-lint`,
     projectAssetLintSchema,
   );
+}
+
+// T5: 전역 사용량 랭킹 (최근 N일 리더보드, 프로젝트 무관).
+export async function getUsageGlobal(days: number) {
+  return apiGet(`/api/usage/global?days=${String(days)}`, usageGlobalSchema);
 }
 
 // T3: 자산별 transcript 사용량 (만들고 안 쓰는 자산 식별).
