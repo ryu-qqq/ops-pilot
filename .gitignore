@@ -17,3 +17,7 @@ coverage/
 
 # 세션 간 핸드오프 스크래치 노트 (로컬 전용)
 next.md
+
+# 부트스트랩 데몬 로그
+.bootstrap-logs/
+*.sqlite.bak-*
