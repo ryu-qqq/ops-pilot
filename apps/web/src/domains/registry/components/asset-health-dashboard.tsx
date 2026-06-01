@@ -1,11 +1,20 @@
 import { useMemo, useState } from "react";
-import type { AssetKind, AssetUsage } from "@opspilot/shared-types";
-import { EmptyState, ErrorNotice, Loading } from "../../../lib/ui";
+import { RotateCw } from "lucide-react";
+import type {
+  AssetKind,
+  AssetUsage,
+  ProjectWorkMetricRow,
+} from "@opspilot/shared-types";
+import { Badge } from "../../../components/ui/badge";
+import { Button } from "../../../components/ui/button";
+import { EmptyState, ErrorNotice, InfoMark, Loading } from "../../../lib/ui";
 import { cn } from "../../../lib/utils";
 import {
   useAssets,
   useProjectAssetLint,
   useProjectAssetUsage,
+  useProjectWorkMetrics,
+  useScanWorkMetrics,
 } from "../use-registry";
 
 interface Props {
@@ -112,6 +121,22 @@ function FormatCell({ lint }: { lint?: LintRow }) {
   );
 }
 
+// 정정왕복(참고 신호) — ⚠️ 품질 점수 아님. 무채색만, Dot·상태색·순위색 금지.
+// avg = 발화당 평균 정정왕복(≈ "발화 직후 첫 반응이 정정인 비율"). null/miss → 무음 —.
+function CorrectionCell({ work }: { work?: ProjectWorkMetricRow }) {
+  if (work == null || work.avgCorrectionRoundtrips == null)
+    return <span className="text-muted-foreground">—</span>;
+  const pct = Math.round(work.avgCorrectionRoundtrips * 100);
+  return (
+    <span
+      className="text-foreground/80 tabular-nums"
+      title={`${String(work.totalCorrectionRoundtrips)} / ${String(work.totalInvocations)}회 · ${String(work.sessionCount)}개 세션`}
+    >
+      {pct}% 첫반응
+    </span>
+  );
+}
+
 export function AssetHealthDashboard({
   projectId,
   selectedId,
@@ -120,6 +145,9 @@ export function AssetHealthDashboard({
   const { data: assets, isPending, isError, error } = useAssets(projectId);
   const { data: usage } = useProjectAssetUsage(projectId);
   const { data: lint } = useProjectAssetLint(projectId);
+  // 작업 신호(참고용). report 에러는 테이블을 막지 않고 컬럼만 무음 — 처리.
+  const { data: workReport } = useProjectWorkMetrics(projectId);
+  const scanWork = useScanWorkMetrics();
   const [status, setStatus] = useState<StatusFilter>("all");
   const [kind, setKind] = useState<KindFilter>("all");
 
@@ -128,6 +156,12 @@ export function AssetHealthDashboard({
     for (const u of usage?.assets ?? []) m.set(`${u.kind}:${u.name}`, u);
     return m;
   }, [usage]);
+  // usageMap 과 동일 키(`${kind}:${name}`). command/cursor 자산은 miss → CorrectionCell 이 —.
+  const workMap = useMemo(() => {
+    const m = new Map<string, ProjectWorkMetricRow>();
+    for (const w of workReport?.assets ?? []) m.set(`${w.kind}:${w.name}`, w);
+    return m;
+  }, [workReport]);
   const lintMap = useMemo(() => {
     const m = new Map<string, LintRow>();
     for (const l of lint?.items ?? []) m.set(l.assetId, l);
@@ -218,8 +252,33 @@ export function AssetHealthDashboard({
     </button>
   );
 
+  const hasMetrics = (workReport?.metricCount ?? 0) > 0;
+
   return (
     <div className="space-y-3">
+      {/* 작업 신호 고지 + 스캔 (응집: 정정왕복 컬럼 출처를 한 곳에서 안내) */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          {hasMetrics
+            ? "작업 신호는 참고용입니다 — 품질 점수가 아닙니다."
+            : "아직 작업 신호가 없어요 — 스캔하기로 한 번 훑어보세요."}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={scanWork.isPending}
+          onClick={() => {
+            scanWork.mutate({ projectId });
+          }}
+        >
+          <RotateCw
+            className={cn("h-3.5 w-3.5", scanWork.isPending && "animate-spin")}
+          />
+          {scanWork.isPending ? "스캔 중…" : "작업 신호 스캔"}
+        </Button>
+      </div>
+
       {/* 요약 배너 */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border bg-muted/30 px-3 py-2 text-xs">
         <span className="font-medium">자산 {summary.total}</span>
@@ -299,6 +358,19 @@ export function AssetHealthDashboard({
               >
                 형식
               </th>
+              <th className="w-40 px-2 py-1.5 text-left font-medium">
+                <span className="inline-flex items-center gap-1.5">
+                  정정왕복
+                  <Badge variant="outline">참고</Badge>
+                  <InfoMark
+                    help={
+                      workReport?.signalNote ??
+                      "작업 신호(참고용) — 품질 점수가 아닙니다."
+                    }
+                    label="정정왕복(참고 신호)"
+                  />
+                </span>
+              </th>
               <th className="w-20 px-2 py-1.5 text-left font-medium">최근</th>
             </tr>
           </thead>
@@ -306,7 +378,7 @@ export function AssetHealthDashboard({
             {rows.length === 0 && (
               <tr>
                 <td
-                  colSpan={4}
+                  colSpan={5}
                   className="px-3 py-4 text-center text-xs text-muted-foreground"
                 >
                   해당 자산 없음.
@@ -339,6 +411,11 @@ export function AssetHealthDashboard({
                   </td>
                   <td className="px-2 py-1.5">
                     <FormatCell lint={l} />
+                  </td>
+                  <td className="px-2 py-1.5 text-xs">
+                    <CorrectionCell
+                      work={workMap.get(`${asset.kind}:${asset.name}`)}
+                    />
                   </td>
                   <td className="px-2 py-1.5 text-xs tabular-nums text-muted-foreground">
                     {last ? last.slice(5, 10) : "—"}
