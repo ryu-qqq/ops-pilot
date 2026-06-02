@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ChevronRight } from "lucide-react";
 import type { Asset } from "@opspilot/shared-types";
 import { InfoMark } from "../../../lib/ui";
 import { cn } from "../../../lib/utils";
@@ -138,6 +139,7 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
               className={cn(
                 PARENT_GRID,
                 "h-10 cursor-pointer border-t px-3 transition-colors hover:bg-accent/50",
+                isOpen && "bg-muted/40",
                 skill.id === selectedId && "bg-primary/10",
                 hlClass(key),
               )}
@@ -147,24 +149,33 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
             >
               <button
                 type="button"
-                className="text-xs text-muted-foreground"
+                className={cn(
+                  "flex h-5 w-5 items-center justify-center rounded transition-colors hover:bg-accent",
+                  isOpen ? "text-foreground" : "text-muted-foreground",
+                )}
                 onClick={(e) => {
                   e.stopPropagation();
                   toggle(key);
                 }}
                 title={isOpen ? "접기" : "펼치기"}
                 aria-label={isOpen ? "접기" : "펼치기"}
+                aria-expanded={isOpen}
               >
-                {isOpen ? "▾" : "▸"}
+                <ChevronRight
+                  className={cn(
+                    "h-3.5 w-3.5 transition-transform",
+                    isOpen && "rotate-90",
+                  )}
+                />
               </button>
-              <span className="flex min-w-0 items-center gap-1.5">
+              <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
                 <NameCell meta={meta} />
                 {callCount > 0 && (
                   <span
                     className="shrink-0 rounded border px-1 text-[9px] text-muted-foreground"
-                    title="본문에서 참조(호출)하는 자산 수 — 휴리스틱"
+                    title={`본문에서 참조(호출)하는 자산 ${String(callCount)}개 — 휴리스틱`}
                   >
-                    ⛓ {callCount} 호출
+                    ⛓ {callCount}
                   </span>
                 )}
               </span>
@@ -174,6 +185,9 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
               </span>
             </div>
 
+            {/* 펼친 자식 — 좌측 연결선으로 "이 스킬 아래"임을 명확히. */}
+            {visibleChildren.length > 0 && (
+              <div className="border-l-2 border-primary/30 bg-muted/10">
             {visibleChildren.map((child) => {
               const ckey = refKey(child.kind, child.name);
               const cmeta = metaFor(child);
@@ -213,6 +227,8 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
                 </div>
               );
             })}
+              </div>
+            )}
           </div>
         );
       })}

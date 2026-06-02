@@ -135,7 +135,7 @@ export interface RowMeta {
 
 export function NameCell({ meta }: { meta: RowMeta }) {
   return (
-    <span className="flex min-w-0 items-center gap-1.5">
+    <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
       <KindBadge kind={meta.asset.kind} />
       <span className="truncate font-medium" title={meta.asset.name}>
         {meta.asset.name}
@@ -150,8 +150,12 @@ export function NameCell({ meta }: { meta: RowMeta }) {
         </span>
       )}
       {meta.errorMessage != null && (
-        <span className="shrink-0 whitespace-nowrap text-[10px] text-red-600 dark:text-red-400">
-          ⚠ 형식: {meta.errorMessage}
+        // 컴팩트 — 좁은 행에서 다른 배지/컬럼과 겹치지 않게. 상세(무엇이 틀렸나)는 형식 탭.
+        <span
+          className="shrink-0 whitespace-nowrap rounded border border-red-500/40 px-1 text-[9px] text-red-600 dark:text-red-400"
+          title={`형식 ${meta.errorMessage} — 상세는 형식 탭에서 확인`}
+        >
+          ⚠ {meta.errorMessage}
         </span>
       )}
     </span>
