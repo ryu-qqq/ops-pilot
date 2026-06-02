@@ -41,9 +41,10 @@
 - **근거 파일**: `apps/server/src/domains/registry/repository.ts`(자산엔 현재 `scope`(user/project)만, source/tagSource 없음), `apps/server/src/db/migrate.ts`·`schema.sql`(source 컬럼 마이그레이션), `.claude/agent-crew.lock`(sync 범위 = crew 자산 목록), `apps/web/.../asset-health-dashboard.tsx`·`usage-leaderboard.tsx`(배지·필터).
 - **권고(PO)**: 진행(로컬 한정 명시). 마이그레이션 1건. 무상 측정 영역이라 비용 대비 가치 높음.
 
-### 카드 C — prune 추천 → 실행(삭제 액션) ⬜ 미착수 (P2 · 카드 B 의존)
+### 카드 C — prune 추천 → 실행(삭제 액션) ✅ 완료 (`8435453` + merge `ae9c761`)
 
 - **무엇을**: 헬스 대시보드 미사용 자산에 "보관/삭제 제안" 액션. 삭제 = `.claude`에서 제거 + 구조화 커밋(git=버전 단일원천 규칙 준수). **crew 자산은 삭제 차단/경고**.
+- **결과**: `deleteAsset`(authoring/service.ts) = writeAsset 대칭 미러 — 이중 가드(`source==="project-local"` 만, crew·unknown 차단 / `.claude` agent·skill·command 만) → `git rm -rf` + 구조화 커밋(`[opspilot pruned]`) → DB행 하드삭제(asset_version→run→score/trace·scenario cascade; work_metric 은 FK 아니라 잔존). skill 은 디렉터리 단위 삭제. `POST /registry/assets/:id/prune`(Zod, 차단 400). 프론트 상세패널 하단 파괴적 액션(2단계 확인·사유·**실행/평가 이력 영구삭제 고지**·project-local 만 활성). 프론트 비활성+서버 400 이중 방어. 검증: 백엔드 스모크·Playwright 실연동(전용 삭제→파일·DB·UI행 제거, crew 차단, 직접 API 400)·skill 디렉터리 prune 스모크. **아카이브(보관)는 범위에서 제외**(최소 원칙). 남은 한계: fallback(.claude untracked 엣지) fs 선삭제 후 커밋 실패 시 복구 어려움(드묾, 주석 명시)·단위테스트 미추가.
 - **왜**: 비전의 "안 쓰이는 건 지운다"를 닫음. 단 crew 자산은 카드 B의 출처 구분이 **선행돼야 안전**(공용 오삭제 방지).
 - **성공기준**: 미사용 local 자산을 UI에서 한 번에 제거하고 커밋이 남는다. crew 자산은 삭제 차단.
 - **범위**: 포함 = local 자산 삭제+커밋. 제외 = crew 원본(agent-crew 레포) 수정.
