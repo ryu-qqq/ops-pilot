@@ -168,6 +168,32 @@ export function versionExecContext(
     | undefined;
 }
 
+// 그래프 빌더용: 프로젝트의 모든 자산 + 각 자산 최신 버전 본문을 1쿼리로.
+// 상관 서브쿼리로 자산당 committed_at 최신 1건 content 를 끌어온다(N+1 회피).
+export interface AssetWithContent {
+  kind: string;
+  name: string;
+  content: string;
+}
+export function listAssetsWithLatestContent(
+  projectId: string,
+): AssetWithContent[] {
+  return getDb()
+    .prepare(
+      `SELECT a.kind AS kind, a.name AS name,
+              COALESCE(
+                (SELECT av.content FROM asset_version av
+                 WHERE av.asset_id = a.id
+                 ORDER BY av.committed_at DESC LIMIT 1),
+                ''
+              ) AS content
+       FROM asset a
+       WHERE a.project_id = ?
+       ORDER BY a.kind, a.name`,
+    )
+    .all(projectId) as AssetWithContent[];
+}
+
 export function listVersions(assetId: string): AssetVersionSummary[] {
   return getDb()
     .prepare(

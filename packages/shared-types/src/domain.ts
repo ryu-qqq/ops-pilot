@@ -677,3 +677,23 @@ export const projectAssetLintSchema = z.object({
   ),
 });
 export type ProjectAssetLint = z.infer<typeof projectAssetLintSchema>;
+
+// 자산 관계(참조) 그래프 — "이 스킬이 어떤 에이전트를 호출하나" / "이 에이전트가 고아인가".
+// 휴리스틱: 자산 본문에 같은 프로젝트의 다른 등록 자산 name 이 단어경계 정확일치로 등장하면 edge.
+// 본문 언급 ≠ 실제 호출 보장 → "참조(reference)" 로만 라벨. 짧은 이름은 false positive 가능(repository 주석 참조).
+const assetRefSchema = z.object({
+  kind: assetKindSchema,
+  name: z.string(),
+});
+
+export const assetGraphSchema = z.object({
+  items: z.array(
+    z.object({
+      kind: assetKindSchema,
+      name: z.string(),
+      references: z.array(assetRefSchema), // 내가 본문에서 부르는 자산
+      referencedBy: z.array(assetRefSchema), // 나를 본문에서 부르는 자산(역방향)
+    }),
+  ),
+});
+export type AssetGraph = z.infer<typeof assetGraphSchema>;

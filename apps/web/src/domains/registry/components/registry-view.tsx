@@ -7,9 +7,10 @@ import { ProjectRegisterDialog } from "../../project/components/project-register
 import { useProjects } from "../../project/use-project";
 import { usePersistedState } from "../../../lib/use-persisted-state";
 import { EmptyState } from "../../../lib/ui";
+import { cn } from "../../../lib/utils";
 import { AssetAuthor } from "../../authoring/components/asset-author";
 import { AssetDetailPanel } from "./asset-detail-panel";
-import { AssetHealthDashboard } from "./asset-health-dashboard";
+import { AssetToolkit } from "./asset-toolkit";
 
 interface Props {
   projectId: string | null;
@@ -70,8 +71,14 @@ export function RegistryView({
         </EmptyState>
       ) : (
         <>
-          {/* master-detail: 좌 헬스 표(고정폭) | 우 넓은 상세 패널 */}
-          <div className="grid items-start gap-4 lg:grid-cols-[minmax(340px,400px)_1fr]">
+          {/* master-detail: 미선택이면 목록 풀폭(이름 안 잘림), 선택 시에만 2분할(좌 목록 | 우 넓은 상세). */}
+          <div
+            className={cn(
+              "grid items-start gap-4",
+              assetId !== null &&
+                "lg:grid-cols-[minmax(340px,420px)_1fr]",
+            )}
+          >
             <Card className="p-4">
               <div className="mb-3 flex items-start justify-between gap-2">
                 <div>
@@ -91,15 +98,15 @@ export function RegistryView({
                   {assetId === null ? "새 자산" : "편집/새 자산"}
                 </Button>
               </div>
-              <AssetHealthDashboard
+              <AssetToolkit
                 projectId={project.id}
                 selectedId={assetId}
                 onSelect={handleSelectAsset}
               />
             </Card>
 
-            <div className="lg:sticky lg:top-4">
-              {assetId !== null ? (
+            {assetId !== null && (
+              <div className="lg:sticky lg:top-4">
                 <AssetDetailPanel
                   projectId={project.id}
                   assetId={assetId}
@@ -111,14 +118,8 @@ export function RegistryView({
                     handleSelectAsset(null);
                   }}
                 />
-              ) : (
-                <Card className="flex h-40 items-center justify-center p-4 text-center text-sm text-muted-foreground">
-                  왼쪽에서 자산을 클릭하면
-                  <br />
-                  버전·형식·시나리오·트리거 평가가 여기 표시됩니다.
-                </Card>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* 저작 (후순위 — 접힘) */}

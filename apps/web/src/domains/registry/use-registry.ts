@@ -4,6 +4,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import {
+  getAssetGraph,
   getAssetLint,
   getAssetScenarios,
   getProjectAssetLint,
@@ -45,6 +46,15 @@ export function useProjectWorkMetrics(projectId: string | null) {
     queryFn: () => getProjectWorkMetrics(projectId ?? ""),
     enabled: projectId !== null,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+// 자산 관계(참조) 그래프 — 툴킷 트리·고아·다대다·상태 계산용. 비교적 가벼운 동기 계산.
+export function useAssetGraph(projectId: string | null) {
+  return useQuery({
+    queryKey: registryKeys.assetGraph(projectId ?? "none"),
+    queryFn: () => getAssetGraph(projectId ?? ""),
+    enabled: projectId !== null,
   });
 }
 
