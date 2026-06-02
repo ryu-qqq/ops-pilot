@@ -13,6 +13,7 @@ import {
   getProjectAssets,
   getVersions,
   improveTriggerDescription,
+  pruneAsset,
   registryKeys,
   runTriggerEval,
   scanWorkMetrics,
@@ -55,6 +56,30 @@ export function useScanWorkMetrics() {
     onSuccess: (_data, { projectId }) => {
       void qc.invalidateQueries({
         queryKey: registryKeys.workMetrics(projectId),
+      });
+    },
+  });
+}
+
+// 카드 C(prune): 미사용 project-local 자산 삭제. 성공 시 목록·사용량·lint 무효화
+// (행이 사라지고 헬스 수치가 갱신된다). 선택 해제는 호출부(상세 패널 onDeleted)에서.
+export function usePruneAsset(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      assetId,
+      rationale,
+    }: {
+      assetId: string;
+      rationale: string;
+    }) => pruneAsset(assetId, rationale),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: registryKeys.assets(projectId) });
+      void qc.invalidateQueries({
+        queryKey: registryKeys.assetUsage(projectId),
+      });
+      void qc.invalidateQueries({
+        queryKey: registryKeys.projectLint(projectId),
       });
     },
   });

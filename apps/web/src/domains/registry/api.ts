@@ -44,6 +44,11 @@ export const registryKeys = {
 
 const scenariosResponse = z.object({ scenarios: z.array(scenarioSchema) });
 
+const pruneResponse = z.object({
+  committed: z.string(),
+  deleted: z.literal(true),
+});
+
 export async function getProjectAssets(projectId: string) {
   return (await apiGet(`/api/projects/${projectId}/assets`, assetsResponse))
     .assets;
@@ -119,6 +124,16 @@ export async function improveTriggerDescription(args: {
   maxIterations: number;
 }) {
   return apiPost("/api/trigger-eval/improve", args, improveResultSchema);
+}
+
+// 카드 C(prune): 미사용 project-local 자산 삭제. crew/unknown 은 서버 가드에서 400 차단.
+// rationale 빈 문자열 허용 — 서버가 "(미기재)" 처리. 패칭만, 무효화는 호출부 훅에서.
+export async function pruneAsset(assetId: string, rationale: string) {
+  return apiPost(
+    `/api/registry/assets/${assetId}/prune`,
+    { rationale },
+    pruneResponse,
+  );
 }
 
 export async function getVersions(assetId: string) {

@@ -1,11 +1,16 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { AssetKind, Project } from "@opspilot/shared-types";
 import { getDb } from "../../db/index.js";
 import { getProject } from "../project/repository.js";
 import { validateFrontmatter } from "../asset-lint/validate.js";
-import { getAsset, latestContent, saveScan } from "../registry/repository.js";
+import {
+  deleteAssetRow,
+  getAsset,
+  latestContent,
+  saveScan,
+} from "../registry/repository.js";
 import { scanRepo } from "../registry/scanner.js";
 
 export class AuthoringError extends Error {}
@@ -95,6 +100,95 @@ export function writeAsset(
   const scanned = scanRepo(project.clonePath);
   const saved = saveScan(project.id, scanned);
   return { committed, scanned: saved };
+}
+
+/**
+ * 카드 C(prune): 미사용 project-local 자산을 삭제.
+ * writeAsset 의 대칭 미러 — 클론 .claude 에서 파일을 제거하고 *항상* 구조화 커밋
+ * (git=버전 단일원천), 그리고 DB asset 행을 하드 삭제(재스캔은 upsert 라 안 지움).
+ * 가드: source==="project-local" 만 허용(crew/unknown 공용 오삭제 차단),
+ *       종류는 agent/skill/command(.claude) 만(파생 cursor 하네스 제외).
+ */
+export function deleteAsset(
+  assetId: string,
+  rationale: string,
+): { committed: string } {
+  const asset = getAsset(assetId);
+  if (!asset) throw new AuthoringError("자산을 찾을 수 없습니다");
+
+  // 가드 1: 출처 — crew/unknown 은 공용일 수 있어 prune 차단.
+  if (asset.source !== "project-local") {
+    throw new AuthoringError(
+      "crew/출처미확인(unknown) 자산은 삭제 차단 — 공용 오삭제 방지",
+    );
+  }
+  // 가드 2: 종류 — .claude 자산(agent/skill/command)만. 파생 하네스(cursor 등) 제외.
+  if (
+    asset.kind !== "agent" &&
+    asset.kind !== "skill" &&
+    asset.kind !== "command"
+  ) {
+    throw new AuthoringError("파생 하네스(cursor 등)는 prune 대상 아님");
+  }
+
+  const project = getProject(asset.projectId);
+  if (!project) throw new AuthoringError("프로젝트를 찾을 수 없습니다");
+
+  const rel = assetRelPath(asset.kind, asset.name);
+  // skill 은 디렉터리 단위 자산(.claude/skills/<name>/) — SKILL.md 만 지우면 동반
+  // 파일·빈 디렉터리가 클론에 남는다(클론 무오염 위배). skill 은 디렉터리 전체를 지운다.
+  const target = asset.kind === "skill" ? dirname(rel) : rel;
+  const targetAbs = join(project.clonePath, target);
+
+  // 삭제를 커밋에 반영. .claude 가 gitignore 면 `git rm` 이 실패할 수 있어
+  // (writeAsset 이 `git add -f` 를 쓰는 이유) cached 제거 + fs 삭제 + add 로 fallback.
+  // -r 로 파일·디렉터리 모두 처리. 정상 경로는 git 이 워킹트리+인덱스를 함께 다뤄
+  // 커밋 실패 시에도 `git checkout` 으로 복구 가능. fallback 의 fs 선삭제는 untracked
+  // 엣지에서만 도달하며 그 경우 복구가 어려울 수 있다(드묾).
+  try {
+    git(project.clonePath, ["rm", "-rf", "--", target]);
+  } catch {
+    try {
+      git(project.clonePath, ["rm", "-rf", "--cached", "--", target]);
+    } catch {
+      // index 에 없을 수도 있음 — 무시하고 fs/스테이지로 진행.
+    }
+    rmSync(targetAbs, { recursive: true, force: true });
+    git(project.clonePath, ["add", "-A", "--", target]);
+  }
+
+  const message =
+    `ops(${asset.kind}/${asset.name}): prune 미사용 자산\n\n` +
+    `why: ${rationale.trim() === "" ? "(미기재)" : rationale}\n\n` +
+    `[opspilot pruned]`;
+  let committed: string;
+  try {
+    git(project.clonePath, [
+      "-c",
+      "user.email=opspilot@local",
+      "-c",
+      "user.name=OpsPilot",
+      "commit",
+      "-m",
+      message,
+      "--",
+      target,
+    ]);
+    committed = git(project.clonePath, ["rev-parse", "HEAD"]);
+  } catch (e) {
+    throw new AuthoringError(
+      `커밋 실패(변경 없음?): ${(e as Error).message.slice(0, 300)}`,
+    );
+  }
+
+  // DB 행 하드 삭제 — 재스캔은 upsert 전용이라 사라진 자산을 안 지운다.
+  // asset_version → run → score/trace_event/run_diff_file/trace_analysis 와 scenario 가
+  // ON DELETE CASCADE 로 함께 영구 삭제된다(실행·평가 이력 포함 — git 으로 복구 불가).
+  // 단 asset_work_metric 은 asset FK 가 아니라 asset_key(kind:name) 기반이라 함께 지워지지
+  // 않는다(동일 kind:name 재생성 시 옛 지표가 다시 매칭될 수 있음).
+  deleteAssetRow(assetId);
+
+  return { committed };
 }
 
 /**

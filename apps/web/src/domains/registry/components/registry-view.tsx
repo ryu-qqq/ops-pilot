@@ -98,6 +98,9 @@ export function RegistryView({
               onSelectVersion={setVersionId}
               onRunCreated={onRunCreated}
               onBenchmarkStarted={onBenchmarkStarted}
+              onDeleted={() => {
+                handleSelectAsset(null);
+              }}
             />
           ) : (
             <Card className="flex h-40 items-center justify-center p-4 text-center text-sm text-muted-foreground">
