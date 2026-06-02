@@ -4,7 +4,8 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import matter from "gray-matter";
-import type { AssetKind, AssetScope } from "@opspilot/shared-types";
+import type { AssetKind, AssetScope, AssetSource } from "@opspilot/shared-types";
+import { readAgentCrewLock } from "../agent-crew/sync.js";
 
 // 스캔 결과(아직 DB 행 아님). git 커밋 = 버전 (CONVENTIONS / DATA_MODEL).
 export interface ScannedVersion {
@@ -19,6 +20,7 @@ export interface ScannedAsset {
   kind: AssetKind;
   name: string;
   scope: AssetScope;
+  source: AssetSource; // 카드 B: crew / project-local / unknown (lock manifest 멤버십)
   sourcePath: string; // 레포 기준 상대 경로
   description: string | null;
   versions: ScannedVersion[];
@@ -117,7 +119,27 @@ function basenameNoExt(filePath: string, ext: string): string {
   return base.replace(new RegExp(`${ext.replace(".", "\\.")}$`), "");
 }
 
-function scanClaudeAssets(root: string, scope: AssetScope, currentRef: string | null): ScannedAsset[] {
+/**
+ * 카드 B: 자산 출처 판정기. agent-crew.lock 의 syncedFiles manifest 와 대조한다.
+ * - lock 없음(agent-crew 미사용) → 전부 project-local
+ * - lock 있으나 manifest 미기록(legacy sync) → unknown (추측 금지, re-sync 로 채워짐)
+ * - manifest 있음 → sourcePath 멤버십으로 crew / project-local
+ */
+function buildSourceTagger(root: string): (sourcePath: string) => AssetSource {
+  const lock = readAgentCrewLock(root);
+  if (!lock) return () => "project-local";
+  const manifest = lock.syncedFiles;
+  if (!manifest || manifest.length === 0) return () => "unknown";
+  const set = new Set(manifest);
+  return (sourcePath) => (set.has(sourcePath) ? "crew" : "project-local");
+}
+
+function scanClaudeAssets(
+  root: string,
+  scope: AssetScope,
+  currentRef: string | null,
+  tagSource: (sourcePath: string) => AssetSource,
+): ScannedAsset[] {
   const claudeDir = join(root, ".claude");
   if (!existsSync(claudeDir)) {
     throw new Error(`.claude 디렉터리가 없습니다: ${claudeDir}`);
@@ -131,6 +153,7 @@ function scanClaudeAssets(root: string, scope: AssetScope, currentRef: string | 
       kind,
       name: meta.name,
       scope,
+      source: tagSource(relPath),
       sourcePath: relPath,
       description: meta.description,
       versions: versionsOf(root, relPath, currentRef),
@@ -155,7 +178,12 @@ function scanClaudeAssets(root: string, scope: AssetScope, currentRef: string | 
 }
 
 /** `.cursor/` derived harness (BRIDGE-04). 없으면 []. */
-function scanCursorAssets(root: string, scope: AssetScope, currentRef: string | null): ScannedAsset[] {
+function scanCursorAssets(
+  root: string,
+  scope: AssetScope,
+  currentRef: string | null,
+  tagSource: (sourcePath: string) => AssetSource,
+): ScannedAsset[] {
   const cursorDir = join(root, ".cursor");
   if (!existsSync(cursorDir)) return [];
 
@@ -167,6 +195,7 @@ function scanCursorAssets(root: string, scope: AssetScope, currentRef: string | 
       kind,
       name: meta.name,
       scope,
+      source: tagSource(relPath),
       sourcePath: relPath,
       description: meta.description,
       versions: versionsOf(root, relPath, currentRef),
@@ -196,6 +225,10 @@ export function scanRepo(repoPath: string): ScannedAsset[] {
   const claudeDir = join(root, ".claude");
   const scope: AssetScope = claudeDir === join(homedir(), ".claude") ? "user" : "project";
   const currentRef = currentGitRef(root);
+  const tagSource = buildSourceTagger(root);
 
-  return [...scanClaudeAssets(root, scope, currentRef), ...scanCursorAssets(root, scope, currentRef)];
+  return [
+    ...scanClaudeAssets(root, scope, currentRef, tagSource),
+    ...scanCursorAssets(root, scope, currentRef, tagSource),
+  ];
 }

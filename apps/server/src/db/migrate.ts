@@ -10,9 +10,23 @@ export function migrate(dbPath?: string): void {
   reconcileScoreCheck(db);
   reconcileRunRetro(db);
   reconcileAssetKind(db);
+  reconcileAssetSource(db);
   reconcileImprovementProposalTargetKind(db);
   reconcileIngestBundleStatus(db);
   reconcileProjectWorkspaceMode(db);
+}
+
+// 카드 B: asset.source 컬럼 추가. 기존 row 는 DEFAULT 'unknown' 로 채워진다(legacy —
+// 다음 re-sync 가 manifest 를 쓰면 재스캔 시 crew/project-local 로 갱신). 멱등(있으면 skip).
+// reconcileAssetKind(테이블 재구성) 뒤에 호출돼야 한다 — 재구성 copy 목록엔 source 가 없으므로.
+function reconcileAssetSource(db: ReturnType<typeof getDb>): void {
+  const cols = db.prepare("SELECT name FROM pragma_table_info('asset')").all() as { name: string }[];
+  if (!cols.some((c) => c.name === "source")) {
+    db.exec(
+      `ALTER TABLE asset ADD COLUMN source TEXT NOT NULL DEFAULT 'unknown'
+         CHECK (source IN ('crew', 'project-local', 'unknown'))`,
+    );
+  }
 }
 
 // REG-01: project.workspace_mode · remote_verified. 기존 row → managed / 0.

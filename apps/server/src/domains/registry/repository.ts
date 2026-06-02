@@ -30,12 +30,16 @@ export function saveScan(
     kind: string;
     name: string;
     scope: string;
+    source: string;
     sourcePath: string;
     createdAt: string;
   }>(
-    `INSERT INTO asset (id, project_id, kind, name, scope, source_path, created_at)
-     VALUES (@id, @projectId, @kind, @name, @scope, @sourcePath, @createdAt)
-     ON CONFLICT(project_id, kind, name, scope) DO UPDATE SET source_path = excluded.source_path
+    // 카드 B: 재스캔 시 source 도 갱신(re-sync 로 manifest 가 채워지면 unknown→crew/project-local).
+    `INSERT INTO asset (id, project_id, kind, name, scope, source, source_path, created_at)
+     VALUES (@id, @projectId, @kind, @name, @scope, @source, @sourcePath, @createdAt)
+     ON CONFLICT(project_id, kind, name, scope) DO UPDATE SET
+       source_path = excluded.source_path,
+       source = excluded.source
      RETURNING id`,
   );
 
@@ -67,6 +71,7 @@ export function saveScan(
         kind: a.kind,
         name: a.name,
         scope: a.scope,
+        source: a.source,
         sourcePath: a.sourcePath,
         createdAt: nowIso(),
       }) as { id: string };
@@ -95,7 +100,7 @@ export function saveScan(
 export function listAssets(projectId: string): Asset[] {
   return getDb()
     .prepare(
-      `SELECT id, project_id AS projectId, kind, name, scope,
+      `SELECT id, project_id AS projectId, kind, name, scope, source,
               source_path AS sourcePath, created_at AS createdAt
        FROM asset WHERE project_id = ? ORDER BY kind, name`,
     )
@@ -111,7 +116,7 @@ export function assetExists(id: string): boolean {
 export function getAsset(id: string): Asset | undefined {
   return getDb()
     .prepare(
-      `SELECT id, project_id AS projectId, kind, name, scope,
+      `SELECT id, project_id AS projectId, kind, name, scope, source,
               source_path AS sourcePath, created_at AS createdAt
        FROM asset WHERE id = ?`,
     )

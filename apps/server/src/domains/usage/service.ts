@@ -1,4 +1,4 @@
-import type { Project } from "@opspilot/shared-types";
+import type { AssetSource, Project } from "@opspilot/shared-types";
 import { listAssets } from "../registry/repository.js";
 import {
   scanTranscriptUsage,
@@ -34,6 +34,8 @@ function statFor(
 export interface AssetUsage {
   kind: string;
   name: string;
+  /** 카드 B: 자산 출처 — crew(공통) / project-local(전용) / unknown(legacy lock). */
+  source: AssetSource;
   /** transcript 로 사용량 추적이 가능한 종류인가 (agent·skill). */
   supported: boolean;
   /** 이 프로젝트(clonePath) 안에서의 호출. */
@@ -89,6 +91,7 @@ export function assetUsageForProject(project: Project): ProjectUsageReport {
     return {
       kind: a.kind,
       name: a.name,
+      source: a.source,
       supported,
       inProjectCount: inProject.count,
       inProjectLastUsed: inProject.lastUsed,
