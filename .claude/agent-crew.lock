@@ -8,3 +8,43 @@ includes:
   - agents/
   - skills/
   - references/
+syncedFiles:
+  - .claude/agents/adr-author.md
+  - .claude/agents/agent-evaluator.md
+  - .claude/agents/decision-researcher.md
+  - .claude/agents/harness-author.md
+  - .claude/agents/harness-trigger-designer.md
+  - .claude/agents/jira-manager.md
+  - .claude/agents/journal-recorder.md
+  - .claude/agents/notion-doc-writer.md
+  - .claude/agents/notion-manager.md
+  - .claude/agents/proposal-applier.md
+  - .claude/agents/proposal-reviewer.md
+  - .claude/agents/test-strategist.md
+  - .claude/agents/wiki-curator.md
+  - .claude/agents/wiki-lookup.md
+  - .claude/agents/work-evaluator.md
+  - .claude/references/conventions/asset-quality-rubric.md
+  - .claude/references/conventions/commit-format.md
+  - .claude/references/conventions/must-reference/README.md
+  - .claude/references/conventions/must-reference/claude-md-snippet.md
+  - .claude/references/conventions/must-reference/cursor-always-rule.mdc
+  - .claude/references/conventions/pr-title.md
+  - .claude/references/infra-aws/atlantis-flow.md
+  - .claude/references/infra-aws/governance-gates.md
+  - .claude/references/infra-aws/module-layout.md
+  - .claude/references/infra-aws/repo-layout.md
+  - .claude/references/infra-aws/tier-policy.md
+  - .claude/references/java-spring/preprocessor/_fallback.md
+  - .claude/references/java-spring/preprocessor/api-endpoints.md
+  - .claude/references/java-spring/preprocessor/domain-classes.md
+  - .claude/references/java-spring/resilience-patterns.md
+  - .claude/references/java-spring/test-pyramid.md
+  - .claude/references/notion/engineering-os.md
+  - .claude/skills/adr/SKILL.md
+  - .claude/skills/context-preprocessor/SKILL.md
+  - .claude/skills/engineering-os/SKILL.md
+  - .claude/skills/feedback-loop/SKILL.md
+  - .claude/skills/harness-creator/SKILL.md
+  - .claude/skills/journal/SKILL.md
+  - .claude/skills/test-plan/SKILL.md
