@@ -6,7 +6,6 @@ import { cn } from "../../../lib/utils";
 import {
   computeAssetStatus,
   computeRelation,
-  isOrphanAgent,
   refKey,
   type GraphItem,
   type LintRow,
@@ -191,7 +190,6 @@ export function AssetToolkit({
       if (status === "problems")
         return computeAssetStatus(asset, u, l, g).tone === "red";
       if (status === "unused") return u?.neverUsed ?? false;
-      if (status === "orphan") return isOrphanAgent(asset, g);
       return true;
     },
     [source, status, kind, usageMap, lintMap, graphMap],
@@ -218,16 +216,14 @@ export function AssetToolkit({
   const statusCounts = useMemo(() => {
     let problems = 0;
     let unused = 0;
-    let orphan = 0;
     for (const a of assets ?? []) {
       const u = usageMap.get(refKey(a.kind, a.name));
       const l = lintMap.get(a.id);
       const g = graphMap.get(refKey(a.kind, a.name));
       if (computeAssetStatus(a, u, l, g).tone === "red") problems += 1;
       if (u?.neverUsed ?? false) unused += 1;
-      if (isOrphanAgent(a, g)) orphan += 1;
     }
-    return { total: assets?.length ?? 0, problems, unused, orphan };
+    return { total: assets?.length ?? 0, problems, unused };
   }, [assets, usageMap, lintMap, graphMap]);
 
   // 종류 카운트(skill/agent/cmd) — cmd = command + cursor_*.
@@ -314,9 +310,6 @@ export function AssetToolkit({
           </Chip>
           <Chip active={status === "unused"} onClick={() => setStatus("unused")}>
             미사용 {statusCounts.unused}
-          </Chip>
-          <Chip active={status === "orphan"} onClick={() => setStatus("orphan")}>
-            고아 {statusCounts.orphan}
           </Chip>
         </Facet>
 
