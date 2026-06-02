@@ -1,7 +1,6 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { z } from "zod";
 import { ClaudeAssistError, extractJsonObject, runClaudeOnce } from "./claude.js";
+import { crewAgentPath, loadCrewAgentBody } from "./crew-asset.js";
 import { getAsset, latestContent } from "../registry/repository.js";
 
 // OPSP-27 B: 시나리오 어시스트.
@@ -43,34 +42,10 @@ const SYSTEM = `당신은 Claude Code 에이전트/스킬을 평가할 시나리
 - 자산 본문의 description / 본문에서 의도를 정확히 읽고, 추측·과장 금지.
 - 자산이 위험한 도구(예: 파일 삭제)를 다룰 경우 안전한 read-only 시나리오로.`;
 
-// sync된 agent-crew 자산 디렉터리. 기본은 ops-pilot 레포 루트의 `.claude/agents`,
-// OPS_CREW_AGENTS_DIR 로 변경(테스트·격리 검증용). domains/project·run의 env-override 패턴과 동일.
-// repo root = 이 소스 위치(apps/server/{src|dist}/domains/assist)에서 5단계 상위.
-// tsx(src)·build(dist) 둘 다 같은 깊이라 import.meta.dirname 기준이 cwd 의존 없이 안전하다.
-function crewAgentsDir(): string {
-  return process.env.OPS_CREW_AGENTS_DIR ?? join(import.meta.dirname, "../../../../..", ".claude/agents");
-}
-
-// scenario-designer 자산 본문에서 frontmatter(`---...---`)를 제거하고 본문만 반환.
-// 파일이 없거나 읽기 실패면 null → 호출부가 baked fallback(4B)을 탄다.
+// crewAgentsDir / stripFrontmatter / 자산 본문 로드는 trigger-eval 과 공유하는 공통
+// 헬퍼(crew-asset.ts)로 추출했다. 여기선 scenario-designer 자산만 로드하면 된다.
 function loadScenarioDesignerBody(): string | null {
-  const path = join(crewAgentsDir(), "scenario-designer.md");
-  let raw: string;
-  try {
-    raw = readFileSync(path, "utf8");
-  } catch {
-    return null; // 미sync 또는 읽기 실패 → fallback 정상 경로
-  }
-  return stripFrontmatter(raw).trim() || null;
-}
-
-// 맨 앞 `---\n...\n---` 블록만 제거. frontmatter 없으면 원문 그대로.
-function stripFrontmatter(text: string): string {
-  if (!text.startsWith("---")) return text;
-  const end = text.indexOf("\n---", 3);
-  if (end < 0) return text;
-  const after = text.indexOf("\n", end + 1);
-  return after < 0 ? "" : text.slice(after + 1);
+  return loadCrewAgentBody("scenario-designer");
 }
 
 // 입력부 조립 — 자산 본문(1B 주입분) 뒤에 붙는다. 자산 본문이 "입력으로 kind/name/content/
@@ -161,7 +136,7 @@ export async function suggestScenarioWithMeta(input: {
       return { suggestion: parseSuggestion(raw), meta: { source: "asset" } };
     }
   } else {
-    fallbackReason = `scenario-designer 자산 미발견(미sync): ${join(crewAgentsDir(), "scenario-designer.md")}`;
+    fallbackReason = `scenario-designer 자산 미발견(미sync): ${crewAgentPath("scenario-designer")}`;
   }
 
   // 4B: baked SYSTEM fallback.

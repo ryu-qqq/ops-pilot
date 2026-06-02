@@ -9,7 +9,7 @@ import {
   TriggerEvalError,
   evaluateTrigger,
   improveDescriptionLoop,
-  suggestTriggerQueries,
+  suggestTriggerQueriesWithMeta,
 } from "../../domains/trigger-eval/service.js";
 
 function labeled(positives: string[], negatives: string[]) {
@@ -41,7 +41,20 @@ const triggerEval: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (req, reply) => {
       try {
-        return await suggestTriggerQueries(req.body.assetId, req.body.n);
+        // ADR 0002 1B·4B: 자산(harness-trigger-designer) 본문 주입 우선, 실패 시 baked fallback.
+        const { queries, meta } = await suggestTriggerQueriesWithMeta(
+          req.body.assetId,
+          req.body.n,
+        );
+        // 도메인은 로깅하지 않고 meta 만 반환 — route 에서 pino 구조화 로깅(scenario 패턴).
+        if (meta.source === "baked") {
+          fastify.log.warn(
+            { assetId: req.body.assetId, fallbackReason: meta.fallbackReason },
+            "trigger-eval suggest baked fallback",
+          );
+        }
+        // 응답 계약(2C) 불변: meta 는 싣지 않고 queries 만 반환.
+        return queries;
       } catch (e) {
         if (e instanceof TriggerEvalError) {
           return reply
