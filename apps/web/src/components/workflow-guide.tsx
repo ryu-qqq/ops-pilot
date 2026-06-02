@@ -7,10 +7,14 @@ const STORAGE_KEY = "opspilot-workflow-guide";
 
 type GuideTab = "overview" | "feedback" | "runs" | "registry";
 
-const GUIDES: Record<
-  GuideTab,
-  { headline: string; steps: { label: string; detail: string }[]; footnote?: string }
-> = {
+export interface GuideContent {
+  headline: string;
+  steps: { label: string; detail: string }[];
+  footnote?: string;
+}
+
+// 개요 탭 배너는 헤더 ⓘ Dialog 로 이전 — 안내 출처를 한 곳(GUIDES)에 유지.
+export const GUIDES: Record<GuideTab, GuideContent> = {
   overview: {
     headline: "내 자산이 제대로·일관되게 쓰이나 — 한눈에",
     steps: [

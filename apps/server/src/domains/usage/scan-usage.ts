@@ -14,6 +14,8 @@ export interface UsageStat {
   lastUsed: string | null;
   /** cwd(작업 디렉토리) 절대경로별 호출 횟수·마지막 사용 — 프로젝트별 분해용. */
   byCwd: Record<string, { count: number; lastUsed: string | null }>;
+  /** 일별(YYYY-MM-DD, ts 앞 10자) 호출 횟수 — 스파크라인·활동 잔디용. */
+  byDay: Record<string, number>;
 }
 
 export interface UsageScanResult {
@@ -67,10 +69,14 @@ function bump(stat: UsageStat, ts: string, cwd: string): void {
     c.count += 1;
     if (ts && (!c.lastUsed || ts > c.lastUsed)) c.lastUsed = ts;
   }
+  if (ts) {
+    const day = ts.slice(0, 10); // YYYY-MM-DD
+    stat.byDay[day] = (stat.byDay[day] ?? 0) + 1;
+  }
 }
 
 function emptyStat(): UsageStat {
-  return { count: 0, firstUsed: null, lastUsed: null, byCwd: {} };
+  return { count: 0, firstUsed: null, lastUsed: null, byCwd: {}, byDay: {} };
 }
 
 export function scanTranscriptUsage(opts: ScanOptions = {}): UsageScanResult {

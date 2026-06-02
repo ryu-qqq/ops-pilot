@@ -11,6 +11,7 @@ import { RegistryView } from "./domains/registry/components/registry-view";
 import { RunsView, type RunViewMode } from "./domains/run/components/runs-view";
 import { SettingsDialog } from "./domains/settings/components/settings-dialog";
 import { WorkflowGuide } from "./components/workflow-guide";
+import { OverviewInfoDialog } from "./components/overview-info-dialog";
 import { ServerHealthIndicator } from "./components/server-health-indicator";
 
 type Tab = "overview" | "feedback" | "runs" | "registry";
@@ -64,6 +65,7 @@ export function App() {
         </div>
         <div className="flex items-center gap-1">
           <ServerHealthIndicator />
+          {tab === "overview" && <OverviewInfoDialog />}
           <SettingsDialog />
           <Button
             variant="ghost"
@@ -83,7 +85,7 @@ export function App() {
           <TabsTrigger value="runs">실행 / 트레이스</TabsTrigger>
           <TabsTrigger value="registry">프로젝트</TabsTrigger>
         </TabsList>
-        <WorkflowGuide tab={tab} />
+        {tab !== "overview" && <WorkflowGuide tab={tab} />}
         <TabsContent value="overview" forceMount className="mt-0 data-[state=inactive]:hidden">
           <OverviewView
             projectId={projectId}
