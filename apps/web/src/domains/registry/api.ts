@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  assetGraphSchema,
   assetLintResultSchema,
   assetSchema,
   assetVersionSchema,
@@ -36,6 +37,8 @@ export const registryKeys = {
     [...registryKeys.all, "usage-global", days] as const,
   workMetrics: (projectId: string) =>
     [...registryKeys.all, "work-metrics", projectId] as const,
+  assetGraph: (projectId: string) =>
+    [...registryKeys.all, "asset-graph", projectId] as const,
   versions: (assetId: string) =>
     [...registryKeys.all, "versions", assetId] as const,
   scenarios: (assetId: string) =>
@@ -91,6 +94,14 @@ export async function getProjectWorkMetrics(projectId: string) {
 // 수동 전수 스캔 트리거 (멱등 upsert). 패칭만 — 무효화는 호출부 훅에서.
 export async function scanWorkMetrics() {
   return apiPost("/api/usage/work-metrics/scan", {}, workMetricScanResultSchema);
+}
+
+// 자산 관계(참조) 그래프 — 트리·고아·다대다·상태 계산용. 휴리스틱 "참조"(본문 언급).
+export async function getAssetGraph(projectId: string) {
+  return apiGet(
+    `/api/registry/asset-graph?projectId=${projectId}`,
+    assetGraphSchema,
+  );
 }
 
 // T4: 트리거 정확도 평가 (description 이 켜져야 할 때 켜지나). 둘 다 로컬 claude spawn.

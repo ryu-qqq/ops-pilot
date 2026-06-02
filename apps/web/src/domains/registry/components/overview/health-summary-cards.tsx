@@ -19,8 +19,10 @@ export function HealthSummaryCards({ projectId }: Props) {
   const { data: usage } = useProjectAssetUsage(projectId);
   const { data: lint } = useProjectAssetLint(projectId);
 
+  // 개요는 관계 그래프를 패치하지 않는다(가벼움 유지) → graph undefined.
+  // 이때 problems = 형식 에러만(고아+미사용 dead 제외) = 기존 formatErrors 와 동일 의미.
   const summary = useMemo(
-    () => computeAssetHealthSummary(assets, usage, lint),
+    () => computeAssetHealthSummary(assets, usage, lint, undefined),
     [assets, usage, lint],
   );
 
@@ -61,7 +63,7 @@ export function HealthSummaryCards({ projectId }: Props) {
       />
       <StatCard
         label="형식 오류"
-        value={summary.formatErrors}
+        value={summary.problems}
         tone="danger"
         title="frontmatter 형식 오류 — 자동 발화가 안 됨"
       />

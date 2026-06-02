@@ -1,6 +1,7 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import {
+  assetGraphSchema,
   assetLintResultSchema,
   assetVersionSchema,
   scenarioSchema,
@@ -12,6 +13,8 @@ import {
   latestContent,
   listVersions,
 } from "../../domains/registry/repository.js";
+import { buildAssetGraph } from "../../domains/registry/graph.js";
+import { getProject } from "../../domains/project/repository.js";
 import { listScenariosByAsset } from "../../domains/scenario/repository.js";
 import {
   AuthoringError,
@@ -155,6 +158,27 @@ const registry: FastifyPluginAsyncZod = async (fastify) => {
         }
         throw e;
       }
+    },
+  );
+
+  // 자산 관계(참조) 그래프 — 프론트가 트리·고아·다대다·상태(🟢/🟡/🔴) 계산에 사용.
+  // 휴리스틱 매칭(본문 단어경계 정확일치) — 한계는 domains/registry/graph.ts 주석 참조.
+  // 상태 롤업은 백엔드가 하지 않는다(프론트가 lint+usage+graph 로 무상 계산).
+  fastify.get(
+    "/registry/asset-graph",
+    {
+      schema: {
+        querystring: z.object({ projectId: z.string().uuid() }),
+        response: { 200: assetGraphSchema, 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      if (!getProject(req.query.projectId)) {
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "project not found" });
+      }
+      return buildAssetGraph(req.query.projectId);
     },
   );
 
