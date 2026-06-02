@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { RotateCw } from "lucide-react";
 import type {
   AssetKind,
   AssetSource,
@@ -7,7 +6,6 @@ import type {
   ProjectWorkMetricRow,
 } from "@opspilot/shared-types";
 import { Badge } from "../../../components/ui/badge";
-import { Button } from "../../../components/ui/button";
 import { EmptyState, ErrorNotice, InfoMark, Loading } from "../../../lib/ui";
 import { cn } from "../../../lib/utils";
 import { computeAssetHealthSummary } from "../asset-health-summary";
@@ -16,7 +14,6 @@ import {
   useProjectAssetLint,
   useProjectAssetUsage,
   useProjectWorkMetrics,
-  useScanWorkMetrics,
 } from "../use-registry";
 
 interface Props {
@@ -172,7 +169,6 @@ export function AssetHealthDashboard({
   const { data: lint } = useProjectAssetLint(projectId);
   // 작업 신호(참고용). report 에러는 테이블을 막지 않고 컬럼만 무음 — 처리.
   const { data: workReport } = useProjectWorkMetrics(projectId);
-  const scanWork = useScanWorkMetrics();
   const [status, setStatus] = useState<StatusFilter>("all");
   const [kind, setKind] = useState<KindFilter>("all");
   const [source, setSource] = useState<SourceFilter>("all");
@@ -280,28 +276,12 @@ export function AssetHealthDashboard({
 
   return (
     <div className="space-y-3">
-      {/* 작업 신호 고지 + 스캔 (응집: 정정왕복 컬럼 출처를 한 곳에서 안내) */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">
-          {hasMetrics
-            ? "작업 신호는 참고용입니다 — 품질 점수가 아닙니다."
-            : "아직 작업 신호가 없어요 — 스캔하기로 한 번 훑어보세요."}
-        </p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={scanWork.isPending}
-          onClick={() => {
-            scanWork.mutate({ projectId });
-          }}
-        >
-          <RotateCw
-            className={cn("h-3.5 w-3.5", scanWork.isPending && "animate-spin")}
-          />
-          {scanWork.isPending ? "스캔 중…" : "작업 신호 스캔"}
-        </Button>
-      </div>
+      {/* 작업 신호 고지 — 스캔 버튼은 상단 툴바(ProjectBar)로 이전. 컬럼 출처만 안내. */}
+      <p className="text-xs text-muted-foreground">
+        {hasMetrics
+          ? "작업 신호는 참고용입니다 — 품질 점수가 아닙니다."
+          : "아직 작업 신호가 없어요 — 상단 ‘작업 신호 스캔’으로 한 번 훑어보세요."}
+      </p>
 
       {/* 요약 배너 */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border bg-muted/30 px-3 py-2 text-xs">
