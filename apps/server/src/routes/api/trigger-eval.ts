@@ -8,7 +8,7 @@ import { z } from "zod";
 import {
   TriggerEvalError,
   evaluateTrigger,
-  improveDescriptionLoop,
+  improveDescriptionLoopWithMeta,
   suggestTriggerQueriesWithMeta,
 } from "../../domains/trigger-eval/service.js";
 
@@ -51,6 +51,13 @@ const triggerEval: FastifyPluginAsyncZod = async (fastify) => {
           fastify.log.warn(
             { assetId: req.body.assetId, fallbackReason: meta.fallbackReason },
             "trigger-eval suggest baked fallback",
+          );
+        } else if (meta.formatDrift) {
+          // ①b: 자산 경로인데 baked 호환 객체 형식으로 파싱됨 — 동작은 맞지만 자산이
+          // 문서화된 `[{query, should_trigger}]` 형식과 드리프트. silent 통과 방지로 관측.
+          fastify.log.warn(
+            { assetId: req.body.assetId },
+            "trigger-eval suggest asset format drift (object fallback, expected [{query, should_trigger}] array)",
           );
         }
         // 응답 계약(2C) 불변: meta 는 싣지 않고 queries 만 반환.
@@ -122,7 +129,8 @@ const triggerEval: FastifyPluginAsyncZod = async (fastify) => {
     },
     async (req, reply) => {
       try {
-        return await improveDescriptionLoop(
+        // ADR 0002 1B·4B: 개선 루프 스텝별 자산/baked 경로를 집계해 관측(①a).
+        const { result, sourceCounts } = await improveDescriptionLoopWithMeta(
           req.body.assetId,
           labeled(req.body.positives, req.body.negatives),
           {
@@ -130,6 +138,22 @@ const triggerEval: FastifyPluginAsyncZod = async (fastify) => {
             maxIterations: req.body.maxIterations,
           },
         );
+        // 도메인은 로깅 안 함 — route 가 meta(sourceCounts) 로 구조화 로깅(/suggest 대칭).
+        // baked 가 1회 이상이면 졸업조건(무fallback 안정 산출) 미충족 신호 → warn.
+        const logBindings = { assetId: req.body.assetId, sourceCounts };
+        if (sourceCounts.baked > 0) {
+          fastify.log.warn(
+            logBindings,
+            "trigger-eval improve loop used baked fallback in some steps",
+          );
+        } else if (sourceCounts.asset > 0) {
+          fastify.log.info(
+            logBindings,
+            "trigger-eval improve loop fully on asset path",
+          );
+        }
+        // 응답 계약 불변(ImproveResult): sourceCounts 는 싣지 않고 result 만 반환.
+        return result;
       } catch (e) {
         if (e instanceof TriggerEvalError) {
           return reply
