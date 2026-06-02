@@ -31,9 +31,10 @@
 - **왜**: 사용자가 가장 원한 것이자 가장 큰 갭. worktree 재실행(LLM 확률성·토큰 낭비)을 사용자가 거부.
 - **결과**: ADR-0001. 신호=발화+정정왕복(**참고신호, 품질점수 아님** — 발화별 0/1, corr≤발화수, 자동주입 user 배제), 단위=세션(JSONL), 트리거=주기 전수스캔, worktree eval 기본에서 내림. `asset_work_metric` 테이블·`GET/POST /usage/work-metrics`·자산 헬스 "정정왕복〔참고〕" 컬럼(오독방지 라벨링).
 
-### 카드 B — 공통 crew 자산 vs 프로젝트 전용 출처 구분 ⬜ 미착수 (P1)
+### 카드 B — 공통 crew 자산 vs 프로젝트 전용 출처 구분 ✅ 완료 (`d7bb9df` + merge `e24db20`)
 
 - **무엇을**: asset에 `source`(crew / project-local) 메타 부여. **agent-crew.lock의 sync 범위와 대조해 스캔 시 태깅**. UI 배지로 분리 표시 + 리더보드/헬스에서 필터.
+- **결과**: 판정 원천 = sync가 복사 파일 목록을 `agent-crew.lock`의 `syncedFiles` manifest로 기록 → scanner가 멤버십 대조로 태깅. legacy lock(manifest 없음)=`unknown`(추측 금지, re-sync로 채움). `AssetSource`(crew/project-local/unknown) enum·`asset.source` 컬럼·멱등 마이그레이션·헬스 대시보드 출처 배지+필터(unknown 숨김 → 과도기 노이즈 0). 검증: scanner 시뮬레이션 22 crew/12 전용 정확 분류·Playwright 실연동. **남은 액션: ops-pilot 자체 re-sync 1회**(실DB는 그 전까지 전부 unknown). 리더보드는 범위 제외(이름 집계라 자산 FK 없음 — 헬스 대시보드만).
 - **왜**: 차별점 직결(agent-crew 소비 + 로컬 사용량 결합). "이 미사용 자산이 *내 것*이라 지워도 되나, *공용*이라 다른 프로젝트가 쓰나"를 구분해야 prune 판단이 안전. 지금은 UsageCell이 "다른 곳만 쓰임 → 공용일 수 있음"을 **추정 툴팁으로만** 표기.
 - **성공기준**: 각 자산이 crew/local 배지로 구분되고, "전체 0회지만 다른 프로젝트에서 쓰임"과 "정말 아무도 안 씀"이 **데이터로** 갈린다.
 - **범위**: 포함 = asset `source` 컬럼·스캐너 태깅·UI 배지·필터. 제외 = crew 자산의 타 머신 원격 사용량(로컬 transcript 한정).
