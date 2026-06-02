@@ -1,15 +1,18 @@
 import { useCallback, useMemo, useState } from "react";
+import { Plus } from "lucide-react";
 import type { Asset, AssetUsage } from "@opspilot/shared-types";
+import { Button } from "../../../components/ui/button";
 import { EmptyState, ErrorNotice, InfoMark, Loading } from "../../../lib/ui";
 import { usePersistedState } from "../../../lib/use-persisted-state";
 import { cn } from "../../../lib/utils";
-import { computeAssetHealthSummary } from "../asset-health-summary";
 import {
   computeAssetStatus,
+  computeRelation,
   isOrphanAgent,
   refKey,
   type GraphItem,
   type LintRow,
+  type RelationDescriptor,
 } from "../graph";
 import {
   useAssetGraph,
@@ -18,8 +21,8 @@ import {
   useProjectAssetUsage,
 } from "../use-registry";
 import {
-  Dot,
-  SUMMARY_DOT,
+  kindBucket,
+  type KindFilter,
   type RowMeta,
   type SourceFilter,
   type StatusFilter,
@@ -31,6 +34,10 @@ interface Props {
   projectId: string | null;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  // 분할 모드(자산 선택 시 좌측 좁음) — 관계 컬럼 숨겨 이름 폭 확보.
+  compact?: boolean;
+  // 헤더 우측 '+ 새 자산' 버튼 → 모달 오픈(저작 폼 소유는 부모).
+  onNewAsset: () => void;
 }
 
 // 목록(flat) = 기본 · 관계(tree) = 토글. sessionStorage 로 기억.
@@ -42,6 +49,7 @@ export interface ToolkitContext {
   selectedId: string | null;
   select: (id: string) => void;
   metaFor: (asset: Asset) => RowMeta;
+  relationFor: (asset: Asset) => RelationDescriptor;
   passesFilter: (asset: Asset) => boolean;
   graphMap: Map<string, GraphItem>;
   assetByKey: Map<string, Asset>;
@@ -49,6 +57,8 @@ export interface ToolkitContext {
   highlightKey: string | null;
   onRowHover: (key: string | null) => void;
   hlClass: (key: string) => string;
+  // compact(분할 모드)면 관계 컬럼 숨김 — 양 뷰 동일하게 적용.
+  showRelation: boolean;
 }
 
 // 모듈 최상위 — 렌더 본문 안에서 정의하면 매 렌더마다 새 컴포넌트 타입이 돼 remount된다.
@@ -77,7 +87,32 @@ function Chip({
   );
 }
 
-export function AssetToolkit({ projectId, selectedId, onSelect }: Props) {
+// 필터 facet 한 덩어리 — 작은 라벨 + 칩 그룹. shrink-0 으로 내부 칩이 절대 쪼개지지
+// 않고, 공간 부족 시 facet 통째로 다음 줄로 내려간다.
+function Facet({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex shrink-0 items-center gap-1.5">
+      <span className="text-[10px] text-muted-foreground">{label}</span>
+      <div className="inline-flex gap-0.5 rounded-md border p-0.5">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function AssetToolkit({
+  projectId,
+  selectedId,
+  onSelect,
+  compact = false,
+  onNewAsset,
+}: Props) {
   const { data: assets, isPending, isError, error } = useAssets(projectId);
   const { data: usage } = useProjectAssetUsage(projectId);
   const { data: lint } = useProjectAssetLint(projectId);
@@ -89,6 +124,10 @@ export function AssetToolkit({ projectId, selectedId, onSelect }: Props) {
   );
   const [status, setStatus] = useState<StatusFilter>("all");
   const [source, setSource] = useState<SourceFilter>("all");
+  const [kind, setKind] = usePersistedState<KindFilter>(
+    "opspilot.toolkit.kind",
+    "all",
+  );
   // hover/선택된 (kind:name) — 같은 자산 모든 등장 위치 하이라이트.
   const [highlightKey, setHighlightKey] = useState<string | null>(null);
 
@@ -137,22 +176,6 @@ export function AssetToolkit({ projectId, selectedId, onSelect }: Props) {
     [usageMap, lintMap, graphMap],
   );
 
-  // 자산이 상태/출처 필터를 통과하는가.
-  const passesFilter = useCallback(
-    (asset: Asset): boolean => {
-      if (source !== "all" && asset.source !== source) return false;
-      const u = usageMap.get(refKey(asset.kind, asset.name));
-      const l = lintMap.get(asset.id);
-      const g = graphMap.get(refKey(asset.kind, asset.name));
-      if (status === "problems")
-        return computeAssetStatus(asset, u, l, g).tone === "red";
-      if (status === "unused") return u?.neverUsed ?? false;
-      if (status === "orphan") return isOrphanAgent(asset, g);
-      return true;
-    },
-    [source, status, usageMap, lintMap, graphMap],
-  );
-
   // referencedBy 가 가리키는 스킬 수(= ↩ N 스킬, 다대다 신호). skill 참조만 센다.
   const referencingSkillCount = useCallback(
     (asset: Asset): number => {
@@ -162,6 +185,33 @@ export function AssetToolkit({ projectId, selectedId, onSelect }: Props) {
     [graphMap],
   );
 
+  // 자산이 상태/출처/종류 필터를 통과하는가.
+  const passesFilter = useCallback(
+    (asset: Asset): boolean => {
+      if (source !== "all" && asset.source !== source) return false;
+      if (kind !== "all" && kindBucket(asset.kind) !== kind) return false;
+      const u = usageMap.get(refKey(asset.kind, asset.name));
+      const l = lintMap.get(asset.id);
+      const g = graphMap.get(refKey(asset.kind, asset.name));
+      if (status === "problems")
+        return computeAssetStatus(asset, u, l, g).tone === "red";
+      if (status === "unused") return u?.neverUsed ?? false;
+      if (status === "orphan") return isOrphanAgent(asset, g);
+      return true;
+    },
+    [source, status, kind, usageMap, lintMap, graphMap],
+  );
+
+  // 관계 컬럼 표기(트리·플랫 단일 원천 graph.ts 위임).
+  const relationFor = useCallback(
+    (asset: Asset): RelationDescriptor => {
+      const g = graphMap.get(refKey(asset.kind, asset.name));
+      const u = usageMap.get(refKey(asset.kind, asset.name));
+      return computeRelation(asset, g, referencingSkillCount(asset), u);
+    },
+    [graphMap, usageMap, referencingSkillCount],
+  );
+
   const sourceCounts = useMemo(() => {
     const c = { crew: 0, "project-local": 0, unknown: 0 };
     for (const a of assets ?? []) c[a.source] += 1;
@@ -169,17 +219,28 @@ export function AssetToolkit({ projectId, selectedId, onSelect }: Props) {
   }, [assets]);
   const hasSourceInfo = sourceCounts.crew + sourceCounts["project-local"] > 0;
 
-  const summary = useMemo(
-    () => computeAssetHealthSummary(assets, usage, lint, graph),
-    [assets, usage, lint, graph],
-  );
-  const orphanCount = useMemo(
-    () =>
-      (assets ?? []).filter((a) =>
-        isOrphanAgent(a, graphMap.get(refKey(a.kind, a.name))),
-      ).length,
-    [assets, graphMap],
-  );
+  // 상태 카운트 = 요약(필터칩에 직접 표시 → 별도 요약 배너 불필요).
+  const statusCounts = useMemo(() => {
+    let problems = 0;
+    let unused = 0;
+    let orphan = 0;
+    for (const a of assets ?? []) {
+      const u = usageMap.get(refKey(a.kind, a.name));
+      const l = lintMap.get(a.id);
+      const g = graphMap.get(refKey(a.kind, a.name));
+      if (computeAssetStatus(a, u, l, g).tone === "red") problems += 1;
+      if (u?.neverUsed ?? false) unused += 1;
+      if (isOrphanAgent(a, g)) orphan += 1;
+    }
+    return { total: assets?.length ?? 0, problems, unused, orphan };
+  }, [assets, usageMap, lintMap, graphMap]);
+
+  // 종류 카운트(skill/agent/cmd) — cmd = command + cursor_*.
+  const kindCounts = useMemo(() => {
+    const c = { skill: 0, agent: 0, cmd: 0 };
+    for (const a of assets ?? []) c[kindBucket(a.kind)] += 1;
+    return c;
+  }, [assets]);
 
   if (projectId === null)
     return (
@@ -212,6 +273,7 @@ export function AssetToolkit({ projectId, selectedId, onSelect }: Props) {
     selectedId,
     select,
     metaFor,
+    relationFor,
     passesFilter,
     graphMap,
     assetByKey,
@@ -219,83 +281,79 @@ export function AssetToolkit({ projectId, selectedId, onSelect }: Props) {
     highlightKey,
     onRowHover,
     hlClass,
+    showRelation: !compact,
   };
 
   return (
     <div className="space-y-3">
-      {/* 뷰 토글 + 안내 */}
+      {/* 헤더 1줄: 좌 = 제목 + 뷰 토글 / 우 = 새 자산 + ⓘ */}
       <div className="flex items-center justify-between gap-2">
-        <div className="inline-flex gap-0.5 rounded-md border p-0.5">
-          <Chip active={view === "list"} onClick={() => setView("list")}>
-            목록
-          </Chip>
-          <Chip active={view === "tree"} onClick={() => setView("tree")}>
-            관계
-          </Chip>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-semibold">Toolkit</span>
+          <div className="inline-flex gap-0.5 rounded-md border p-0.5">
+            <Chip active={view === "list"} onClick={() => setView("list")}>
+              목록
+            </Chip>
+            <Chip active={view === "tree"} onClick={() => setView("tree")}>
+              관계
+            </Chip>
+          </div>
         </div>
-        <InfoMark
-          help="목록 = 모든 자산 평면(훑기). 관계 = 스킬→에이전트 트리. ‘상태’는 형식·사용·연결 구조 신호일 뿐 품질 점수가 아닙니다."
-          label="툴킷 뷰"
-        />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onNewAsset}
+            title="보통 터미널/creator 로 만들지만 여기서 직접 작성·편집도 가능"
+          >
+            <Plus className="h-3.5 w-3.5" />새 자산
+          </Button>
+          <InfoMark
+            help="목록 = 모든 자산 평면(훑기). 관계 = 스킬→에이전트 트리. ‘상태’는 형식·사용·연결 구조 신호일 뿐 품질 점수가 아닙니다. 정상 = 형식OK·쓰임·(엮임 or 단독의도) / 주의 = 미사용 or 형식경고 / 문제 = 형식에러 or 고아+미사용."
+            label="툴킷 뷰·상태 안내"
+          />
+        </div>
       </div>
 
-      {/* 요약 칩 */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border bg-muted/30 px-3 py-2 text-xs">
-        <span className="font-medium">자산 {summary.total}</span>
-        {summary.unused > 0 && (
-          <span
-            className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400"
-            title="어디서도 호출 안 됨 — 삭제 후보"
-          >
-            <Dot className={SUMMARY_DOT.amber} /> 미사용 {summary.unused}
-          </span>
-        )}
-        {summary.otherOnly > 0 && (
-          <span
-            className="inline-flex items-center gap-1 text-muted-foreground"
-            title="여기선 0회·다른 프로젝트에서 쓰임 — 공용(crew) 가능, 삭제 주의"
-          >
-            <Dot className={SUMMARY_DOT.slate} /> 타 프로젝트만 {summary.otherOnly}
-          </span>
-        )}
-        {summary.problems > 0 && (
-          <span
-            className="inline-flex items-center gap-1 text-red-600 dark:text-red-400"
-            title="형식 에러(트리거 불가) 또는 고아+미사용(dead)"
-          >
-            <Dot className={SUMMARY_DOT.red} /> 문제 {summary.problems}
-          </span>
-        )}
-        {summary.unused === 0 && summary.problems === 0 && (
-          <span className="text-emerald-600 dark:text-emerald-400">
-            ✓ 미사용·문제 없음
-          </span>
-        )}
-      </div>
-
-      {/* 필터 */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex gap-1 rounded-md border p-0.5">
+      {/* 필터 1줄 — facet(상태/종류/출처)마다 한 덩어리, 공간 부족 시 facet 통째로 줄바꿈. */}
+      <div className="flex flex-wrap gap-x-4 gap-y-2">
+        <Facet label="상태">
           <Chip active={status === "all"} onClick={() => setStatus("all")}>
-            전체
+            전체 {statusCounts.total}
           </Chip>
           <Chip
             active={status === "problems"}
             onClick={() => setStatus("problems")}
           >
-            문제 {summary.problems}
+            문제 {statusCounts.problems}
           </Chip>
           <Chip active={status === "unused"} onClick={() => setStatus("unused")}>
-            미사용 {summary.unused}
+            미사용 {statusCounts.unused}
           </Chip>
           <Chip active={status === "orphan"} onClick={() => setStatus("orphan")}>
-            고아 {orphanCount}
+            고아 {statusCounts.orphan}
           </Chip>
-        </div>
+        </Facet>
+
+        <Facet label="종류">
+          <Chip active={kind === "all"} onClick={() => setKind("all")}>
+            전체
+          </Chip>
+          <Chip active={kind === "skill"} onClick={() => setKind("skill")}>
+            skill {kindCounts.skill}
+          </Chip>
+          <Chip active={kind === "agent"} onClick={() => setKind("agent")}>
+            agent {kindCounts.agent}
+          </Chip>
+          <Chip active={kind === "cmd"} onClick={() => setKind("cmd")}>
+            cmd {kindCounts.cmd}
+          </Chip>
+        </Facet>
+
         {hasSourceInfo && (
-          <div className="inline-flex gap-1 rounded-md border p-0.5">
+          <Facet label="출처">
             <Chip active={source === "all"} onClick={() => setSource("all")}>
-              모든 출처
+              전체
             </Chip>
             <Chip active={source === "crew"} onClick={() => setSource("crew")}>
               crew {sourceCounts.crew}
@@ -306,7 +364,7 @@ export function AssetToolkit({ projectId, selectedId, onSelect }: Props) {
             >
               전용 {sourceCounts["project-local"]}
             </Chip>
-          </div>
+          </Facet>
         )}
       </div>
 
@@ -315,19 +373,6 @@ export function AssetToolkit({ projectId, selectedId, onSelect }: Props) {
       ) : (
         <AssetRelationTree ctx={ctx} />
       )}
-
-      {/* 범례 */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-[10px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <Dot className="bg-emerald-500" /> 정상 = 형식OK·쓰임·(엮임 or 단독의도)
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <Dot className="bg-amber-500" /> 주의 = 미사용 or 형식경고
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <Dot className="bg-red-500" /> 문제 = 형식에러 or 고아+미사용
-        </span>
-      </div>
     </div>
   );
 }

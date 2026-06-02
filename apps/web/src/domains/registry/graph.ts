@@ -68,3 +68,52 @@ export function isOrphanAgent(asset: Asset, graphItem: GraphItem | undefined) {
     asset.kind === "agent" && (graphItem?.referencedBy.length ?? 0) === 0
   );
 }
+
+// 관계 컬럼 표기(트리·플랫 단일 원천). 항상 채움 — "이름만" 케이스 없음.
+//   skill   = ⛓ N 호출 (본문 references 수)
+//   agent   = ↩ N 스킬 (나를 호출하는 스킬 수, 1도 표시) /
+//             referencedBy 빔이면 독립 · 단독(사용중·청록) or 독립 · 미사용(주황)
+//   command·cursor = — (관계 미추적)
+export interface RelationDescriptor {
+  label: string;
+  title: string;
+  tone: "muted" | "orphan" | "dead";
+}
+export function computeRelation(
+  asset: Asset,
+  graphItem: GraphItem | undefined,
+  referencingSkillCount: number,
+  usage: AssetUsage | undefined,
+): RelationDescriptor {
+  if (asset.kind === "skill") {
+    const calls = graphItem?.references.length ?? 0;
+    return {
+      label: `⛓ ${String(calls)} 호출`,
+      title: `이 스킬이 본문에서 참조(호출)하는 자산 ${String(calls)}개 — 휴리스틱`,
+      tone: "muted",
+    };
+  }
+  if (asset.kind === "agent") {
+    if (isOrphanAgent(asset, graphItem)) {
+      const neverUsed = usage?.neverUsed ?? false;
+      if (neverUsed)
+        return {
+          label: "독립 · 미사용",
+          title:
+            "어떤 스킬·커맨드도 이 에이전트를 호출 안 하고, 어디서도 쓰이지 않음 (dead — prune 후보).",
+          tone: "dead",
+        };
+      return {
+        label: "독립 · 단독",
+        title: "어떤 자산도 호출 안 하지만 단독으로 쓰임 — 의도된 단독.",
+        tone: "orphan",
+      };
+    }
+    return {
+      label: `↩ ${String(referencingSkillCount)} 스킬`,
+      title: `${String(referencingSkillCount)}개 스킬이 이 에이전트를 호출.`,
+      tone: "muted",
+    };
+  }
+  return { label: "—", title: "관계 미추적 종류", tone: "muted" };
+}
