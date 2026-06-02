@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import type { Project } from "@opspilot/shared-types";
 
 const SYNC_DIRS = ["agents", "skills", "references"] as const;
@@ -35,6 +35,11 @@ export interface AgentCrewLockFile {
   source?: string;
   syncedAt?: string;
   includes?: string[];
+  // 카드 B: sync 가 복사한 실제 파일들의 clone-root 상대경로 manifest.
+  // registry/scanner.ts 가 이 멤버십으로 자산을 crew/project-local 태깅한다 —
+  // syncedFiles 는 scanner 태깅의 *공개 계약*이다(포맷·경로규칙 변경 시 scanner 동반 수정).
+  // 부재(legacy lock) = unknown 태깅(추측 금지).
+  syncedFiles?: string[];
 }
 
 export interface AgentCrewSyncResult {
@@ -74,6 +79,25 @@ function git(cwd: string, args: string[]): string {
   return execFileSync("git", args, { cwd, encoding: "utf8", maxBuffer: 8 * 1024 * 1024 }).trim();
 }
 
+/** 블록 스타일 YAML 리스트(`key:` 다음 줄들의 `  - item`)를 읽는다. 없으면 undefined. */
+function parseYamlList(text: string, key: string): string[] | undefined {
+  const lines = text.split("\n");
+  const start = lines.findIndex((line) => new RegExp(`^${key}:\\s*$`).test(line));
+  if (start === -1) return undefined;
+  const items: string[] = [];
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    if (/^\s*#/.test(line)) continue;
+    const match = line.match(/^\s+-\s+(.+?)\s*$/);
+    if (match?.[1]) {
+      items.push(match[1]);
+      continue;
+    }
+    break; // 빈 줄 또는 다음 키 = 리스트 끝
+  }
+  return items;
+}
+
 function parseLockYaml(text: string): Partial<AgentCrewLockFile> {
   const pick = (key: string) => text.match(new RegExp(`^${key}:\\s*(.+)$`, "m"))?.[1]?.trim();
   return {
@@ -82,6 +106,7 @@ function parseLockYaml(text: string): Partial<AgentCrewLockFile> {
     commit: pick("commit"),
     source: pick("source"),
     syncedAt: pick("syncedAt"),
+    syncedFiles: parseYamlList(text, "syncedFiles"),
   };
 }
 
@@ -178,9 +203,13 @@ function writeLockFile(
   tag: string,
   commit: string,
   source: string,
+  syncedFiles: string[],
 ): string {
   const lockPath = join(clonePath, ".claude/agent-crew.lock");
   const syncedAt = new Date().toISOString();
+  // 카드 B: syncedFiles = 이번 sync 가 복사한 실제 파일들(clone-root 상대). scanner 가
+  // 이 멤버십으로 crew/project-local 태깅. 정렬해 두어 diff 노이즈 최소화.
+  const fileLines = [...syncedFiles].sort().map((f) => `  - ${f}`).join("\n");
   const body = `# agent-crew 핀 — OpsPilot sync_agent_crew 로 갱신
 version: ${tag}
 commit: ${commit}
@@ -191,6 +220,8 @@ includes:
   - agents/
   - skills/
   - references/
+syncedFiles:
+${fileLines}
 `;
   mkdirSync(join(clonePath, ".claude"), { recursive: true });
   writeFileSync(lockPath, body, "utf8");
@@ -210,8 +241,28 @@ function patchProjectYamlVersion(clonePath: string, tag: string): void {
   if (next !== text) writeFileSync(yamlPath, next, "utf8");
 }
 
-function copySyncDirs(crewRepoPath: string, clonePath: string): string[] {
-  const copied: string[] = [];
+/** dir 아래 모든 파일을 base(clone root) 기준 상대경로로 재귀 열거 (`\`→`/` 정규화). */
+function listFilesRecursive(dir: string, base: string): string[] {
+  if (!existsSync(dir)) return [];
+  const out: string[] = [];
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) {
+      out.push(...listFilesRecursive(full, base));
+    } else {
+      out.push(relative(base, full).split("\\").join("/"));
+    }
+  }
+  return out;
+}
+
+/** 복사된 디렉토리명(copiedDirs)과 복사된 실제 파일 목록(syncedFiles)을 함께 반환. */
+function copySyncDirs(
+  crewRepoPath: string,
+  clonePath: string,
+): { copiedDirs: string[]; syncedFiles: string[] } {
+  const copiedDirs: string[] = [];
+  const syncedFiles: string[] = [];
   const claudeDir = join(clonePath, ".claude");
   mkdirSync(claudeDir, { recursive: true });
   for (const dir of SYNC_DIRS) {
@@ -219,9 +270,11 @@ function copySyncDirs(crewRepoPath: string, clonePath: string): string[] {
     if (!existsSync(src)) continue;
     const dest = join(claudeDir, dir);
     cpSync(src, dest, { recursive: true, force: true });
-    copied.push(dir);
+    copiedDirs.push(dir);
+    // scanner 가 태깅하는 sourcePath 와 동일한 clone-root 상대경로(.claude/...)로 수집.
+    syncedFiles.push(...listFilesRecursive(dest, clonePath));
   }
-  return copied;
+  return { copiedDirs, syncedFiles };
 }
 
 function listMissingFeedbackAgents(clonePath: string): string[] {
@@ -385,8 +438,8 @@ export function syncAgentCrewToProject(project: Project, tagOverride?: string): 
   const source = lock?.source ?? DEFAULT_SOURCE;
 
   const commit = checkoutTag(crewRepoPath, tag);
-  const copiedDirs = copySyncDirs(crewRepoPath, project.clonePath);
-  const lockPath = writeLockFile(project.clonePath, tag, commit, source);
+  const { copiedDirs, syncedFiles } = copySyncDirs(crewRepoPath, project.clonePath);
+  const lockPath = writeLockFile(project.clonePath, tag, commit, source, syncedFiles);
   patchProjectYamlVersion(project.clonePath, tag);
   const mustReference = applyMustReference(project.clonePath, tag);
 

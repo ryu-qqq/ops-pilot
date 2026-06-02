@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS asset (
   kind        TEXT NOT NULL CHECK (kind IN ('agent', 'skill', 'command', 'cursor_skill', 'cursor_command', 'cursor_rule')),
   name        TEXT NOT NULL,
   scope       TEXT NOT NULL CHECK (scope IN ('project', 'user', 'plugin')),
+  -- 카드 B: agent-crew.lock syncedFiles manifest 멤버십으로 태깅한 출처.
+  source      TEXT NOT NULL DEFAULT 'unknown' CHECK (source IN ('crew', 'project-local', 'unknown')),
   source_path TEXT NOT NULL,
   created_at  TEXT NOT NULL,
   UNIQUE (project_id, kind, name, scope)

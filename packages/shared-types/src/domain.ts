@@ -20,6 +20,12 @@ export type ClaudeAssetKind = z.infer<typeof claudeAssetKindSchema>;
 export const assetScopeSchema = z.enum(["project", "user", "plugin"]);
 export type AssetScope = z.infer<typeof assetScopeSchema>;
 
+// 카드 B: 자산 출처 — agent-crew 공통(crew) vs 프로젝트 전용(project-local).
+// 판정 원천 = agent-crew.lock 의 syncedFiles manifest 멤버십(scanner 태깅).
+// unknown = lock 은 있으나 manifest 미기록(legacy sync) — 추측 금지, re-sync 로 채워진다.
+export const assetSourceSchema = z.enum(["crew", "project-local", "unknown"]);
+export type AssetSource = z.infer<typeof assetSourceSchema>;
+
 export const runStatusSchema = z.enum([
   "pending",
   "running",
@@ -72,6 +78,7 @@ export const assetSchema = z.object({
   kind: assetKindSchema,
   name: z.string().min(1),
   scope: assetScopeSchema,
+  source: assetSourceSchema,
   sourcePath: z.string().min(1),
   createdAt: ts,
 });
@@ -469,6 +476,9 @@ export type IngestBundleListResponse = z.infer<
 export const assetUsageSchema = z.object({
   kind: z.string(),
   name: z.string(),
+  // 카드 B: 자산 출처 — crew(공통) / project-local(전용) / unknown(legacy lock).
+  // prune 안전판단: "0회지만 공용" vs "정말 미사용"을 데이터로 가른다.
+  source: assetSourceSchema,
   // transcript 로 사용량 추적 가능한 종류인가 (agent·skill). command·cursor_*는 false.
   supported: z.boolean(),
   // 이 프로젝트(clonePath) 안에서의 호출.

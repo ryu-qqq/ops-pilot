@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { RotateCw } from "lucide-react";
 import type {
   AssetKind,
+  AssetSource,
   AssetUsage,
   ProjectWorkMetricRow,
 } from "@opspilot/shared-types";
@@ -31,6 +32,29 @@ interface LintRow {
 
 type StatusFilter = "all" | "unused" | "issues";
 type KindFilter = "all" | AssetKind;
+// 카드 B: 출처 필터. unknown(re-sync 전 과도기)은 별도 선택지 없이 '전체'에만 포함.
+type SourceFilter = "all" | "crew" | "project-local";
+
+// 카드 B: 출처 배지 — crew(공통, 삭제 주의) vs 전용. unknown 은 배지 없음(노이즈 0).
+const SOURCE_BADGE: Record<string, { label: string; title: string }> = {
+  crew: {
+    label: "crew",
+    title: "agent-crew 공통 자산 — 다른 프로젝트도 사용. prune(삭제) 주의.",
+  },
+  "project-local": {
+    label: "전용",
+    title: "이 프로젝트 전용 자산.",
+  },
+};
+function SourceBadge({ source }: { source: AssetSource }) {
+  const meta = SOURCE_BADGE[source];
+  if (!meta) return null; // unknown → 표시 없음
+  return (
+    <Badge variant="outline" className="text-[10px]" title={meta.title}>
+      {meta.label}
+    </Badge>
+  );
+}
 
 const KIND_LABEL: Record<string, string> = {
   agent: "agent",
@@ -150,6 +174,7 @@ export function AssetHealthDashboard({
   const scanWork = useScanWorkMetrics();
   const [status, setStatus] = useState<StatusFilter>("all");
   const [kind, setKind] = useState<KindFilter>("all");
+  const [source, setSource] = useState<SourceFilter>("all");
 
   const usageMap = useMemo(() => {
     const m = new Map<string, AssetUsage>();
@@ -183,6 +208,7 @@ export function AssetHealthDashboard({
       (r.lint?.errorCount ?? 0) > 0 ? 0 : r.usage?.neverUsed ? 1 : 2;
     return enriched
       .filter((r) => (kind === "all" ? true : r.asset.kind === kind))
+      .filter((r) => (source === "all" ? true : r.asset.source === source))
       .filter((r) => {
         if (status === "unused") return r.usage?.neverUsed ?? false;
         if (status === "issues")
@@ -194,7 +220,15 @@ export function AssetHealthDashboard({
       .sort(
         (x, y) => rank(x) - rank(y) || x.asset.name.localeCompare(y.asset.name),
       );
-  }, [assets, usageMap, lintMap, status, kind]);
+  }, [assets, usageMap, lintMap, status, kind, source]);
+
+  // 카드 B: 출처별 카운트. crew/전용이 하나라도 있어야(= re-sync 완료) 배지·필터 노출.
+  const sourceCounts = useMemo(() => {
+    const c = { crew: 0, "project-local": 0, unknown: 0 };
+    for (const a of assets ?? []) c[a.source] += 1;
+    return c;
+  }, [assets]);
+  const hasSourceInfo = sourceCounts.crew + sourceCounts["project-local"] > 0;
 
   const summary = useMemo(() => {
     const us = usage?.assets ?? [];
@@ -338,6 +372,23 @@ export function AssetHealthDashboard({
             ))}
           </div>
         )}
+        {/* 카드 B: 출처 필터 — 공용(crew) vs 전용 분리. re-sync 후에만 노출. */}
+        {hasSourceInfo && (
+          <div className="inline-flex gap-1 rounded-md border p-0.5">
+            <Chip active={source === "all"} onClick={() => setSource("all")}>
+              모든 출처
+            </Chip>
+            <Chip active={source === "crew"} onClick={() => setSource("crew")}>
+              crew {sourceCounts.crew}
+            </Chip>
+            <Chip
+              active={source === "project-local"}
+              onClick={() => setSource("project-local")}
+            >
+              전용 {sourceCounts["project-local"]}
+            </Chip>
+          </div>
+        )}
       </div>
 
       {/* 헬스 테이블 */}
@@ -405,6 +456,9 @@ export function AssetHealthDashboard({
                       {KIND_LABEL[asset.kind] ?? asset.kind}
                     </span>
                     <span className="font-medium">{asset.name}</span>
+                    <span className="ml-1.5 align-middle">
+                      <SourceBadge source={asset.source} />
+                    </span>
                   </td>
                   <td className="px-2 py-1.5 text-sm">
                     <UsageCell usage={u} />
