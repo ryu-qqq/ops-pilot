@@ -107,6 +107,13 @@ export function listAssets(projectId: string): Asset[] {
     .all(projectId) as Asset[];
 }
 
+// 카드 C(prune): 자산 행 하드 삭제. asset_version·scenario 등은 schema 의
+// ON DELETE CASCADE 로 함께 정리된다(runtime db pragma foreign_keys=ON).
+// 재스캔(saveScan)은 upsert 전용이라 사라진 자산을 지우지 않으므로 명시 삭제가 필요.
+export function deleteAssetRow(assetId: string): void {
+  getDb().prepare("DELETE FROM asset WHERE id = ?").run(assetId);
+}
+
 export function assetExists(id: string): boolean {
   return (
     getDb().prepare("SELECT 1 FROM asset WHERE id = ?").get(id) !== undefined

@@ -16,6 +16,7 @@ import { listScenariosByAsset } from "../../domains/scenario/repository.js";
 import {
   AuthoringError,
   adoptVersion,
+  deleteAsset,
 } from "../../domains/authoring/service.js";
 
 const versionSummarySchema = assetVersionSchema.omit({ content: true });
@@ -108,6 +109,44 @@ const registry: FastifyPluginAsyncZod = async (fastify) => {
     async (req, reply) => {
       try {
         return adoptVersion(req.params.id, req.body.note);
+      } catch (e) {
+        if (e instanceof AuthoringError) {
+          return reply
+            .status(400)
+            .send({ error: "AuthoringError", detail: e.message });
+        }
+        throw e;
+      }
+    },
+  );
+
+  // 카드 C(prune): 미사용 project-local 자산 삭제 — 클론 .claude 제거 + 구조화 커밋 + DB 행 제거.
+  // crew/unknown·파생 하네스는 service 가드에서 차단(AuthoringError → 400).
+  fastify.post(
+    "/registry/assets/:id/prune",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        body: z.object({ rationale: z.string() }),
+        response: {
+          200: z.object({
+            committed: z.string(),
+            deleted: z.literal(true),
+          }),
+          400: errorSchema,
+          404: errorSchema,
+        },
+      },
+    },
+    async (req, reply) => {
+      if (!assetExists(req.params.id)) {
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "asset not found" });
+      }
+      try {
+        const { committed } = deleteAsset(req.params.id, req.body.rationale);
+        return { committed, deleted: true as const };
       } catch (e) {
         if (e instanceof AuthoringError) {
           return reply
