@@ -32,6 +32,19 @@ export interface TriggerDesignMeta {
   source: "asset" | "baked";
   /** source="baked" 일 때만. 자산 미발견(미sync) 또는 자산 경로 실행 실패 사유. */
   fallbackReason?: string;
+  /**
+   * 자산 경로(source="asset")에서만 의미. 자산이 문서화된 배열 형식
+   * `[{query, should_trigger}]` 이 아니라 baked 호환 객체 형식
+   * `{positives, negatives}` 으로 파싱됐으면 true(형식 드리프트 — 동작은 맞지만 자산이
+   * 문서와 다른 형식을 냄). baked 경로는 정상 형식이므로 항상 undefined.
+   */
+  formatDrift?: boolean;
+}
+
+/** 루프 단위 source 집계 — 스텝별 improveDescriptionWithMeta meta.source 누적. */
+export interface SourceCounts {
+  asset: number;
+  baked: number;
 }
 
 /** 평가 입력 — should-trigger(켜져야 함) / should-NOT(near-miss) 라벨. */
@@ -127,14 +140,21 @@ ${content.slice(0, 4000)}
 [ { "query": "...", "should_trigger": true }, { "query": "...", "should_trigger": false } ]`;
 }
 
+/** parseSuggested 가 실제로 어느 형식으로 파싱했는지 — 형식 드리프트 관측용(①b). */
+type SuggestedFormat = "array" | "object";
+
 /**
  * 자산/baked 응답을 SuggestedQueries 로 정규화(2C, SSOT=zod 정신, 파싱은 ops-pilot).
  * 두 형태를 견고하게 수용한다:
- *  - 자산 문서화 형식: `[{query, should_trigger}]` (또는 `{queries:[...]}` 래핑)
- *  - baked 형식: `{positives:[...], negatives:[...]}`
+ *  - 자산 문서화 형식: `[{query, should_trigger}]` (또는 `{queries:[...]}` 래핑) → "array"
+ *  - baked 형식: `{positives:[...], negatives:[...]}` → "object"
  * 어느 쪽이 와도 positives(should_trigger=true)·negatives(false)로 변환한다.
+ * 반환에 어느 형식으로 파싱했는지 라벨을 곁들여 호출부가 형식 드리프트를 관측하게 한다(①b).
  */
-function parseSuggested(raw: string): SuggestedQueries {
+function parseSuggested(raw: string): {
+  queries: SuggestedQueries;
+  format: SuggestedFormat;
+} {
   let obj: unknown;
   try {
     obj = extractJsonObject(raw);
@@ -163,7 +183,7 @@ function parseSuggested(raw: string): SuggestedQueries {
     }
     if (positives.length === 0)
       throw new TriggerEvalError("positives 쿼리 생성 실패");
-    return { positives, negatives };
+    return { queries: { positives, negatives }, format: "array" };
   }
   // 객체 형식(baked) — { positives, negatives }.
   const o = obj as { positives?: unknown; negatives?: unknown };
@@ -171,7 +191,7 @@ function parseSuggested(raw: string): SuggestedQueries {
   const negatives = parseStringArray(o.negatives);
   if (positives.length === 0)
     throw new TriggerEvalError("positives 쿼리 생성 실패");
-  return { positives, negatives };
+  return { queries: { positives, negatives }, format: "object" };
 }
 
 /**
@@ -212,7 +232,13 @@ export async function suggestTriggerQueriesWithMeta(
       fallbackReason = `자산 경로 실행 실패: ${(e as Error).message}`;
     }
     if (raw !== null) {
-      return { queries: parseSuggested(raw), meta: { source: "asset" } };
+      const { queries, format } = parseSuggested(raw);
+      // ①b: 자산이 문서화된 배열 형식 대신 baked 호환 객체 형식을 냈으면 형식 드리프트.
+      // 동작은 정확하므로 throw 하지 않고 meta 로만 관측(route 가 warn).
+      return {
+        queries,
+        meta: { source: "asset", formatDrift: format !== "array" },
+      };
     }
   } else {
     fallbackReason = `${TRIGGER_DESIGNER_ASSET} 자산 미발견(미sync): ${crewAgentPath(TRIGGER_DESIGNER_ASSET)}`;
@@ -221,7 +247,11 @@ export async function suggestTriggerQueriesWithMeta(
   const raw = await runClaudeOnce(bakedSuggestPrompt(kind, name, content, n), {
     timeoutMs: 90_000,
   });
-  return { queries: parseSuggested(raw), meta: { source: "baked", fallbackReason } };
+  // baked 경로는 객체 형식이 정상 — 드리프트 대상 아님(formatDrift 미설정).
+  return {
+    queries: parseSuggested(raw).queries,
+    meta: { source: "baked", fallbackReason },
+  };
 }
 
 interface ProbeSetResult {
@@ -497,12 +527,29 @@ export interface ImproveOptions {
 /**
  * description 자동개선 루프 (skill-creator run_loop 판).
  * train 으로 개선·반복, test 정확도 최댓값을 best 로 고른다. 자산은 수정하지 않고 제안만 반환.
+ * 기존 계약 유지를 위한 얇은 래퍼 — 루프 단위 source 집계가 필요하면
+ * improveDescriptionLoopWithMeta 를 쓴다(반환 ImproveResult·루프 골격 불변).
  */
 export async function improveDescriptionLoop(
   assetId: string,
   queries: LabeledQuery[],
   opts: ImproveOptions = {},
 ): Promise<ImproveResult> {
+  return (await improveDescriptionLoopWithMeta(assetId, queries, opts)).result;
+}
+
+/**
+ * ① description 개선 루프 + 루프 단위 source 관측(①a).
+ * 스텝마다 improveDescriptionWithMeta 를 불러 meta.source 를 누적(sourceCounts)한다.
+ * 루프 골격(train/test split·N회 반복·best 선택)·반환 ImproveResult 필드는 불변 —
+ * sourceCounts 는 곁들이는 관측 데이터일 뿐 ImproveResult 에 싣지 않는다(응답 계약 불변,
+ * /suggest 와 동일하게 route 가 읽어 fastify.log 로만 남긴다).
+ */
+export async function improveDescriptionLoopWithMeta(
+  assetId: string,
+  queries: LabeledQuery[],
+  opts: ImproveOptions = {},
+): Promise<{ result: ImproveResult; sourceCounts: SourceCounts }> {
   const runsPerQuery = opts.runsPerQuery ?? 2;
   const maxIterations = opts.maxIterations ?? 3;
   const holdout = opts.holdout ?? 0.4;
@@ -515,6 +562,7 @@ export async function improveDescriptionLoop(
   const iterations: ImproveResult["iterations"] = [];
   let current = original;
   let best = { description: original, testAccuracy: -1 };
+  const sourceCounts: SourceCounts = { asset: 0, baked: 0 };
 
   for (let iter = 0; iter <= maxIterations; iter += 1) {
     const probeContent = withDescription(content, current);
@@ -540,16 +588,19 @@ export async function improveDescriptionLoop(
       best = { description: current, testAccuracy };
 
     if (trainSet.accuracy === 1 || iter === maxIterations) break;
-    current = await improveDescription(
+    // ①a: meta 버리는 얇은 래퍼 대신 WithMeta 로 스텝별 source 를 수집.
+    const step = await improveDescriptionWithMeta(
       kind,
       name,
       content,
       current,
       trainSet.queries,
     );
+    sourceCounts[step.meta.source] += 1;
+    current = step.description;
   }
 
-  return {
+  const result: ImproveResult = {
     assetId,
     kind,
     name,
@@ -562,6 +613,7 @@ export async function improveDescriptionLoop(
     improved: best.description.trim() !== original.trim(),
     iterations,
   };
+  return { result, sourceCounts };
 }
 
 export { ClaudeAssistError };
