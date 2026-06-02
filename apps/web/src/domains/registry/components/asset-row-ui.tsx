@@ -12,8 +12,8 @@ import type { StatusTone } from "../graph";
 
 // 출처 필터: 전체 / crew(공통) / 전용. unknown(re-sync 전 과도기)은 '전체'에만.
 export type SourceFilter = "all" | "crew" | "project-local";
-// 상태 필터: 전체 / 문제(🔴) / 미사용(neverUsed) / 고아(독립 agent).
-export type StatusFilter = "all" | "problems" | "unused" | "orphan";
+// 상태 필터: 전체 / 문제(🔴) / 미사용(neverUsed).
+export type StatusFilter = "all" | "problems" | "unused";
 // 종류 필터: 전체 / skill / agent / cmd(command + cursor_*). 표시 종류만 남긴다.
 export type KindFilter = "all" | "skill" | "agent" | "cmd";
 
