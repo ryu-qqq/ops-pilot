@@ -4,9 +4,8 @@ import type { Asset } from "@opspilot/shared-types";
 import { InfoMark } from "../../../lib/ui";
 import { cn } from "../../../lib/utils";
 import { refKey } from "../graph";
-import { isOrphanAgent } from "../graph";
 import type { ToolkitContext } from "./asset-toolkit";
-import { NameCell, StatusCell, UsageCell } from "./asset-row-ui";
+import { NameCell, RelationCell, StatusCell, UsageCell } from "./asset-row-ui";
 
 // 관계(tree) 뷰 — 스킬=부모, 호출하는 에이전트=중첩, 독립 에이전트·커맨드는 별 그룹.
 // 데이터·필터·상태는 부모(asset-toolkit) 소유 → 여기선 트리 구성·렌더만.
@@ -16,12 +15,13 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
     selectedId,
     select,
     metaFor,
+    relationFor,
     passesFilter,
     graphMap,
     assetByKey,
-    referencingSkillCount,
     onRowHover,
     hlClass,
+    showRelation,
   } = ctx;
 
   // 접힌/펼친 스킬(부모). 기본 전부 접힘 → 펼친 것만 set 에 담는다.
@@ -72,9 +72,14 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
       return next;
     });
 
-  // 공통 그리드(자식은 캐럿 칸 없음). 부모/일반 행 = [caret 1fr status use], 자식 = [1fr status use].
-  const PARENT_GRID = "grid grid-cols-[16px_1fr_92px_64px] items-center gap-x-3";
-  const ROW_GRID = "grid grid-cols-[1fr_92px_64px] items-center gap-x-3";
+  // 공통 그리드(자식은 캐럿 칸 없음). compact면 관계 컬럼 제거 → 이름 폭 확보.
+  // 부모/일반 = [caret 1fr (관계) status use], 자식 = [1fr (관계) status use].
+  const PARENT_GRID = showRelation
+    ? "grid grid-cols-[16px_1fr_110px_92px_64px] items-center gap-x-3"
+    : "grid grid-cols-[16px_1fr_92px_64px] items-center gap-x-3";
+  const ROW_GRID = showRelation
+    ? "grid grid-cols-[1fr_110px_92px_64px] items-center gap-x-3"
+    : "grid grid-cols-[1fr_92px_64px] items-center gap-x-3";
 
   // 스킬 부모가 트리에 보이나(자기 통과 or 자식 통과).
   const skillVisible = (skill: Asset): boolean => {
@@ -97,6 +102,7 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
       >
         <span />
         <span>자산</span>
+        {showRelation && <span>관계</span>}
         <span className="inline-flex items-center gap-1">
           상태
           <InfoMark
@@ -126,8 +132,6 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
         const meta = metaFor(skill);
         const isOpen = expanded.has(key);
         const children = tree.childrenOf(skill);
-        const callCount =
-          graphMap.get(key)?.references.length ?? children.length;
         const visibleChildren = isOpen
           ? passesFilter(skill)
             ? children
@@ -168,17 +172,8 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
                   )}
                 />
               </button>
-              <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-                <NameCell meta={meta} />
-                {callCount > 0 && (
-                  <span
-                    className="shrink-0 rounded border px-1 text-[9px] text-muted-foreground"
-                    title={`본문에서 참조(호출)하는 자산 ${String(callCount)}개 — 휴리스틱`}
-                  >
-                    ⛓ {callCount}
-                  </span>
-                )}
-              </span>
+              <NameCell meta={meta} />
+              {showRelation && <RelationCell relation={relationFor(skill)} />}
               <StatusCell tone={meta.status.tone} label={meta.status.label} />
               <span className="text-right text-sm">
                 <UsageCell usage={meta.usage} />
@@ -191,7 +186,6 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
             {visibleChildren.map((child) => {
               const ckey = refKey(child.kind, child.name);
               const cmeta = metaFor(child);
-              const skillCount = referencingSkillCount(child);
               return (
                 <div
                   key={`${skill.id}:${child.id}`}
@@ -205,18 +199,10 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
                   onMouseLeave={() => onRowHover(null)}
                   onClick={() => select(child.id)}
                 >
-                  <NameCell
-                    meta={
-                      skillCount > 1
-                        ? {
-                            ...cmeta,
-                            shareLabel: `↩ ${String(skillCount)} 스킬`,
-                            shareTitle:
-                              "여러 스킬이 이 자산을 참조 — 각 스킬 아래 중복 표시(카운트는 1회).",
-                          }
-                        : cmeta
-                    }
-                  />
+                  <NameCell meta={cmeta} />
+                  {showRelation && (
+                    <RelationCell relation={relationFor(child)} />
+                  )}
                   <StatusCell
                     tone={cmeta.status.tone}
                     label={cmeta.status.label}
@@ -242,9 +228,6 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
       {visibleOrphans.map((agent) => {
         const key = refKey(agent.kind, agent.name);
         const meta = metaFor(agent);
-        // "단독 사용중" 배지는 진짜 고아(referencedBy 빔)면서 쓰이는 경우만 — 의도된 단독.
-        const trueOrphan = isOrphanAgent(agent, graphMap.get(key));
-        const soloInUse = trueOrphan && !(meta.usage?.neverUsed ?? true);
         return (
           <div
             key={agent.id}
@@ -258,18 +241,8 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
             onMouseLeave={() => onRowHover(null)}
             onClick={() => select(agent.id)}
           >
-            <NameCell
-              meta={
-                soloInUse
-                  ? {
-                      ...meta,
-                      shareLabel: "독립 · 단독 사용중",
-                      shareTitle:
-                        "어떤 자산도 호출 안 하지만 단독으로 쓰임 — 의도된 단독.",
-                    }
-                  : meta
-              }
-            />
+            <NameCell meta={meta} />
+            {showRelation && <RelationCell relation={relationFor(agent)} />}
             <StatusCell tone={meta.status.tone} label={meta.status.label} />
             <span className="text-right text-sm">
               <UsageCell usage={meta.usage} />
@@ -301,6 +274,7 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
             onClick={() => select(cmd.id)}
           >
             <NameCell meta={meta} />
+            {showRelation && <RelationCell relation={relationFor(cmd)} />}
             <StatusCell tone={meta.status.tone} label={meta.status.label} />
             <span className="text-right text-sm">
               <UsageCell usage={meta.usage} />

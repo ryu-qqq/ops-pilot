@@ -2,6 +2,12 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../../../components/ui/dialog";
 import { ProjectBar } from "../../project/components/project-bar";
 import { ProjectRegisterDialog } from "../../project/components/project-register-dialog";
 import { useProjects } from "../../project/use-project";
@@ -80,28 +86,12 @@ export function RegistryView({
             )}
           >
             <Card className="p-4">
-              <div className="mb-3 flex items-start justify-between gap-2">
-                <div>
-                  <h2 className="text-sm font-semibold">Toolkit</h2>
-                  <p className="text-xs text-muted-foreground">
-                    이 프로젝트의 에이전트·스킬. 행을 클릭하면 오른쪽에 상세가
-                    뜹니다.
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAuthor((v) => !v)}
-                  title="보통 터미널/creator 로 만들지만 여기서 직접 작성·편집도 가능"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  {assetId === null ? "새 자산" : "편집/새 자산"}
-                </Button>
-              </div>
               <AssetToolkit
                 projectId={project.id}
                 selectedId={assetId}
                 onSelect={handleSelectAsset}
+                compact={assetId !== null}
+                onNewAsset={() => setShowAuthor(true)}
               />
             </Card>
 
@@ -122,10 +112,17 @@ export function RegistryView({
             )}
           </div>
 
-          {/* 저작 (후순위 — 접힘) */}
-          {showAuthor && (
-            <AssetAuthor projectId={project.id} selectedAssetId={assetId} />
-          )}
+          {/* 저작 — 헤더 '+ 새 자산' → 모달(하단 인라인 폼 제거). */}
+          <Dialog open={showAuthor} onOpenChange={setShowAuthor}>
+            <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                <DialogTitle>
+                  {assetId === null ? "새 자산 작성" : "자산 편집 / 새 자산"}
+                </DialogTitle>
+              </DialogHeader>
+              <AssetAuthor projectId={project.id} selectedAssetId={assetId} />
+            </DialogContent>
+          </Dialog>
         </>
       )}
 
