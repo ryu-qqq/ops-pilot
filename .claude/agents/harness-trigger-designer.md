@@ -64,7 +64,49 @@ ops-pilot trigger-eval에 그대로 넣을 수 있게 현실적인 쿼리로:
 ]
 ```
 
+## description 개선 모드 (실패 사례 피드백)
+
+위 "산출"은 **신규 설계 모드**다. 입력에 **실패 사례**가 함께 오면(즉 이미 description이
+있고 ops-pilot trigger-eval이 그것으로 측정해 틀린 케이스를 돌려주면) **개선 모드**로 동작한다 —
+description을 처음부터 다시 쓰는 게 아니라, 측정된 실패를 근거로 **한 스텝 다듬는다**.
+
+### 입력
+
+- **기존 description** — 측정 대상이 된 현재 문자열
+- **실패 사례 목록** — ops-pilot trigger-eval 산출. 각 항목은 틀린 쿼리 + 기대값 + 실제 결과:
+  ```json
+  [
+    {"query": "방금 받은 tf 모듈 PR 좀 봐줘", "expected": true, "actual": false},
+    {"query": "terraform plan drift 디버깅", "expected": false, "actual": true}
+  ]
+  ```
+  (`expected`/`actual`은 `should_trigger`와 같은 트리거 여부 boolean.)
+
+### 산출
+
+- **개선된 description 문자열 1개**
+- **무엇을 왜 바꿨는지 짧은 근거** — 어떤 실패 패턴에 대응해 어느 표현을 더하거나 좁혔는지
+
+실패 패턴별 대응:
+
+- **false negative** (`expected: true, actual: false` — 트리거돼야 하는데 안 됨): under-trigger.
+  description에 **트리거 신호를 보강**한다 — 누락된 사용자 발화·맥락을 추가하고, 능동 표현으로
+  "~같은 요청에도 트리거"임을 분명히 한다. 틀린 쿼리들에 공통된 표현을 신호로 흡수한다.
+- **false positive** (`expected: false, actual: true` — 안 돼야 하는데 됨): over-trigger.
+  description의 **경계를 강화**한다 — near-miss를 배제하는 표현("~는 제외", "~는 다른 자산")을
+  더하거나, 과하게 넓은 키워드를 구체화한다.
+
+### 경계 (개선 모드 한정)
+
+- **개선 한 스텝만** 담당한다. 반복 루프·train/test 분할·N회 개선·수렴 판정은 모두
+  **ops-pilot 몫**이다 — 이 에이전트는 루프를 자체적으로 돌리지 않는다.
+- under-trigger와 over-trigger를 **한 번에 과교정하지 않는다**. 실패 패턴 분포에 비례해
+  **최소 수정**한다 — false negative만 잔뜩 왔으면 신호 보강에 집중하고, 경계를 괜히 더 좁혀
+  새 false negative를 만들지 않는다. 양쪽이 섞여 오면 각각 최소한으로 손본다.
+- 한 스텝의 과교정은 다음 측정 라운드에서 반대 방향 실패로 드러난다 — 그 보정도 ops-pilot이
+  다음 스텝 입력으로 되돌려줄 테니, 이번 스텝은 보수적으로 다듬는다.
+
 ## 경계
 
 - 본문 저작은 **harness-author**, 종류·위치·커밋은 **harness-creator**
-- 트리거 정확도 *측정*은 **ops-pilot trigger-eval** — 여기선 설계와 예시 쿼리까지만
+- 트리거 정확도 *측정*은 **ops-pilot trigger-eval** — 여기선 설계와 예시 쿼리·개선 한 스텝까지만
