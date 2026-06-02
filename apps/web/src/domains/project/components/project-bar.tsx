@@ -1,12 +1,9 @@
 import { useMemo, useState } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Plus, RotateCw } from "lucide-react";
 import type { Project, ProjectWorkspaceMode } from "@opspilot/shared-types";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/card";
-import { Input } from "../../../components/ui/input";
-import { Label } from "../../../components/ui/label";
-import { RadioGroup, RadioGroupItem } from "../../../components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -14,16 +11,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../../components/ui/select";
-import type { CreateProjectRequest } from "../api";
 import { ErrorNotice, InfoMark, InlineError, Loading } from "../../../lib/ui";
-import { useCreateProject, useInstallHooks, useProjects, useScanProject } from "../use-project";
+import { cn } from "../../../lib/utils";
+import { useScanWorkMetrics } from "../../registry/use-registry";
+import { useInstallHooks, useProjects, useScanProject } from "../use-project";
+import { ProjectRegisterDialog } from "./project-register-dialog";
 
 interface Props {
   selectedProjectId: string | null;
   onSelect: (projectId: string) => void;
 }
-
-type RegisterMode = CreateProjectRequest["mode"];
 
 function modeLabel(mode: ProjectWorkspaceMode): string {
   return mode === "linked" ? "로컬 연결" : "관리 클론";
@@ -41,128 +38,23 @@ function ProjectModeBadge({ mode }: { mode: ProjectWorkspaceMode }) {
   );
 }
 
-// 프로젝트 등록(linked | managed) → 선택 → 스캔(pull + .claude 적재).
+// 프로젝트 선택 + 액션(스캔·작업 신호 스캔·버전 훅 설치) + 등록 버튼을 한 줄 툴바로.
+// 등록 폼은 모달(ProjectRegisterDialog)로 분리해 툴바를 슬림화.
 export function ProjectBar({ selectedProjectId, onSelect }: Props) {
   const { data: projects } = useProjects();
-  const create = useCreateProject();
   const scan = useScanProject(selectedProjectId);
   const hooks = useInstallHooks();
+  const scanWork = useScanWorkMetrics();
 
-  const [registerMode, setRegisterMode] = useState<RegisterMode>("linked");
-  const [localPath, setLocalPath] = useState("");
-  const [gitUrl, setGitUrl] = useState("");
-  const [linkedGitUrl, setLinkedGitUrl] = useState("");
+  const [registerOpen, setRegisterOpen] = useState(false);
 
   const selectedProject = useMemo(
     () => (projects ?? []).find((p) => p.id === selectedProjectId),
     [projects, selectedProjectId],
   );
 
-  const canRegister =
-    registerMode === "linked" ? localPath.trim() !== "" : gitUrl.trim() !== "";
-
-  const handleRegister = () => {
-    const input: CreateProjectRequest =
-      registerMode === "linked"
-        ? {
-            mode: "linked",
-            localPath: localPath.trim(),
-            ...(linkedGitUrl.trim() !== "" ? { gitUrl: linkedGitUrl.trim() } : {}),
-          }
-        : { mode: "managed", gitUrl: gitUrl.trim() };
-
-    create.mutate(input, {
-      onSuccess: (p) => {
-        setLocalPath("");
-        setGitUrl("");
-        setLinkedGitUrl("");
-        onSelect(p.id);
-      },
-    });
-  };
-
   return (
     <Card className="space-y-3 p-4">
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">등록 방식</span>
-          <RadioGroup
-            value={registerMode}
-            onValueChange={(v) => setRegisterMode(v as RegisterMode)}
-            className="flex flex-row flex-wrap gap-4"
-          >
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="linked" id="register-linked" />
-              <Label htmlFor="register-linked" className="cursor-pointer text-sm font-normal">
-                로컬 경로 연결
-                <span className="ml-1 text-xs text-muted-foreground">(권장 · Cursor)</span>
-              </Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="managed" id="register-managed" />
-              <Label htmlFor="register-managed" className="cursor-pointer text-sm font-normal">
-                OpsPilot 관리 클론
-              </Label>
-            </div>
-          </RadioGroup>
-        </div>
-
-        {registerMode === "linked" ? (
-          <div className="space-y-2">
-            <div className="flex gap-2">
-              <Input
-                value={localPath}
-                onChange={(e) => setLocalPath(e.target.value)}
-                placeholder="로컬 git 경로 (예: ~/Documents/ryu-qqq/Infrastructure)"
-                className="font-mono text-sm"
-              />
-              <Button type="button" disabled={create.isPending || !canRegister} onClick={handleRegister}>
-                {create.isPending ? (
-                  <Loading label="연결 중…" />
-                ) : (
-                  <>
-                    프로젝트 등록
-                    <InfoMark
-                      label="로컬 경로 연결"
-                      help="Cursor에서 쓰는 checkout을 OpsPilot에 그대로 등록합니다. scan·ingest·apply가 이 경로에서 일어나며, apply 후 Cursor에서 바로 harness 변경을 볼 수 있습니다. origin remote가 있으면 gitUrl 생략 가능."
-                    />
-                  </>
-                )}
-              </Button>
-            </div>
-            <Input
-              value={linkedGitUrl}
-              onChange={(e) => setLinkedGitUrl(e.target.value)}
-              placeholder="git URL (선택 · origin과 다를 때만)"
-              className="font-mono text-sm"
-            />
-          </div>
-        ) : (
-          <div className="flex gap-2">
-            <Input
-              value={gitUrl}
-              onChange={(e) => setGitUrl(e.target.value)}
-              placeholder="git URL (예: https://github.com/owner/repo.git)"
-              className="font-mono text-sm"
-            />
-            <Button type="button" disabled={create.isPending || !canRegister} onClick={handleRegister}>
-              {create.isPending ? (
-                <Loading label="클론 중…" />
-              ) : (
-                <>
-                  프로젝트 등록
-                  <InfoMark
-                    label="OpsPilot 관리 클론"
-                    help="git URL을 clone해 OPS_PROJECTS_DIR/<슬러그>에 둡니다. apply는 클론에만 반영되므로 Cursor dev 폴더와 다르면 push/pull 또는 /opspilot-sync-managed-clone 으로 동기화하세요."
-                  />
-                </>
-              )}
-            </Button>
-          </div>
-        )}
-      </div>
-      {create.isError && <InlineError error={create.error} />}
-
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-[240px] flex-1">
           <Select value={selectedProjectId ?? ""} onValueChange={onSelect}>
@@ -185,6 +77,7 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
             </SelectContent>
           </Select>
         </div>
+
         <Button
           type="button"
           variant="secondary"
@@ -206,6 +99,23 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
             </>
           )}
         </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          disabled={selectedProjectId === null || scanWork.isPending}
+          onClick={() => {
+            if (selectedProjectId !== null) scanWork.mutate({ projectId: selectedProjectId });
+          }}
+        >
+          <RotateCw className={cn("h-3.5 w-3.5", scanWork.isPending && "animate-spin")} />
+          {scanWork.isPending ? "스캔 중…" : "작업 신호 스캔"}
+          <InfoMark
+            label="작업 신호 스캔"
+            help="로컬 세션을 훑어 자산별 정정왕복(참고 신호)을 갱신합니다. 품질 점수가 아니라 참고용입니다."
+          />
+        </Button>
+
         <Button
           type="button"
           variant="ghost"
@@ -226,25 +136,49 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
             </>
           )}
         </Button>
-        {scan.isSuccess && (
-          <span className="inline-flex items-center gap-1 text-xs text-success">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            자산 {scan.data.scannedAssets} · 신규버전 {scan.data.saved.versions}
-          </span>
-        )}
-        {hooks.isSuccess && (
-          <span className="inline-flex items-center gap-1 text-xs text-success">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            훅 설치됨
-            {hooks.data.committed ? ` (커밋 ${hooks.data.committed.slice(0, 8)})` : " (이미 설치됨)"}
-          </span>
-        )}
-        {hooks.isError && <InlineError error={hooks.error} />}
+
+        <Button type="button" onClick={() => setRegisterOpen(true)}>
+          <Plus className="h-3.5 w-3.5" />
+          프로젝트 등록
+        </Button>
       </div>
+
+      {/* 액션 결과 줄 */}
+      {(scan.isSuccess || hooks.isSuccess || scanWork.isSuccess) && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+          {scan.isSuccess && (
+            <span className="inline-flex items-center gap-1 text-success">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              자산 {scan.data.scannedAssets} · 신규버전 {scan.data.saved.versions}
+            </span>
+          )}
+          {scanWork.isSuccess && (
+            <span className="inline-flex items-center gap-1 text-success">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              작업 신호 갱신됨
+            </span>
+          )}
+          {hooks.isSuccess && (
+            <span className="inline-flex items-center gap-1 text-success">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              훅 설치됨
+              {hooks.data.committed ? ` (커밋 ${hooks.data.committed.slice(0, 8)})` : " (이미 설치됨)"}
+            </span>
+          )}
+        </div>
+      )}
+
+      {hooks.isError && <InlineError error={hooks.error} />}
+      {scanWork.isError && <InlineError error={scanWork.error} />}
+      {scan.isError && <ErrorNotice error={scan.error} />}
 
       {selectedProject && <ProjectPathHint project={selectedProject} />}
 
-      {scan.isError && <ErrorNotice error={scan.error} />}
+      <ProjectRegisterDialog
+        open={registerOpen}
+        onOpenChange={setRegisterOpen}
+        onRegistered={onSelect}
+      />
     </Card>
   );
 }
