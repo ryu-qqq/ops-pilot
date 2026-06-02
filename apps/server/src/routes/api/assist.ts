@@ -1,9 +1,6 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { claudeAssetKindSchema } from "@opspilot/shared-types";
 import { ClaudeAssistError } from "../../domains/assist/claude.js";
-import { reviewAuthoringDraft } from "../../domains/assist/authoring-review.js";
-import { draftAsset, draftAssetSchema } from "../../domains/assist/draft-asset.js";
 import { judgeResultSchema, judgeRuns } from "../../domains/assist/judge-runs.js";
 import {
   scenarioSuggestionSchema,
@@ -17,53 +14,6 @@ import {
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
 
 const assist: FastifyPluginAsyncZod = async (fastify) => {
-  // A. 자산 저작 검수: 작성 중인 초안 → 의도 + 개선 제안(자유 텍스트).
-  fastify.post(
-    "/assist/authoring-review",
-    {
-      schema: {
-        body: z.object({
-          kind: claudeAssetKindSchema,
-          name: z.string().min(1),
-          content: z.string().min(1),
-        }),
-        response: { 200: z.object({ text: z.string() }), 400: errorSchema },
-      },
-    },
-    async (req, reply) => {
-      try {
-        const text = await reviewAuthoringDraft(req.body);
-        return { text };
-      } catch (e) {
-        if (e instanceof ClaudeAssistError) {
-          return reply.status(400).send({ error: "AssistError", detail: e.message });
-        }
-        throw e;
-      }
-    },
-  );
-
-  // D. 자산 초안 자동 생성 (OPSP-27 follow-up): 컨셉 한 줄 → frontmatter+본문 전체 JSON.
-  fastify.post(
-    "/assist/draft-asset",
-    {
-      schema: {
-        body: z.object({ kind: claudeAssetKindSchema, prompt: z.string().min(1) }),
-        response: { 200: draftAssetSchema, 400: errorSchema },
-      },
-    },
-    async (req, reply) => {
-      try {
-        return await draftAsset(req.body);
-      } catch (e) {
-        if (e instanceof ClaudeAssistError) {
-          return reply.status(400).send({ error: "AssistError", detail: e.message });
-        }
-        throw e;
-      }
-    },
-  );
-
   // C. 비교 판정 (OPSP-10 follow-up): N개 run 결과 → "어느 게 나음+왜" JSON.
   fastify.post(
     "/assist/judge-runs",

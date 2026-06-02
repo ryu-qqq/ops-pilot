@@ -1,13 +1,11 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import {
-  claudeAssetKindSchema,
   assetSchema,
   cursorHarnessSyncResultSchema,
   projectAssetLintSchema,
   projectSchema,
 } from "@opspilot/shared-types";
-import { AuthoringError, writeAsset } from "../../domains/authoring/service.js";
 import { installHooks } from "../../domains/authoring/hooks.js";
 import { validateFrontmatter } from "../../domains/asset-lint/validate.js";
 import { getProject, listProjects } from "../../domains/project/repository.js";
@@ -288,50 +286,6 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
-  // OPSP-19: OpsPilot 통한 저작 → 클론 .claude 쓰기 + 강제 구조화 커밋(=버전)
-  fastify.post(
-    "/projects/:id/assets",
-    {
-      schema: {
-        params: z.object({ id: z.string().uuid() }),
-        body: z.object({
-          kind: claudeAssetKindSchema,
-          name: z.string().min(1),
-          content: z.string().min(1),
-          changeSummary: z.string().min(1),
-          rationale: z.string().default(""),
-        }),
-        response: {
-          200: z.object({
-            committed: z.string(),
-            scanned: z.object({
-              assets: z.number().int(),
-              versions: z.number().int(),
-            }),
-          }),
-          400: errorSchema,
-          404: errorSchema,
-        },
-      },
-    },
-    async (req, reply) => {
-      const project = getProject(req.params.id);
-      if (!project)
-        return reply
-          .status(404)
-          .send({ error: "NotFound", detail: "project not found" });
-      try {
-        return writeAsset(project, req.body);
-      } catch (e) {
-        if (e instanceof AuthoringError) {
-          return reply
-            .status(400)
-            .send({ error: "AuthoringError", detail: e.message });
-        }
-        throw e;
-      }
-    },
-  );
 
   // OPSP-19 잔여: 자동 버전 강제 훅 설치 (Claude Code PostToolUse + git post-commit)
   fastify.post(

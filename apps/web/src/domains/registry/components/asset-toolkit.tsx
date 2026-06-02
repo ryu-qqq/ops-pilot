@@ -1,7 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Plus } from "lucide-react";
 import type { Asset, AssetUsage } from "@opspilot/shared-types";
-import { Button } from "../../../components/ui/button";
 import { EmptyState, ErrorNotice, InfoMark, Loading } from "../../../lib/ui";
 import { usePersistedState } from "../../../lib/use-persisted-state";
 import { cn } from "../../../lib/utils";
@@ -36,8 +34,6 @@ interface Props {
   onSelect: (id: string | null) => void;
   // 분할 모드(자산 선택 시 좌측 좁음) — 관계 컬럼 숨겨 이름 폭 확보.
   compact?: boolean;
-  // 헤더 우측 '+ 새 자산' 버튼 → 모달 오픈(저작 폼 소유는 부모).
-  onNewAsset: () => void;
 }
 
 // 목록(flat) = 기본 · 관계(tree) = 토글. sessionStorage 로 기억.
@@ -111,7 +107,6 @@ export function AssetToolkit({
   selectedId,
   onSelect,
   compact = false,
-  onNewAsset,
 }: Props) {
   const { data: assets, isPending, isError, error } = useAssets(projectId);
   const { data: usage } = useProjectAssetUsage(projectId);
@@ -299,20 +294,10 @@ export function AssetToolkit({
             </Chip>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onNewAsset}
-            title="보통 터미널/creator 로 만들지만 여기서 직접 작성·편집도 가능"
-          >
-            <Plus className="h-3.5 w-3.5" />새 자산
-          </Button>
-          <InfoMark
-            help="목록 = 모든 자산 평면(훑기). 관계 = 스킬→에이전트 트리. ‘상태’는 형식·사용·연결 구조 신호일 뿐 품질 점수가 아닙니다. 정상 = 형식OK·쓰임·(엮임 or 단독의도) / 주의 = 미사용 or 형식경고 / 문제 = 형식에러 or 고아+미사용."
-            label="툴킷 뷰·상태 안내"
-          />
-        </div>
+        <InfoMark
+          help="목록 = 모든 자산 평면(훑기). 관계 = 스킬→에이전트 트리. ‘상태’는 형식·사용·연결 구조 신호일 뿐 품질 점수가 아닙니다. 정상 = 형식OK·쓰임·(엮임 or 단독의도) / 주의 = 미사용 or 형식경고 / 문제 = 형식에러 or 고아+미사용. (자산 저작은 터미널/agent-crew harness-creator 로 합니다.)"
+          label="툴킷 뷰·상태 안내"
+        />
       </div>
 
       {/* 필터 1줄 — facet(상태/종류/출처)마다 한 덩어리, 공간 부족 시 facet 통째로 줄바꿈. */}

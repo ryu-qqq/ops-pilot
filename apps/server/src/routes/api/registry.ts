@@ -182,25 +182,6 @@ const registry: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
-  // 수정 prefill — 최신 버전 본문
-  fastify.get(
-    "/registry/assets/:id/content",
-    {
-      schema: {
-        params: z.object({ id: z.string().uuid() }),
-        response: { 200: z.object({ content: z.string() }), 404: errorSchema },
-      },
-    },
-    async (req, reply) => {
-      const content = latestContent(req.params.id);
-      if (content === undefined) {
-        return reply
-          .status(404)
-          .send({ error: "NotFound", detail: "content not found" });
-      }
-      return { content };
-    },
-  );
 };
 
 export default registry;
