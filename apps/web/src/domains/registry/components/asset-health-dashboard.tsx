@@ -10,6 +10,7 @@ import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { EmptyState, ErrorNotice, InfoMark, Loading } from "../../../lib/ui";
 import { cn } from "../../../lib/utils";
+import { computeAssetHealthSummary } from "../asset-health-summary";
 import {
   useAssets,
   useProjectAssetLint,
@@ -230,21 +231,10 @@ export function AssetHealthDashboard({
   }, [assets]);
   const hasSourceInfo = sourceCounts.crew + sourceCounts["project-local"] > 0;
 
-  const summary = useMemo(() => {
-    const us = usage?.assets ?? [];
-    return {
-      total: assets?.length ?? 0,
-      unused: us.filter((u) => u.neverUsed).length,
-      otherOnly: us.filter(
-        (u) =>
-          u.supported &&
-          !u.neverUsed &&
-          u.inProjectCount === 0 &&
-          u.totalCount > 0,
-      ).length,
-      formatErrors: (lint?.items ?? []).filter((l) => l.errorCount > 0).length,
-    };
-  }, [assets, usage, lint]);
+  const summary = useMemo(
+    () => computeAssetHealthSummary(assets, usage, lint),
+    [assets, usage, lint],
+  );
 
   if (projectId === null)
     return (

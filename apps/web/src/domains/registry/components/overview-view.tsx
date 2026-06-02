@@ -10,9 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../../components/ui/select";
-import { EmptyState } from "../../../lib/ui";
 import { useProjects } from "../../project/use-project";
-import { AssetHealthDashboard } from "./asset-health-dashboard";
+import { ActivitySection } from "./overview/activity-section";
+import { HealthSummaryCards } from "./overview/health-summary-cards";
 import { UsageLeaderboard } from "./usage-leaderboard";
 
 interface Props {
@@ -29,22 +29,34 @@ function modeBadgeVariant(mode: ProjectWorkspaceMode): "success" | "secondary" {
   return mode === "linked" ? "success" : "secondary";
 }
 
-// 개요(overview) = OpsPilot 첫 진입. 보는 화면.
-// (1) 전역 사용량 리더보드 — 항상 채워짐(프로젝트 무관, 내 로컬 세션 전체 Top 5)
-// (2) 자산 헬스 요약 — 프로젝트 선택 종속. 인라인 Select로 고르면 미사용·형식 헬스가 보임.
-// 만지는 화면(등록·스캔·저작·master-detail)은 프로젝트 탭(registry). 여기선 탭 전환 유도만.
-export function OverviewView({ projectId, onProjectIdChange, onOpenProjectTab }: Props) {
+// 개요(overview) = OpsPilot 첫 진입. 보는 화면. 위→아래 4블록:
+// (2) 활동 잔디 — 전역. (3) 스파크라인 리더보드 — 전역. (4) 헬스 요약 — 이 프로젝트.
+// (헤더 ⓘ Dialog = 1번. 표어 배너는 헤더 ⓘ 로 이전됨.)
+// 전역 vs 이 프로젝트는 스코프 배지로 구분, 프로젝트 블록은 border-l-2 로 시각 구분.
+export function OverviewView({
+  projectId,
+  onProjectIdChange,
+  onOpenProjectTab,
+}: Props) {
   const { data: projects } = useProjects();
 
   return (
     <div className="space-y-4">
-      {/* (1) 전역 사용량 리더보드 — 시그니처 변경 없이 그대로 재사용 */}
+      {/* (2) 활동 잔디 — 전역 */}
+      <ActivitySection />
+
+      {/* (3) 스파크라인 리더보드 — 전역 */}
       <UsageLeaderboard />
 
-      {/* (2) 자산 헬스 요약 */}
-      <Card className="space-y-3 p-4">
+      {/* (4) 헬스 요약 — 이 프로젝트 (border-l 로 스코프 구분) */}
+      <Card className="space-y-3 border-l-2 border-primary/40 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold">자산 헬스</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold">자산 헬스</h2>
+            <Badge variant="outline" className="text-[10px]">
+              이 프로젝트
+            </Badge>
+          </div>
           <div className="flex items-center gap-2">
             <div className="min-w-[220px]">
               <Select
@@ -90,18 +102,7 @@ export function OverviewView({ projectId, onProjectIdChange, onOpenProjectTab }:
           </div>
         </div>
 
-        {projectId === null ? (
-          <EmptyState
-            title="프로젝트를 고르면 미사용·형식 헬스가 보여요"
-            hint="위 Select에서 프로젝트를 선택하세요. prune 후보·형식 오류를 한눈에 봅니다."
-          />
-        ) : (
-          <AssetHealthDashboard
-            projectId={projectId}
-            selectedId={null}
-            onSelect={() => onOpenProjectTab?.()}
-          />
-        )}
+        <HealthSummaryCards projectId={projectId} />
       </Card>
     </div>
   );

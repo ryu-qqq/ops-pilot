@@ -494,11 +494,17 @@ export const assetUsageSchema = z.object({
 export type AssetUsage = z.infer<typeof assetUsageSchema>;
 
 // 전역 사용량 랭킹 (리더보드) — days=N 이면 최근 N일.
+// 개요 재설계(스파크라인·프로젝트 점): days 토글과 무관한 고정 윈도우 시계열을 함께 싣는다.
 export const usageRankRowSchema = z.object({
   name: z.string(),
+  // 선택 days(7/30, 미지정=전체) 윈도우 내 호출수. 랭킹 정렬 기준.
   count: z.number().int(),
   lastUsed: z.string().nullable(),
   projectCount: z.number().int(),
+  // 자산별 스파크라인 — 최근 14일 일별 호출수(과거→현재, 빈 날 0). 길이 14 고정.
+  spark: z.array(z.number().int()),
+  // 자산별 cwd 분포 상위 5개(프로젝트 점). cwd=절대경로(프론트가 basename 표시).
+  cwds: z.array(z.object({ cwd: z.string(), count: z.number().int() })),
 });
 export type UsageRankRow = z.infer<typeof usageRankRowSchema>;
 
@@ -507,6 +513,8 @@ export const usageGlobalSchema = z.object({
   days: z.number().int().nullable(),
   agents: z.array(usageRankRowSchema),
   skills: z.array(usageRankRowSchema),
+  // 전역 활동 잔디 — 모든 자산 byDay 합산 최근 84일 일별 총량(과거→현재, 빈 날 0).
+  activity: z.array(z.object({ date: z.string(), count: z.number().int() })),
 });
 export type UsageGlobal = z.infer<typeof usageGlobalSchema>;
 
