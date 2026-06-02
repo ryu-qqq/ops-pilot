@@ -44,9 +44,9 @@ docs:
   adrPath: docs/adr
 
 agentCrew:
-  version: v0.10.0
+  version: v0.10.1
   source: git@github.com:ryu-qqq/agent-crew.git
-  syncedAt: "2026-06-01"
+  syncedAt: "2026-06-02"
 
 git:
   commit:
