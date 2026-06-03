@@ -127,6 +127,15 @@ export const scenarioSchema = z.object({
 });
 export type Scenario = z.infer<typeof scenarioSchema>;
 
+// ADR 0003 Follow-up #2 (A/B 품질 측정): 같은 입력을 asset·baked 양쪽으로 강제 산출해 저장한 결과.
+// 두 시나리오는 각각 source 로 태깅되어, 이후 사용자가 둘 다 run → run.source 상속 →
+// aggregateBenchmark.bySource 로 다운스트림 A/B 비교가 가능해진다.
+export const scenarioAbPairResponseSchema = z.object({
+  asset: scenarioSchema,
+  baked: scenarioSchema,
+});
+export type ScenarioAbPairResponse = z.infer<typeof scenarioAbPairResponseSchema>;
+
 export const runSchema = z.object({
   id,
   assetVersionId: id,

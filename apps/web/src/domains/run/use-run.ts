@@ -3,6 +3,7 @@ import {
   cancelRun,
   createHumanScore,
   deleteScenario,
+  generateScenarioAb,
   getRunAnalysis,
   rerunRun,
   startAnalysis,
@@ -79,6 +80,16 @@ export function useRunTrace(runId: string | null, isRunning: boolean) {
 // OPSP-27 B: 자산 + hint 로 시나리오 폼 초안 받기.
 export function useSuggestScenario() {
   return useMutation({ mutationFn: suggestScenario });
+}
+
+// ADR 0003 Follow-up #2: asset·baked 시나리오 2개 강제 산출. 성공 시 시나리오 목록 무효화 →
+// ScenarioManager 에 두 신규 시나리오(source 배지)가 바로 보임.
+export function useGenerateScenarioAb() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: generateScenarioAb,
+    onSuccess: () => qc.invalidateQueries({ queryKey: scenarioKeys.all }),
+  });
 }
 
 export function useLaunchRun() {

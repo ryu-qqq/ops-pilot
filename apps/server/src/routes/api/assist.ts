@@ -1,8 +1,9 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { designSourceSchema } from "@opspilot/shared-types";
+import { designSourceSchema, scenarioAbPairResponseSchema } from "@opspilot/shared-types";
 import { ClaudeAssistError } from "../../domains/assist/claude.js";
 import { judgeResultSchema, judgeRuns } from "../../domains/assist/judge-runs.js";
+import { createScenarioAbPair } from "../../domains/assist/scenario-ab-service.js";
 import {
   scenarioSuggestionSchema,
   suggestScenarioWithMeta,
@@ -72,6 +73,34 @@ const assist: FastifyPluginAsyncZod = async (fastify) => {
         // ADR 0003 (D1): suggestion + source(설계 경로)를 함께 반환 → 클라이언트가 scenario
         // 저장 시 source 를 넘겨 영속화한다. source 별 다운스트림 A/B 집계의 기점.
         return { ...suggestion, source: meta.source, fallbackReason: meta.fallbackReason };
+      } catch (e) {
+        if (e instanceof ClaudeAssistError) {
+          return reply.status(400).send({ error: "AssistError", detail: e.message });
+        }
+        throw e;
+      }
+    },
+  );
+
+  // ADR 0003 Follow-up #2 (A/B 품질 측정 — 최소 슬라이스): 같은 입력을 asset·baked 양쪽으로
+  // *강제* 산출해 두 source-tagged 시나리오로 저장한다. 자동 실행·채점은 범위 밖 — 사용자가
+  // 기존 실행 UI 로 둘 다 run → run.source 상속 → aggregateBenchmark.bySource 로 비교한다.
+  // asset 경로 불가(scenario-designer 미sync)면 400 — A/B 불성립을 조용히 단일화하지 않고 명시.
+  fastify.post(
+    "/assist/scenario-ab",
+    {
+      schema: {
+        body: z.object({
+          assetId: z.string().uuid(),
+          hint: z.string().optional(),
+          ticketText: z.string().optional(),
+        }),
+        response: { 200: scenarioAbPairResponseSchema, 400: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      try {
+        return await createScenarioAbPair(req.body);
       } catch (e) {
         if (e instanceof ClaudeAssistError) {
           return reply.status(400).send({ error: "AssistError", detail: e.message });

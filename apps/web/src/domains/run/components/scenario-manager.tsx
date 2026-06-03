@@ -11,6 +11,7 @@ import { Label } from "../../../components/ui/label";
 import { Textarea } from "../../../components/ui/textarea";
 import { EmptyState, InfoMark, InlineError, Loading } from "../../../lib/ui";
 import type { ScenarioWithCounts } from "../api";
+import { sourceToken } from "../lib/source-token";
 import { useDeleteScenario, useScenariosForAsset, useUpdateScenario } from "../use-run";
 
 // OPSP-34: 자산별 시나리오 보기·수정·삭제 패널.
@@ -36,6 +37,7 @@ export function ScenarioManager({ assetId }: Props) {
   }
   if (list.isError) return <InlineError error={list.error} />;
   const scenarios = list.data ?? [];
+  const hasAbPair = scenarios.some((sc) => sc.source !== null);
 
   return (
     <Card>
@@ -48,6 +50,11 @@ export function ScenarioManager({ assetId }: Props) {
             help="이 자산용 시나리오의 본문·단언·LLM 판정 기준을 보고, 잘못 만든 게 있으면 수정·삭제할 수 있습니다. 단 수정은 과거 run 의 평가 의미를 바꾸고, 삭제는 관련 run·trace·score 까지 cascade 로 같이 지웁니다."
           />
         </CardTitle>
+        {hasAbPair && (
+          <p className="pt-1 text-xs text-muted-foreground">
+            A/B로 만든 asset·baked 시나리오를 각각 실행한 뒤 벤치마크에서 source별 분포를 비교하세요.
+          </p>
+        )}
       </CardHeader>
       <CardContent className="pt-4">
         {scenarios.length === 0 ? (
@@ -62,6 +69,15 @@ export function ScenarioManager({ assetId }: Props) {
                 <AccordionTrigger>
                   <div className="flex flex-1 items-center gap-2 pr-3 text-left">
                     <span className="flex-1 truncate font-medium">{sc.name}</span>
+                    {sc.source !== null && (
+                      <Badge
+                        variant={sourceToken(sc.source).variant}
+                        className="text-xs"
+                        title={sourceToken(sc.source).help}
+                      >
+                        {sourceToken(sc.source).label}
+                      </Badge>
+                    )}
                     <Badge variant="outline" className="font-mono text-xs">
                       run {sc.runCount}
                     </Badge>

@@ -96,6 +96,49 @@ export interface SuggestScenarioMeta {
   fallbackReason?: string;
 }
 
+// ADR 0003 Follow-up #2 (A/B 강제 산출): 두 프롬프트 경로를 *각각 강제로* 산출하는 헬퍼로 분리한다.
+// suggestScenarioWithMeta 는 "asset 시도 → 실패 시 baked" 정책으로 이 둘을 조합하고,
+// generateScenarioAbPair 는 "둘 다 강제 산출"로 조합한다. 정책과 산출을 분리해 둘 다 같은 코드를 쓴다.
+
+// 1B: scenario-designer 자산 본문 주입 경로. 자산 미sync 면 명확한 에러 throw(=A/B 불성립 신호).
+// 실행 실패·스키마 실패도 throw — fallback 은 정책(suggestScenarioWithMeta)의 책임이지 이 함수가 아니다.
+export async function generateViaAsset(inputSection: string): Promise<ScenarioSuggestion> {
+  const designerBody = loadScenarioDesignerBody();
+  if (designerBody === null) {
+    throw new ClaudeAssistError(
+      `scenario-designer 자산 미발견(미sync): ${crewAgentPath("scenario-designer")}`,
+    );
+  }
+  const prompt = [designerBody, "", inputSection].join("\n");
+  const raw = await runClaudeOnce(prompt, { timeoutMs: 90_000 });
+  return parseSuggestion(raw);
+}
+
+// 4B: baked SYSTEM 프롬프트 경로. 자산과 무관하게 항상 산출 가능.
+export async function generateViaBaked(inputSection: string): Promise<ScenarioSuggestion> {
+  const prompt = [SYSTEM, "", inputSection].join("\n");
+  const raw = await runClaudeOnce(prompt, { timeoutMs: 90_000 });
+  return parseSuggestion(raw);
+}
+
+// 자산+최신 본문 로드 후 buildInputSection 까지 — asset/baked 양쪽이 공유하는 입력부 조립.
+async function loadInputSection(input: {
+  assetId: string;
+  hint?: string;
+  ticketText?: string;
+}): Promise<string> {
+  const asset = getAsset(input.assetId);
+  if (!asset) throw new ClaudeAssistError("자산을 찾을 수 없음");
+  const content = latestContent(input.assetId) ?? "(자산 본문 없음)";
+  return buildInputSection({
+    kind: asset.kind,
+    name: asset.name,
+    content,
+    hint: input.hint,
+    ticketText: input.ticketText,
+  });
+}
+
 // 본문 주입(1B) 우선, 실패 시 baked fallback(4B). 어느 경로를 탔는지 meta.source 로 식별.
 // 주의: 자산 경로 fallback 은 runClaudeOnce 실행 실패에만 한정한다.
 // parseSuggestion(스키마/JSON 파싱 실패)은 자산 프롬프트 품질 문제이므로 fallback 없이 throw —
@@ -106,30 +149,19 @@ export async function suggestScenarioWithMeta(input: {
   /** 5C: 정규화된 티켓 자유텍스트 슬롯. 실제 MCP(Jira/Notion) 조회 배선은 이번 범위 밖 — 골격만. */
   ticketText?: string;
 }): Promise<{ suggestion: ScenarioSuggestion; meta: SuggestScenarioMeta }> {
-  const asset = getAsset(input.assetId);
-  if (!asset) throw new ClaudeAssistError("자산을 찾을 수 없음");
-  const content = latestContent(input.assetId) ?? "(자산 본문 없음)";
-
-  const inputSection = buildInputSection({
-    kind: asset.kind,
-    name: asset.name,
-    content,
-    hint: input.hint,
-    ticketText: input.ticketText,
-  });
+  const inputSection = await loadInputSection(input);
 
   const designerBody = loadScenarioDesignerBody();
 
   let fallbackReason = "사유 미상";
-  // 1B: 자산 본문 주입 경로.
+  // 1B: 자산 본문 주입 경로. runClaudeOnce(실행) 실패만 baked fallback 대상이다.
+  // parseSuggestion(스키마/JSON) 실패는 자산 프롬프트 품질 문제이므로 try 밖에서 throw — fallback 금지.
   if (designerBody !== null) {
     const prompt = [designerBody, "", inputSection].join("\n");
     let raw: string | null = null;
     try {
       raw = await runClaudeOnce(prompt, { timeoutMs: 90_000 });
     } catch (e) {
-      // 실행 실패(타임아웃·CLI 오류·종료코드)만 baked fallback.
-      // 스키마 실패는 아래 parseSuggestion 에서 throw 되어 fallback 을 타지 않는다.
       fallbackReason = `자산 경로 실행 실패: ${(e as Error).message}`;
     }
     if (raw !== null) {
@@ -140,8 +172,21 @@ export async function suggestScenarioWithMeta(input: {
   }
 
   // 4B: baked SYSTEM fallback.
-  const fallbackPrompt = [SYSTEM, "", inputSection].join("\n");
-  const raw = await runClaudeOnce(fallbackPrompt, { timeoutMs: 90_000 });
-  const suggestion = parseSuggestion(raw);
+  const suggestion = await generateViaBaked(inputSection);
   return { suggestion, meta: { source: "baked", fallbackReason } };
+}
+
+// ADR 0003 Follow-up #2: A/B 품질 측정의 빠진 조각 = "같은 입력을 양쪽으로 강제 산출".
+// 같은 inputSection 으로 generateViaAsset + generateViaBaked 둘 다 호출한다.
+// asset 경로 불가(미sync)면 ClaudeAssistError 가 throw 되어 A/B 불성립이 명확해진다(조용한 단일화 금지).
+// 둘 다 실토큰(각 ~10-40s) — 자동 실행·채점은 범위 밖, 여기선 두 source-tagged 산출만 만든다.
+export async function generateScenarioAbPair(input: {
+  assetId: string;
+  hint?: string;
+  ticketText?: string;
+}): Promise<{ asset: ScenarioSuggestion; baked: ScenarioSuggestion }> {
+  const inputSection = await loadInputSection(input);
+  const asset = await generateViaAsset(inputSection);
+  const baked = await generateViaBaked(inputSection);
+  return { asset, baked };
 }
