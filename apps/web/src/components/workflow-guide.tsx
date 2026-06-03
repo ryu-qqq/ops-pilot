@@ -1,9 +1,5 @@
-import { useState } from "react";
-import { ChevronDown, ChevronUp, BookOpen } from "lucide-react";
-import { Button } from "./ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-
-const STORAGE_KEY = "opspilot-workflow-guide";
+// 탭별 사용법 안내의 단일 출처(GUIDES). 본문 인라인 배너는 제거됐고, 모든 탭이
+// 헤더 ⓘ Dialog(overview-info-dialog.tsx)에서 이 GUIDES 를 읽어 띄운다.
 
 type GuideTab = "overview" | "feedback" | "runs" | "registry";
 
@@ -13,7 +9,6 @@ export interface GuideContent {
   footnote?: string;
 }
 
-// 개요 탭 배너는 헤더 ⓘ Dialog 로 이전 — 안내 출처를 한 곳(GUIDES)에 유지.
 export const GUIDES: Record<GuideTab, GuideContent> = {
   overview: {
     headline: "내 자산이 제대로·일관되게 쓰이나 — 한눈에",
@@ -42,7 +37,7 @@ export const GUIDES: Record<GuideTab, GuideContent> = {
       {
         label: "1. Ingest",
         detail:
-          "Cursor에서 작업을 마친 뒤 MCP `ingest_cursor_session`(또는 REST ingest)으로 세션 번들을 넣습니다.",
+          "Cursor에서 작업을 마친 뒤 MCP `ingest_cursor_session`(또는 REST ingest)으로 세션 번들을 넣습니다. 자동 ingest(ADR 0004)가 켜져 있으면 새 커밋이 주기 스캔으로 자동 진입합니다.",
       },
       {
         label: "2. Eval 관측",
@@ -52,7 +47,7 @@ export const GUIDES: Record<GuideTab, GuideContent> = {
       {
         label: "3. 개선안",
         detail:
-          "done/reviewed 후 draft proposal을 승인·거절합니다. 승인한 뒤 「clone에 반영」하면 등록된 프로젝트 클론에 git 커밋됩니다.",
+          "done/reviewed 후 결정 큐에서 draft proposal을 승인·거절합니다. 승인한 뒤 「clone에 반영」하면 등록된 프로젝트 클론에 git 커밋됩니다.",
       },
       {
         label: "4. (선택) Review",
@@ -107,72 +102,3 @@ export const GUIDES: Record<GuideTab, GuideContent> = {
     footnote: "일상 Cursor 코딩 루프는 피드백 탭이 중심, harness 실험은 이 탭.",
   },
 };
-
-function readCollapsed(): boolean {
-  try {
-    return localStorage.getItem(STORAGE_KEY) === "collapsed";
-  } catch {
-    return false;
-  }
-}
-
-export function WorkflowGuide({ tab }: { tab: GuideTab }) {
-  const [open, setOpen] = useState(() => !readCollapsed());
-  const guide = GUIDES[tab];
-
-  const toggle = () => {
-    setOpen((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(STORAGE_KEY, next ? "open" : "collapsed");
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
-  };
-
-  return (
-    <Card className="border-primary/20 bg-primary/[0.03]">
-      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 py-3">
-        <CardTitle className="flex items-center gap-2 text-sm font-medium">
-          <BookOpen className="h-4 w-4 text-primary" />
-          {guide.headline}
-        </CardTitle>
-        <Button variant="ghost" size="sm" className="h-8 shrink-0 text-xs" onClick={toggle}>
-          {open ? (
-            <>
-              접기
-              <ChevronUp className="h-3.5 w-3.5" />
-            </>
-          ) : (
-            <>
-              사용법 펼치기
-              <ChevronDown className="h-3.5 w-3.5" />
-            </>
-          )}
-        </Button>
-      </CardHeader>
-      {open && (
-        <CardContent className="space-y-3 border-t border-primary/10 pt-3 pb-4">
-          <ol className="space-y-2.5">
-            {guide.steps.map((step) => (
-              <li key={step.label} className="flex gap-3 text-sm">
-                <span className="shrink-0 font-medium text-foreground">{step.label}</span>
-                <span className="text-muted-foreground">{step.detail}</span>
-              </li>
-            ))}
-          </ol>
-          {guide.footnote !== undefined && (
-            <p className="text-xs text-muted-foreground/80">{guide.footnote}</p>
-          )}
-          <p className="text-xs text-muted-foreground">
-            상세·MCP 등록·한계는 레포{" "}
-            <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">README.md</code>{" "}
-            「5분 시작 — Cursor 피드백 루프」 참고.
-          </p>
-        </CardContent>
-      )}
-    </Card>
-  );
-}
