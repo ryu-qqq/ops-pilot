@@ -5,8 +5,10 @@ import {
   feedbackIngestRequestSchema,
   feedbackProposalApplyResponseSchema,
   improvementProposalSchema,
+  improvementProposalStatusSchema,
   ingestBundleDetailSchema,
   ingestBundleListResponseSchema,
+  proposalWithSourceSchema,
 } from "@opspilot/shared-types";
 import {
   FeedbackIngestError,
@@ -22,6 +24,7 @@ import {
   applyProposal,
   approveProposal,
   getProposalDetail,
+  listProposalsForProject,
   rejectProposal,
 } from "../../domains/feedback/proposal-service.js";
 
@@ -159,6 +162,22 @@ const feedback: FastifyPluginAsyncZod = async (fastify) => {
         }
         throw e;
       }
+    },
+  );
+
+  fastify.get(
+    "/feedback/proposals",
+    {
+      schema: {
+        querystring: z.object({
+          projectId: z.string().uuid(),
+          status: improvementProposalStatusSchema.optional(),
+        }),
+        response: { 200: z.array(proposalWithSourceSchema), 400: errorSchema },
+      },
+    },
+    async (req) => {
+      return listProposalsForProject(req.query.projectId, req.query.status);
     },
   );
 
