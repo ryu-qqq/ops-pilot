@@ -36,6 +36,7 @@ import { useTheme } from "../../../lib/use-theme";
 import { Button } from "../../../components/ui/button";
 import { useRun, useRunAnalysis, useRuns, useRunTrace, useStartAnalysis } from "../use-run";
 import { isFeedbackPipelineRun, feedbackPipelinePhase } from "../lib/feedback-run";
+import { nodeTypeToken } from "../lib/trace-node-token";
 import type { TraceEventView } from "../api";
 
 // OPSP-35 (b 재작성): 선택된 *1개 run* 의 trace event 흐름을 그래프로 +
@@ -49,22 +50,8 @@ interface Props {
   showRunSelect?: boolean;
 }
 
-// fixture(normalize)와 실 local-claude 둘 다 커버하는 type 매핑.
-const TYPE_COLOR: Record<string, string> = {
-  // 실 local-claude
-  assistant_text: "border-info bg-info/10",
-  tool_use: "border-warning bg-warning/15",
-  tool_result: "border-success bg-success/15",
-  user_message: "border-foreground/40 bg-card",
-  // 공통
-  thinking: "border-purple bg-purple/15",
-  system: "border-muted-foreground bg-muted/30",
-  // fixture(normalize) 별칭
-  tool_call: "border-warning bg-warning/15",
-  assistant_message: "border-info bg-info/10",
-  result: "border-success bg-success/15",
-  init: "border-muted-foreground bg-muted/30",
-};
+// 색·라벨·컬럼은 trace-node-token 으로 추출(통합 그래프 언어 — 피드백 lineage 와 공유).
+// 아이콘은 그래프 전용이라 여기 유지.
 const TYPE_ICON: Record<string, React.ReactNode> = {
   assistant_text: <MessageSquare className="h-3 w-3" />,
   assistant_message: <MessageSquare className="h-3 w-3" />,
@@ -78,36 +65,9 @@ const TYPE_ICON: Record<string, React.ReactNode> = {
   user_message: <MessageSquare className="h-3 w-3" />,
 };
 
-// x column 분포 — 시간(y) 흐름 + type 좌우 분기. column 간격 좁힘(보기 편하게).
-const TYPE_COLUMN: Record<string, number> = {
-  system: -260,
-  init: -260,
-  user_message: -130,
-  assistant_text: 0,
-  assistant_message: 0,
-  result: 0,
-  thinking: 130,
-  tool_use: 260,
-  tool_call: 260,
-  tool_result: 390,
-};
 // OPSP-37 (4): 노드 세로 간격 — 압축/넉넉 토글.
 const ROW_HEIGHT_LOOSE = 95;
 const ROW_HEIGHT_COMPACT = 56;
-
-// OPSP-37 (1): 노드 라벨 짤림 방지 — type 를 짧게.
-const TYPE_SHORT: Record<string, string> = {
-  assistant_text: "assistant",
-  assistant_message: "assistant",
-  tool_use: "tool",
-  tool_call: "tool",
-  tool_result: "result",
-  result: "result",
-  thinking: "thinking",
-  system: "system",
-  init: "system",
-  user_message: "user",
-};
 
 interface TraceNodeData extends Record<string, unknown> {
   ev: TraceEventView;
@@ -116,7 +76,8 @@ interface TraceNodeData extends Record<string, unknown> {
 function TraceEventNode({ data }: NodeProps<Node<TraceNodeData>>) {
   const ev = data.ev;
   const isTaskTool = (ev.type === "tool_use" || ev.type === "tool_call") && ev.name === "Task";
-  const cls = TYPE_COLOR[ev.type] ?? "border-border bg-card";
+  const token = nodeTypeToken(ev.type);
+  const cls = token.colorClass;
   const icon = TYPE_ICON[ev.type] ?? <FileText className="h-3 w-3" />;
   return (
     <div
@@ -127,7 +88,7 @@ function TraceEventNode({ data }: NodeProps<Node<TraceNodeData>>) {
       <div className="flex items-center gap-1 whitespace-nowrap">
         {icon}
         <span className="font-mono text-[10px] opacity-70">#{ev.seq}</span>
-        <span className="font-mono text-[10px] opacity-80">{TYPE_SHORT[ev.type] ?? ev.type}</span>
+        <span className="font-mono text-[10px] opacity-80">{token.label}</span>
       </div>
       {ev.name !== null && (
         <div className={`max-w-[180px] truncate text-[11px] font-medium ${isTaskTool ? "text-purple-foreground" : ""}`}>
@@ -237,7 +198,7 @@ export function FlowGraph({ selectedRunId, onSelectRun, showRunSelect = true }: 
       id: `ev:${String(ev.seq)}`,
       type: "trace",
       position: {
-        x: TYPE_COLUMN[ev.type] ?? 0,
+        x: nodeTypeToken(ev.type).column,
         y: idx * rowHeight,
       },
       data: { ev },
