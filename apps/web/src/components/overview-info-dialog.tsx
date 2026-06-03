@@ -10,9 +10,9 @@ import {
 } from "./ui/dialog";
 import { GUIDES } from "./workflow-guide";
 
-// 헤더 ⓘ 는 본문 배너를 숨긴 탭(overview·registry)에서만 노출한다 — 타입도 그 둘로
-// 좁혀 의도를 코드로 강제(미노출 탭 메타가 GUIDES 와 따로 노는 드리프트 방지).
-type InfoTab = Extract<keyof typeof GUIDES, "overview" | "registry">;
+// 4개 탭 모두 본문 배너를 없애고 헤더 ⓘ Dialog 로 통일한다(화면 점유 제거).
+// 타입을 GUIDES 키 전체로 두어 메타가 GUIDES 와 따로 노는 드리프트를 코드로 방지.
+type InfoTab = keyof typeof GUIDES;
 
 // 탭별 사용법을 헤더 ⓘ Dialog 로 띄운다. 안내 내용(제목·steps)은 GUIDES 단일 출처에서
 // 가져오고, 보조 description 만 여기서 정의한다.
@@ -24,6 +24,14 @@ const DIALOG_META: Record<InfoTab, { description: string; label: string }> = {
   registry: {
     description: "Harness 자산 — 등록 · 저작 · 실행 · 채택 흐름.",
     label: "프로젝트 사용법",
+  },
+  feedback: {
+    description: "Cursor 작업 → eval → 개선안 검토 (HITL) 흐름.",
+    label: "피드백 사용법",
+  },
+  runs: {
+    description: "모든 run의 트레이스·점수·diff 관측실.",
+    label: "실행/트레이스 사용법",
   },
 };
 
