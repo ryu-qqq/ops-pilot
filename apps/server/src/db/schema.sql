@@ -50,6 +50,8 @@ CREATE TABLE IF NOT EXISTS scenario (
   input           TEXT NOT NULL,
   expectation     TEXT NOT NULL,
   definition_hash TEXT NOT NULL,
+  -- ADR 0003 (D1): 설계 산출 경로(asset|baked). suggest 산출에서 채워지고 수동 작성은 NULL.
+  source          TEXT CHECK (source IS NULL OR source IN ('asset', 'baked')),
   created_at      TEXT NOT NULL,
   updated_at      TEXT NOT NULL,
   UNIQUE (asset_id, name)
@@ -70,6 +72,8 @@ CREATE TABLE IF NOT EXISTS run (
   completion_tokens INTEGER,
   cost_usd          REAL,
   retro             TEXT,                       -- OPSP-46: 선택적 회고 메모 ("왜")
+  -- ADR 0003 (D1): scenario.source 상속(asset|baked). source 별 다운스트림 A/B 집계의 단일 진실.
+  source            TEXT CHECK (source IS NULL OR source IN ('asset', 'baked')),
   created_at        TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_run_asset_version ON run (asset_version_id);

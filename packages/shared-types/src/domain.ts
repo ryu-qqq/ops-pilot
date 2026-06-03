@@ -53,6 +53,12 @@ export const scorerSchema = z.enum([
 ]);
 export type Scorer = z.infer<typeof scorerSchema>;
 
+// ADR 0003 (D1): 평가 "설계" 산출이 어느 프롬프트 경로로 만들어졌는가 —
+// "asset"=agent-crew 자산 본문 주입(ADR 0002 1B), "baked"=fallback(4B).
+// 설계 산출물(scenario)에 붙어 → 그 산출로 만든 run 으로 상속 → source 별 A/B 집계.
+export const designSourceSchema = z.enum(["asset", "baked"]);
+export type DesignSource = z.infer<typeof designSourceSchema>;
+
 const id = z.string().uuid();
 const ts = z.string().datetime();
 
@@ -113,6 +119,9 @@ export const scenarioSchema = z.object({
   input: z.string().min(1),
   expectation: expectationSchema,
   definitionHash: z.string().min(1),
+  // ADR 0003 (D1): 이 시나리오 초안이 어느 설계 경로로 만들어졌는가(asset|baked).
+  // suggest 산출에서 채워지고, 수동 작성 시나리오는 null. run 으로 상속된다.
+  source: designSourceSchema.nullable(),
   createdAt: ts,
   updatedAt: ts,
 });
@@ -132,6 +141,9 @@ export const runSchema = z.object({
   completionTokens: z.number().int().nonnegative().nullable(),
   costUsd: z.number().nonnegative().nullable(),
   retro: z.string().nullable(), // OPSP-46: 선택적 회고 메모
+  // ADR 0003 (D1): 이 run 을 만든 설계 산출(scenario)의 source 를 상속(asset|baked).
+  // source 별 다운스트림 A/B 집계의 단일 진실. scenario.source 가 null 이면 null.
+  source: designSourceSchema.nullable(),
   createdAt: ts,
 });
 export type Run = z.infer<typeof runSchema>;
@@ -199,6 +211,17 @@ const numericStatsSchema = z.object({
   max: z.number(),
 });
 
+// ADR 0003 (C3): source 별 다운스트림 분포 — 전체 집계와 같은 신호를 source 단위로.
+export const benchmarkBySourceEntrySchema = z.object({
+  count: z.number().int().nonnegative(),
+  passRate: z.number().min(0).max(1),
+  assertion: numericStatsSchema
+    .extend({ passN: z.number().int().nonnegative() })
+    .nullable(),
+  judge: numericStatsSchema.nullable(),
+});
+export type BenchmarkBySourceEntry = z.infer<typeof benchmarkBySourceEntrySchema>;
+
 export const benchmarkAggregateSchema = z.object({
   count: z.number().int().nonnegative(),
   statusCounts: z.object({
@@ -218,6 +241,14 @@ export const benchmarkAggregateSchema = z.object({
     .nullable(),
   // LLM judge(OPSP-10 follow-up) — 있으면.
   judge: numericStatsSchema.nullable(),
+  // ADR 0003 (C3·D1): source(asset|baked) 별 분포. source 가 기록된 run 이 하나도
+  // 없으면 null. 있으면 해당 source 키만 채워진다(§6.4 — 단순 가산 아닌 source 별 분리).
+  bySource: z
+    .object({
+      asset: benchmarkBySourceEntrySchema.optional(),
+      baked: benchmarkBySourceEntrySchema.optional(),
+    })
+    .nullable(),
 });
 export type BenchmarkAggregate = z.infer<typeof benchmarkAggregateSchema>;
 

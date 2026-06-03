@@ -1,11 +1,20 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
+import { designSourceSchema } from "@opspilot/shared-types";
 import { ClaudeAssistError } from "../../domains/assist/claude.js";
 import { judgeResultSchema, judgeRuns } from "../../domains/assist/judge-runs.js";
 import {
   scenarioSuggestionSchema,
   suggestScenarioWithMeta,
 } from "../../domains/assist/scenario-suggest.js";
+
+// ADR 0003 (D1): suggest 응답에 설계 경로(source)를 additive·optional 로 노출한다.
+// ADR 0002 의 "meta 미노출(2C)" 은 source DB 영속화의 선행 조건과 충돌하므로, source 만
+// 한정 노출해 클라이언트가 scenario 저장 시 함께 넘길 수 있게 한다(fallbackReason 은 진단용).
+const scenarioSuggestionWithSourceSchema = scenarioSuggestionSchema.extend({
+  source: designSourceSchema,
+  fallbackReason: z.string().optional(),
+});
 
 // OPSP-27: 로컬 Claude 어시스트 라우트.
 // (A) 자산 저작 초안 검수, (B) 자산 본문 기반 시나리오 폼 초안 제안.
@@ -46,7 +55,7 @@ const assist: FastifyPluginAsyncZod = async (fastify) => {
           // ADR 0002 5C: 정규화된 티켓 자유텍스트 슬롯(선택). 실 MCP(Jira/Notion) 조회 배선은 범위 밖.
           ticketText: z.string().optional(),
         }),
-        response: { 200: scenarioSuggestionSchema, 400: errorSchema },
+        response: { 200: scenarioSuggestionWithSourceSchema, 400: errorSchema },
       },
     },
     async (req, reply) => {
@@ -60,8 +69,9 @@ const assist: FastifyPluginAsyncZod = async (fastify) => {
             "scenario-suggest baked fallback",
           );
         }
-        // 응답 계약(2C) 불변: meta 는 싣지 않고 suggestion 만 반환.
-        return suggestion;
+        // ADR 0003 (D1): suggestion + source(설계 경로)를 함께 반환 → 클라이언트가 scenario
+        // 저장 시 source 를 넘겨 영속화한다. source 별 다운스트림 A/B 집계의 기점.
+        return { ...suggestion, source: meta.source, fallbackReason: meta.fallbackReason };
       } catch (e) {
         if (e instanceof ClaudeAssistError) {
           return reply.status(400).send({ error: "AssistError", detail: e.message });
