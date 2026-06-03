@@ -94,18 +94,69 @@ function BySourceRow({
           style={{ width: `${(entry.passRate * 100).toFixed(1)}%` }}
         />
       </div>
+      {/* 자가(같은 하네스 산출) 신호 — assertion/judge */}
       <div className="mt-2 flex items-baseline justify-between text-xs">
-        <span className="text-muted-foreground">단언 평균</span>
+        <span className="text-muted-foreground">단언 평균 (자가)</span>
         <span className="font-mono">
           {entry.assertion === null ? "—" : fmtScore(entry.assertion.mean)}
         </span>
       </div>
       <div className="mt-1 flex items-baseline justify-between text-xs">
-        <span className="text-muted-foreground">판정 평균</span>
+        <span className="text-muted-foreground">판정 평균 (자가)</span>
         <span className="font-mono">
           {entry.judge === null ? "—" : fmtScore(entry.judge.mean)}
         </span>
       </div>
+      {/* ADR 0003 §6.4: 외부(사람) 신호 — 자가와 분리. 자가편향 보정의 근거. */}
+      <div className="mt-1 flex items-baseline justify-between text-xs">
+        <span className="text-muted-foreground">사람 평균 (외부)</span>
+        {entry.human === null || entry.humanSampleCount === 0 ? (
+          <span className="font-mono text-muted-foreground">
+            —(외부 표본 없음)
+          </span>
+        ) : (
+          <span className="font-mono">
+            {entry.human.mean.toFixed(2)}{" "}
+            <span className="text-muted-foreground">
+              (외부 표본 {entry.humanSampleCount})
+            </span>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ADR 0003 §6.4 (B3): 비교 신뢰 게이트 — asset·baked 양쪽 다 외부(사람) 표본이
+// 있어야 자가편향 없이 비교를 신뢰한다. 한쪽이라도 없으면 보류 경고.
+function ConfidenceGate({
+  asset,
+  baked,
+}: {
+  asset?: BenchmarkBySourceEntry;
+  baked?: BenchmarkBySourceEntry;
+}) {
+  // 양쪽 source 가 존재할 때만 A/B 비교 신뢰 판단이 의미 있다.
+  if (asset === undefined || baked === undefined) return null;
+  const bothExternal = asset.humanSampleCount > 0 && baked.humanSampleCount > 0;
+  if (bothExternal) {
+    return (
+      <div className="mt-2 inline-flex items-center gap-1 rounded-md border border-success/40 bg-success/10 px-2 py-1 text-xs text-success">
+        외부 검증됨 (§6.4)
+        <InfoMark
+          label="외부 검증됨"
+          help="asset·baked 양쪽 모두 외부(사람) 점수 표본이 있어 자가 신호(단언·판정)의 자가편향을 사람 신호로 교차 검증할 수 있다. A/B 비교를 신뢰할 수 있는 상태(ADR 0003 §6.4)."
+        />
+      </div>
+    );
+  }
+  return (
+    <div className="mt-2 inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning/10 px-2 py-1 text-xs text-warning">
+      비교 신뢰 보류 — 외부(사람) 표본 부족 (§6.4)
+      <InfoMark
+        label="비교 신뢰 보류"
+        help="자가 신호(단언·판정)만으론 같은 하네스가 만든 평가가 자기 산출을 좋게 볼 자가편향이 있을 수 있다. ADR 0003 §6.4는 자가+외부(사람) 둘 다 있을 때만 비교를 신뢰한다. 각 run 상세에서 사람 점수를 매기면 여기 반영된다."
+      />
     </div>
   );
 }
@@ -251,6 +302,11 @@ export function BenchmarkSummary({ runIds, onSelectRun }: Props) {
                   <BySourceRow source="baked" entry={data.bySource.baked} />
                 )}
               </div>
+              {/* ADR 0003 §6.4 (B3): 자가+외부 둘 다일 때만 비교 신뢰 게이트 */}
+              <ConfidenceGate
+                asset={data.bySource.asset}
+                baked={data.bySource.baked}
+              />
             </div>
           )}
 

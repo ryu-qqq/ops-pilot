@@ -149,6 +149,7 @@ export function AssetDetailPanel({
                 assetId={assetId}
                 assetVersionId={effectiveVersionId}
                 onLaunched={onRunCreated}
+                onBenchmark={onBenchmarkStarted}
               />
               <RegressionLauncher
                 assetId={assetId}
