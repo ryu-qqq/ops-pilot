@@ -7,7 +7,7 @@ import { BenchmarkLauncher } from "../../run/components/benchmark-launcher";
 import { RegressionLauncher } from "../../run/components/regression-launcher";
 import { RunLauncher } from "../../run/components/run-launcher";
 import { ScenarioManager } from "../../run/components/scenario-manager";
-import { useAssets } from "../use-registry";
+import { useAssetLint, useAssets, useAssetVersions } from "../use-registry";
 import { AssetLint } from "./asset-lint";
 import { AssetPruneSection } from "./asset-prune-section";
 import { TriggerEvalPanel } from "./trigger-eval-panel";
@@ -33,10 +33,42 @@ const KIND_LABEL: Record<string, string> = {
   cursor_rule: "cursor·rule",
 };
 
-type DetailTab = "version" | "format" | "trigger" | "scenario" | "run";
+type DetailTab = "version" | "trigger" | "scenario";
+
+// 버전 탭 상단 형식 요약 배지 — 형식 *상세*는 트리거 탭에 두고, 여기선 카운트만.
+// 형식 데이터(useAssetLint)에서 error/warning 카운트만 뽑아 인라인 배지로 렌더.
+function FormatSummaryBadge({ assetId }: { assetId: string }) {
+  const { data } = useAssetLint(assetId);
+  if (!data) return null;
+
+  const errors = data.issues.filter((i) => i.severity === "error").length;
+  const warnings = data.issues.filter((i) => i.severity === "warning").length;
+
+  if (data.ok && warnings === 0) {
+    return (
+      <Badge variant="success" className="text-[10px]">
+        형식 통과
+      </Badge>
+    );
+  }
+  return (
+    <>
+      {errors > 0 && (
+        <Badge variant="destructive" className="text-[10px]">
+          형식 error {errors}
+        </Badge>
+      )}
+      {warnings > 0 && (
+        <Badge variant="warning" className="text-[10px]">
+          형식 warning {warnings}
+        </Badge>
+      )}
+    </>
+  );
+}
 
 // T5: 선택한 자산의 상세 — master-detail 의 오른쪽 패널.
-// 세로 스택 대신 탭으로 분리(버전·형식·트리거 정확도·시나리오·실행).
+// 3탭: 버전(+형식 요약·prune) / 트리거(형식 상세+트리거 정확도) / 시나리오·실행.
 // 파괴적 액션(prune)은 헤더 영역에 분리해 오클릭 방지.
 export function AssetDetailPanel({
   projectId,
@@ -49,6 +81,12 @@ export function AssetDetailPanel({
 }: Props) {
   const { data: assets } = useAssets(projectId);
   const asset = (assets ?? []).find((a) => a.id === assetId) ?? null;
+
+  // 실행 버전 게이트 대체: 선택 버전이 없으면 최신 버전으로 fallback.
+  // getVersions 는 committed_at DESC 정렬(repository.ts) → versions[0] = 최신.
+  const { data: versions } = useAssetVersions(assetId);
+  const latestVersionId = versions?.[0]?.id ?? null;
+  const effectiveVersionId = versionId ?? latestVersionId;
 
   const [tab, setTab] = useState<DetailTab>("version");
   // 자산이 바뀌면 기본 탭(버전)으로 리셋.
@@ -69,17 +107,19 @@ export function AssetDetailPanel({
       <Tabs value={tab} onValueChange={(v) => setTab(v as DetailTab)} className="space-y-3">
         <TabsList className="flex w-full flex-wrap justify-start gap-1">
           <TabsTrigger value="version">버전</TabsTrigger>
-          <TabsTrigger value="format">형식</TabsTrigger>
-          <TabsTrigger value="trigger">트리거 정확도</TabsTrigger>
-          <TabsTrigger value="scenario">시나리오</TabsTrigger>
-          <TabsTrigger value="run">실행</TabsTrigger>
+          <TabsTrigger value="trigger">트리거</TabsTrigger>
+          <TabsTrigger value="scenario">시나리오 · 실행</TabsTrigger>
         </TabsList>
 
+        {/* ① 버전 — 타임라인 + 형식 요약 배지(상세는 트리거 탭) + prune. */}
         <TabsContent value="version" className="mt-0 space-y-3">
           <Card className="p-4">
-            <h3 className="mb-2 text-xs font-semibold text-muted-foreground">
-              git 버전 타임라인
-            </h3>
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <h3 className="text-xs font-semibold text-muted-foreground">
+                git 버전 타임라인
+              </h3>
+              <FormatSummaryBadge assetId={assetId} />
+            </div>
             <VersionTimeline
               assetId={assetId}
               selectedVersionId={versionId}
@@ -94,41 +134,37 @@ export function AssetDetailPanel({
           />
         </TabsContent>
 
-        <TabsContent value="format" className="mt-0">
+        {/* ② 트리거 — 형식 lint 상세 + 트리거 정확도(둘 다 description 품질 맥락). */}
+        <TabsContent value="trigger" className="mt-0 space-y-3">
           <AssetLint assetId={assetId} />
-        </TabsContent>
-
-        <TabsContent value="trigger" className="mt-0">
           <TriggerEvalPanel projectId={projectId} assetId={assetId} />
         </TabsContent>
 
-        <TabsContent value="scenario" className="mt-0">
+        {/* ③ 시나리오 · 실행 — 시나리오 관리 + 실행/회귀/벤치마크. */}
+        <TabsContent value="scenario" className="mt-0 space-y-3">
           <ScenarioManager assetId={assetId} />
-        </TabsContent>
-
-        <TabsContent value="run" className="mt-0 space-y-3">
-          {versionId !== null ? (
+          {effectiveVersionId !== null ? (
             <>
               <RunLauncher
                 assetId={assetId}
-                assetVersionId={versionId}
+                assetVersionId={effectiveVersionId}
                 onLaunched={onRunCreated}
               />
               <RegressionLauncher
                 assetId={assetId}
-                assetVersionId={versionId}
+                assetVersionId={effectiveVersionId}
                 onLaunched={onRunCreated}
               />
               <BenchmarkLauncher
                 assetId={assetId}
-                assetVersionId={versionId}
+                assetVersionId={effectiveVersionId}
                 onLaunched={onBenchmarkStarted}
               />
             </>
           ) : (
             <EmptyState
-              title="버전을 먼저 선택하세요"
-              hint="‘버전’ 탭에서 git 버전을 선택하면 실행·회귀·벤치마크를 띄울 수 있습니다."
+              title="버전이 없습니다"
+              hint="이 자산을 수정·저장하면 첫 버전이 생성되고, 실행·회귀·벤치마크를 띄울 수 있습니다."
             />
           )}
         </TabsContent>
