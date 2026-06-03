@@ -7,10 +7,12 @@ import {
 } from "../../../components/ui/card";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
-import { EmptyState, InlineError, Loading } from "../../../lib/ui";
+import { EmptyState, InfoMark, InlineError, Loading } from "../../../lib/ui";
 import { useAdoptVersion } from "../../authoring/use-authoring";
 import type { BenchmarkAggregate } from "../api";
 import { useBenchmarkAggregate, useRunsCompare } from "../use-run";
+import { sourceToken } from "../lib/source-token";
+import type { BenchmarkBySourceEntry, DesignSource } from "@opspilot/shared-types";
 
 // OPSP-31: N개 run 통계 카드 — 통과율 / 평균±σ / assertion 분포.
 // 개별 run 드릴다운은 컬럼 클릭 → 트레이스 (compare 결과 활용).
@@ -63,6 +65,47 @@ function StatBox({
           )}
         </>
       )}
+    </div>
+  );
+}
+
+// ADR 0003 (D1·C3): source(asset|baked) 한 칸 — 통과율 바 + assertion 평균.
+function BySourceRow({
+  source,
+  entry,
+}: {
+  source: DesignSource;
+  entry: BenchmarkBySourceEntry;
+}) {
+  const tok = sourceToken(source);
+  return (
+    <div className="rounded-md border border-border bg-card p-3">
+      <div className="flex items-center justify-between">
+        <Badge variant={tok.variant}>{tok.label}</Badge>
+        <span className="text-xs text-muted-foreground">N={entry.count}</span>
+      </div>
+      <div className="mt-2 flex items-baseline justify-between text-xs">
+        <span className="text-muted-foreground">통과율</span>
+        <span className="font-mono">{(entry.passRate * 100).toFixed(1)}%</span>
+      </div>
+      <div className="mt-1 h-2 w-full overflow-hidden rounded bg-muted">
+        <div
+          className="h-full rounded bg-primary/60"
+          style={{ width: `${(entry.passRate * 100).toFixed(1)}%` }}
+        />
+      </div>
+      <div className="mt-2 flex items-baseline justify-between text-xs">
+        <span className="text-muted-foreground">단언 평균</span>
+        <span className="font-mono">
+          {entry.assertion === null ? "—" : fmtScore(entry.assertion.mean)}
+        </span>
+      </div>
+      <div className="mt-1 flex items-baseline justify-between text-xs">
+        <span className="text-muted-foreground">판정 평균</span>
+        <span className="font-mono">
+          {entry.judge === null ? "—" : fmtScore(entry.judge.mean)}
+        </span>
+      </div>
     </div>
   );
 }
@@ -188,6 +231,28 @@ export function BenchmarkSummary({ runIds, onSelectRun }: Props) {
             fmt={fmtScore}
           />
         </div>
+
+        {/* ADR 0003 (D1·C3): source 차원 분포 — asset vs baked. legacy(null)면 숨김. */}
+        {data.bySource !== null &&
+          (data.bySource.asset !== undefined || data.bySource.baked !== undefined) && (
+            <div>
+              <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
+                source 차원 (설계 산출 경로)
+                <InfoMark
+                  label="source 차원"
+                  help="평가 설계가 어느 경로로 만들어졌나(asset=agent-crew 자산 주입 / baked=fallback)별 통과율·점수 분포. 같은 시나리오라도 설계 경로가 결과에 미치는 영향을 본다(ADR 0003)."
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {data.bySource.asset !== undefined && (
+                  <BySourceRow source="asset" entry={data.bySource.asset} />
+                )}
+                {data.bySource.baked !== undefined && (
+                  <BySourceRow source="baked" entry={data.bySource.baked} />
+                )}
+              </div>
+            </div>
+          )}
 
         {/* 개별 run 드릴다운 */}
         <div>

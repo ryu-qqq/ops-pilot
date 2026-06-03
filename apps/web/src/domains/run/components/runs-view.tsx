@@ -18,6 +18,7 @@ import { ScenarioPanel } from "./scenario-panel";
 import { GradePanel } from "./grade-panel";
 import { HumanScore } from "./human-score";
 import { RunRetro } from "./run-retro";
+import { VerdictStrip } from "./verdict-strip";
 import { InfoMark } from "../../../lib/ui";
 import { useCancelRun, useRerunRun, useRun } from "../use-run";
 
@@ -56,6 +57,9 @@ export function RunsView({
         <RunList selectedId={selectedRunId} onSelect={onSelectRun} />
       </Card>
       <div className="space-y-4">
+        {/* 관측소 (1)+(2): 판정 한 줄 + 출처 브레드크럼 — 모든 카드보다 위 */}
+        {selectedRunId !== null && <VerdictStrip runId={selectedRunId} />}
+
         {benchmarkActive && (
           <Card className="border-purple/40">
             <CardHeader className="flex flex-row items-baseline justify-between border-b pb-3">
