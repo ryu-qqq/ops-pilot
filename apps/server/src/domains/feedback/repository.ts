@@ -4,6 +4,7 @@ import type {
   IngestBundle,
   IngestBundleContext,
   IngestBundleStatus,
+  IngestTrigger,
 } from "@opspilot/shared-types";
 import { getDb } from "../../db/index.js";
 
@@ -16,6 +17,7 @@ const INGEST_SELECT = `SELECT id,
                                 diff_summary AS diffSummary,
                                 context_json AS contextJsonRaw,
                                 status,
+                                ingest_trigger AS trigger,
                                 created_at AS createdAt
                          FROM ingest_bundle`;
 
@@ -44,6 +46,7 @@ function rowToIngest(row: Record<string, unknown>): IngestBundle {
     diffSummary: row.diffSummary as string,
     contextJson: parseContext(row.contextJsonRaw as string),
     status: row.status as IngestBundleStatus,
+    trigger: row.trigger as IngestTrigger,
     createdAt: row.createdAt as string,
   };
 }
@@ -70,6 +73,7 @@ export interface NewIngestBundle {
   diffSummary: string;
   contextJson: IngestBundleContext;
   status?: IngestBundleStatus;
+  trigger?: IngestTrigger;
 }
 
 export function createIngestBundle(input: NewIngestBundle): IngestBundle {
@@ -77,10 +81,11 @@ export function createIngestBundle(input: NewIngestBundle): IngestBundle {
   const id = randomUUID();
   const createdAt = nowIso();
   const status = input.status ?? "pending";
+  const trigger: IngestTrigger = input.trigger ?? "manual";
   db.prepare(
     `INSERT INTO ingest_bundle
-       (id, project_id, notion_task_url, git_ref, diff_summary, context_json, status, created_at)
-     VALUES (@id, @projectId, @notionTaskUrl, @gitRef, @diffSummary, @contextJsonRaw, @status, @createdAt)`,
+       (id, project_id, notion_task_url, git_ref, diff_summary, context_json, status, ingest_trigger, created_at)
+     VALUES (@id, @projectId, @notionTaskUrl, @gitRef, @diffSummary, @contextJsonRaw, @status, @trigger, @createdAt)`,
   ).run({
     id,
     projectId: input.projectId,
@@ -89,6 +94,7 @@ export function createIngestBundle(input: NewIngestBundle): IngestBundle {
     diffSummary: input.diffSummary,
     contextJsonRaw: JSON.stringify(input.contextJson),
     status,
+    trigger,
     createdAt,
   });
   return {
@@ -99,8 +105,20 @@ export function createIngestBundle(input: NewIngestBundle): IngestBundle {
     diffSummary: input.diffSummary,
     contextJson: input.contextJson,
     status,
+    trigger,
     createdAt,
   };
+}
+
+/**
+ * ADR 0004 (2E): 자동 스캔 차집합용 — 해당 프로젝트가 이미 ingest 한 git_ref 목록.
+ * 자동 트리거가 "미ingest 신규 커밋"만 후보로 삼게 한다.
+ */
+export function getIngestedGitRefs(projectId: string): string[] {
+  const rows = getDb()
+    .prepare("SELECT git_ref AS gitRef FROM ingest_bundle WHERE project_id = ?")
+    .all(projectId) as { gitRef: string }[];
+  return rows.map((r) => r.gitRef);
 }
 
 export function getIngestBundle(id: string): IngestBundle | undefined {

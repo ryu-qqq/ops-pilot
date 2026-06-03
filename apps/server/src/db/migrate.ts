@@ -13,9 +13,26 @@ export function migrate(dbPath?: string): void {
   reconcileAssetSource(db);
   reconcileImprovementProposalTargetKind(db);
   reconcileIngestBundleStatus(db);
+  reconcileIngestTrigger(db);
   reconcileProjectWorkspaceMode(db);
   reconcileScenarioSource(db);
   reconcileRunSource(db);
+}
+
+// ADR 0004 (3D): ingest_bundle.ingest_trigger 컬럼 추가(auto|manual). 기존 row 는
+// DEFAULT 'manual' 로 채워진다(legacy ingest 는 전부 수동 진입). 멱등(있으면 skip).
+// reconcileIngestBundleStatus(테이블 재구성) 뒤에 호출돼야 한다 — 재구성 copy 목록엔
+// ingest_trigger 가 없으므로(구 DB 면 status 재구성 후 여기서 ALTER 로 더한다).
+function reconcileIngestTrigger(db: ReturnType<typeof getDb>): void {
+  const cols = db
+    .prepare("SELECT name FROM pragma_table_info('ingest_bundle')")
+    .all() as { name: string }[];
+  if (!cols.some((c) => c.name === "ingest_trigger")) {
+    db.exec(
+      `ALTER TABLE ingest_bundle ADD COLUMN ingest_trigger TEXT NOT NULL DEFAULT 'manual'
+         CHECK (ingest_trigger IN ('auto', 'manual'))`,
+    );
+  }
 }
 
 // ADR 0003 (D1): scenario.source · run.source 컬럼 추가(평가 설계 산출 경로 asset|baked).

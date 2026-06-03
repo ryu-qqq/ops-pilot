@@ -311,6 +311,12 @@ export const notionPageDetailSchema = z.object({
 });
 export type NotionPageDetail = z.infer<typeof notionPageDetailSchema>;
 
+// ADR 0004 (3D): 자동/수동 ingest provenance. ADR 0003 D1 의 run.source(asset|baked)
+// 와는 별 차원 — 평가 설계 경로가 아니라 "ingest 진입이 자동(주기 스캔)인가 수동인가".
+// 별 컬럼(ingest_bundle.ingest_trigger)으로 분리해 ADR 0003 A/B 측정축 오염을 회피한다.
+export const ingestTriggerSchema = z.enum(["auto", "manual"]);
+export type IngestTrigger = z.infer<typeof ingestTriggerSchema>;
+
 // TASK-5 MVP: Cursor 작업 ingest + evaluator 개선안.
 export const ingestBundleStatusSchema = z.enum([
   "pending",
@@ -414,6 +420,9 @@ export const ingestBundleSchema = z.object({
   diffSummary: z.string(),
   contextJson: ingestBundleContextSchema,
   status: ingestBundleStatusSchema,
+  // ADR 0004 (3D): 이 번들의 진입 provenance(auto=주기 스캔, manual=수동 라우트).
+  // .default 를 쓰지 않는다(D1 교훈: 입력/출력 비대칭) — DB 가 NOT NULL DEFAULT 로 항상 채운다.
+  trigger: ingestTriggerSchema,
   createdAt: ts,
 });
 export type IngestBundle = z.infer<typeof ingestBundleSchema>;
@@ -458,6 +467,9 @@ export const feedbackIngestRequestSchema = z.object({
     .optional(),
   /** 기본 local-claude. 검증·CI는 fixture. */
   evalSource: z.enum(["fixture", "local-claude"]).default("local-claude"),
+  // ADR 0004 (3D): 진입 provenance. 입력은 optional — 수동 라우트는 생략(→'manual'),
+  // 자동 스캔만 'auto' 를 명시한다.
+  trigger: ingestTriggerSchema.optional(),
 });
 export type FeedbackIngestRequest = z.infer<typeof feedbackIngestRequestSchema>;
 

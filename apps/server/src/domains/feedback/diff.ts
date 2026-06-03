@@ -22,6 +22,38 @@ export function resolveCommitSubject(clonePath: string, gitRef: string): string 
   }
 }
 
+export interface RecentCommit {
+  sha: string;
+  subject: string;
+}
+
+/**
+ * ADR 0004 (2A·2E): 자동 트리거 후보 탐색용 — 최근 커밋 목록(머지 제외).
+ * `--no-merges` 로 merge 커밋 제외, 탭 구분 sha/subject. 실패 시 [].
+ */
+export function listRecentCommits(
+  clonePath: string,
+  limit: number,
+  branch?: string,
+): RecentCommit[] {
+  try {
+    const args = ["log", "--no-merges", "--format=%H%x09%s", "-n", String(limit)];
+    args.push(branch ?? "HEAD");
+    const out = git(clonePath, args);
+    return out
+      .split("\n")
+      .map((line) => line.trimEnd())
+      .filter((line) => line !== "")
+      .map((line) => {
+        const tab = line.indexOf("\t");
+        if (tab < 0) return { sha: line, subject: "" };
+        return { sha: line.slice(0, tab), subject: line.slice(tab + 1) };
+      });
+  } catch {
+    return [];
+  }
+}
+
 /** `gitRef^..gitRef` unified diff. 루트 커밋이면 `git show --patch` 로 대체. */
 export function collectCommitDiff(
   clonePath: string,
