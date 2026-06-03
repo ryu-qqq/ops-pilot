@@ -186,6 +186,7 @@ export interface ProposalWithSourceRow extends ImprovementProposal {
   gitRef: string;
   evalRunId: string | null;
   reviewRunId: string | null;
+  trigger: IngestTrigger;
 }
 
 /**
@@ -207,6 +208,7 @@ export function listProposalsByProject(
                       p.applied_commit AS appliedCommit,
                       p.created_at AS createdAt,
                       ib.git_ref AS gitRef,
+                      ib.ingest_trigger AS trigger,
                       json_extract(ib.context_json, '$.commitSubject') AS commitSubject,
                       json_extract(ib.context_json, '$.evalRunId') AS evalRunId,
                       json_extract(ib.context_json, '$.reviewRunId') AS reviewRunId
@@ -219,6 +221,7 @@ export function listProposalsByProject(
   return rows.map((row) => ({
     ...rowToProposal(row),
     gitRef: row.gitRef as string,
+    trigger: row.trigger as IngestTrigger,
     commitSubject: (row.commitSubject as string | null) ?? null,
     evalRunId: (row.evalRunId as string | null) ?? null,
     reviewRunId: (row.reviewRunId as string | null) ?? null,
@@ -231,6 +234,7 @@ export interface IngestBundleListRow {
   notionTaskUrl: string | null;
   gitRef: string;
   status: IngestBundleStatus;
+  trigger: IngestTrigger;
   createdAt: string;
   draftProposalCount: number;
   approvedProposalCount: number;
@@ -249,6 +253,7 @@ export function listIngestBundlesByProject(projectId: string): IngestBundleListR
               ib.notion_task_url AS notionTaskUrl,
               ib.git_ref AS gitRef,
               ib.status,
+              ib.ingest_trigger AS trigger,
               ib.created_at AS createdAt,
               json_extract(ib.context_json, '$.evalRunId') AS evalRunId,
               json_extract(ib.context_json, '$.reviewRunId') AS reviewRunId,
@@ -273,6 +278,7 @@ export function listIngestBundlesByProject(projectId: string): IngestBundleListR
       notionTaskUrl: (row.notionTaskUrl as string | null) ?? null,
       gitRef: row.gitRef as string,
       status: row.status as IngestBundleStatus,
+      trigger: row.trigger as IngestTrigger,
       createdAt: row.createdAt as string,
       draftProposalCount: Number(row.draftProposalCount ?? 0),
       approvedProposalCount: Number(row.approvedProposalCount ?? 0),

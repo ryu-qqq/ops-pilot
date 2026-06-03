@@ -450,6 +450,8 @@ export const proposalWithSourceSchema = improvementProposalSchema.extend({
   gitRef: z.string(),
   evalRunId: z.string().nullable(),
   reviewRunId: z.string().nullable(),
+  // ADR 0004: 출처 ingest 의 진입 provenance(auto|manual). DB NOT NULL DEFAULT 라 항상 존재.
+  trigger: ingestTriggerSchema,
 });
 export type ProposalWithSource = z.infer<typeof proposalWithSourceSchema>;
 
@@ -517,6 +519,8 @@ export const ingestBundleListItemSchema = z.object({
   retroPreview: z.string().nullable().optional(),
   evalRunId: id.nullable().optional(),
   reviewRunId: id.nullable().optional(),
+  // ADR 0004: 진입 provenance(auto|manual). DB NOT NULL DEFAULT 라 항상 존재.
+  trigger: ingestTriggerSchema,
 });
 export type IngestBundleListItem = z.infer<typeof ingestBundleListItemSchema>;
 
@@ -526,6 +530,19 @@ export const ingestBundleListResponseSchema = z.object({
 export type IngestBundleListResponse = z.infer<
   typeof ingestBundleListResponseSchema
 >;
+
+/**
+ * ADR 0004: 자동 ingest 스캐너의 현재 env 설정(읽기 전용). UI 가 ON/OFF·주기를
+ * 관측할 수 있게 노출. 전역 설정이라 projectId 차원 없음.
+ */
+export const autoIngestConfigSchema = z.object({
+  enabled: z.boolean(),
+  intervalMs: z.number().int().nonnegative(),
+  batch: z.number().int().positive(),
+  window: z.number().int().positive(),
+  evalSource: z.enum(["fixture", "local-claude"]),
+});
+export type AutoIngestConfig = z.infer<typeof autoIngestConfigSchema>;
 
 // 자산 사용량 — 로컬 Claude Code transcript 스캔 기반 (T3).
 export const assetUsageSchema = z.object({

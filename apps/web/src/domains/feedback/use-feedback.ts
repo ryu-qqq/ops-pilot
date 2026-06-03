@@ -4,6 +4,7 @@ import {
   applyProposal,
   approveProposal,
   feedbackKeys,
+  getAutoIngestConfig,
   getIngestDetail,
   getIngests,
   getProjectProposals,
@@ -43,6 +44,18 @@ export function useProjectProposals(
     queryFn: () => getProjectProposals(projectId ?? "", status),
     enabled: projectId !== null,
     refetchInterval: hasActiveIngest ? pollIngestMs : false,
+  });
+}
+
+/**
+ * 자동 ingest 스캐너의 현재 env 설정(읽기 전용, ADR 0004). 전역 설정이라 projectId 무관 —
+ * 서버 재기동 전까지 안 바뀌므로 staleTime 을 넉넉히 두고 폴링하지 않는다.
+ */
+export function useAutoIngestConfig() {
+  return useQuery({
+    queryKey: feedbackKeys.autoIngestConfig(),
+    queryFn: getAutoIngestConfig,
+    staleTime: 5 * 60 * 1000,
   });
 }
 

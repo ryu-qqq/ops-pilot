@@ -1,20 +1,11 @@
 import fp from "fastify-plugin";
-import { runAutoIngestScan } from "../domains/feedback/auto-ingest.js";
+import { autoIngestIntervalMs, runAutoIngestScan } from "../domains/feedback/auto-ingest.js";
 
 // ADR 0004 (2A): 자동 ingest 플라이휠 트리거 = 주기 전수 스캔(work-metric-scan 패턴 복제).
 // 새 스케줄러 신설 없이 setImmediate 부팅 1회 + setInterval/unref.
 //
 // ⚠️ off-by-default: 자동 ingest 는 LLM 토큰(eval+review run)을 쓰므로 기본 OFF.
 //    OPS_AUTO_INGEST==='1' 일 때만 활성. 안 켜면 부팅 스캔·interval 둘 다 no-op.
-
-const DEFAULT_INTERVAL_MS = 30 * 60 * 1000;
-
-function intervalMs(): number {
-  const raw = process.env.OPS_AUTO_INGEST_INTERVAL_MS;
-  if (raw === undefined) return DEFAULT_INTERVAL_MS;
-  const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 ? n : DEFAULT_INTERVAL_MS;
-}
 
 export default fp(
   (fastify, _opts, done) => {
@@ -39,7 +30,7 @@ export default fp(
       });
     });
 
-    const ms = intervalMs();
+    const ms = autoIngestIntervalMs();
     if (ms > 0) {
       const timer = setInterval(() => {
         try {

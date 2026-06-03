@@ -1,7 +1,8 @@
 import { type ReactNode, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Ban, Check, Expand, FileCode, Info, Layers, RefreshCw, Share2, X } from "lucide-react";
+import { Ban, Bot, Check, Expand, FileCode, Info, Layers, RefreshCw, Share2, X } from "lucide-react";
 import type {
+  AutoIngestConfig,
   ImprovementProposal,
   ImprovementProposalStatus,
   Project,
@@ -19,7 +20,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../../../components/ui/dialog";
-import { EmptyState, ErrorNotice, Loading } from "../../../lib/ui";
+import { EmptyState, ErrorNotice, InfoMark, Loading } from "../../../lib/ui";
 import { cn } from "../../../lib/utils";
 import { usePersistedState } from "../../../lib/use-persisted-state";
 import { ProjectBar } from "../../project/components/project-bar";
@@ -29,6 +30,7 @@ import { feedbackKeys } from "../api";
 import {
   useApplyProposal,
   useApproveProposal,
+  useAutoIngestConfig,
   useIngestDetail,
   useIngests,
   useProjectProposals,
@@ -40,6 +42,7 @@ import {
 import { IngestPipelineSteps } from "./ingest-pipeline-steps";
 import { IngestLineage } from "./ingest-lineage";
 import { PostApplyBanner } from "./post-apply-banner";
+import { TriggerBadge } from "./trigger-badge";
 
 const statusVariant: Record<string, "default" | "secondary" | "destructive" | "success" | "warning"> = {
   done: "success",
@@ -201,6 +204,7 @@ function ProposalCard({
             <Layers className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate font-medium text-foreground/90">{sourceLabel}</span>
           </button>
+          <TriggerBadge trigger={proposal.trigger} />
           {proposal.evalRunId !== null && (
             <Button
               type="button"
@@ -304,8 +308,48 @@ function ProposalCard({
   );
 }
 
-/** 파이프라인 흐름 띠 — ingest status 집계. 자동 ingest(ADR 0004) 미구현 → 흐름 표시만. */
-function PipelineFlowBand({ statuses }: { statuses: string[] }) {
+function fmtInterval(intervalMs: number): string {
+  if (intervalMs === 0) return "부팅 1회";
+  const min = Math.round(intervalMs / 60000);
+  return `${String(min)}분`;
+}
+
+/**
+ * 자동 ingest 상태 칩(ADR 0004, 읽기 전용). enabled=ON 이면 주기·batch 를 success 톤으로,
+ * OFF 면 muted + 켜는 법 안내. env(OPS_AUTO_INGEST) 제어라 토글 버튼은 두지 않는다 — 상태만.
+ */
+function AutoIngestStatusChip({ config }: { config: AutoIngestConfig }) {
+  if (!config.enabled) {
+    return (
+      <Badge
+        variant="secondary"
+        className="ml-auto gap-1.5 px-2 py-1 font-medium text-muted-foreground"
+      >
+        <Bot className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        자동 ingest OFF
+        <InfoMark
+          label="자동 ingest"
+          help="OPS_AUTO_INGEST=1 로 켜집니다(서버 env). 켜면 주기 스캔이 새 커밋을 자동 ingest 합니다."
+        />
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="success" className="ml-auto gap-1.5 px-2 py-1 font-medium">
+      <Bot className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      자동 ingest ON · {fmtInterval(config.intervalMs)} · batch {config.batch}
+    </Badge>
+  );
+}
+
+/** 파이프라인 흐름 띠 — ingest status 집계 + 자동 ingest 상태 칩(ADR 0004). */
+function PipelineFlowBand({
+  statuses,
+  autoIngestConfig,
+}: {
+  statuses: string[];
+  autoIngestConfig: AutoIngestConfig | undefined;
+}) {
   const failedCount = statuses.filter((s) => s === "failed").length;
   return (
     <Card className="border-border/80">
@@ -331,6 +375,7 @@ function PipelineFlowBand({ statuses }: { statuses: string[] }) {
             실패 {failedCount}
           </Badge>
         )}
+        {autoIngestConfig !== undefined && <AutoIngestStatusChip config={autoIngestConfig} />}
       </CardContent>
     </Card>
   );
@@ -379,6 +424,7 @@ function IngestDrilldownContent({
               ? data.contextJson.commitSubject
               : "Ingest"}
             <Badge variant={statusVariant[data.status] ?? "secondary"}>{data.status}</Badge>
+            <TriggerBadge trigger={data.trigger} />
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 pt-4 text-sm">
@@ -490,6 +536,7 @@ export function FeedbackView({ projectId, onProjectIdChange, onOpenEvalRun }: Fe
   const [drilldownIngestId, setDrilldownIngestId] = useState<string | null>(null);
   const { data: projects } = useProjects();
   const { data: ingests } = useIngests(projectId);
+  const { data: autoIngestConfig } = useAutoIngestConfig();
   const selectedProject = (projects ?? []).find((p) => p.id === projectId);
 
   const ingestStatuses = (ingests ?? []).map((i) => i.status);
@@ -538,8 +585,8 @@ export function FeedbackView({ projectId, onProjectIdChange, onOpenEvalRun }: Fe
             </Alert>
           )}
 
-          {/* 상단: 파이프라인 흐름 띠 */}
-          <PipelineFlowBand statuses={ingestStatuses} />
+          {/* 상단: 파이프라인 흐름 띠 + 자동 ingest 상태 칩 */}
+          <PipelineFlowBand statuses={ingestStatuses} autoIngestConfig={autoIngestConfig} />
 
           {/* 메인: 결정 큐 (좌 필터 + 우 카드 목록) */}
           <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
