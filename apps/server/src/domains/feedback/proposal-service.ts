@@ -7,9 +7,11 @@ import { maybeSyncCursorHarnessAfterApply } from "../harness-bridge/service.js";
 import { getProject } from "../project/repository.js";
 import { FeedbackApplyError, applyProposalToProject } from "./apply.js";
 import {
+  type ProposalWithSourceRow,
   getImprovementProposal,
   getIngestBundle,
   listProposalsByIngestId,
+  listProposalsByProject,
   markProposalApplied,
   updateProposalStatus,
 } from "./repository.js";
@@ -45,6 +47,14 @@ export function listProposalsForIngest(
     proposals = proposals.filter((p) => p.status === status);
   }
   return { ingestId: ingest.id, ingestStatus: ingest.status, proposals };
+}
+
+/** 프로젝트 전역 proposal 큐. status 없으면 전체. */
+export function listProposalsForProject(
+  projectId: string,
+  status?: ImprovementProposalStatus,
+): ProposalWithSourceRow[] {
+  return listProposalsByProject(projectId, status);
 }
 
 export function approveProposal(id: string): ImprovementProposal {

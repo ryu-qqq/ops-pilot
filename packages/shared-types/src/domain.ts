@@ -432,6 +432,18 @@ export const improvementProposalSchema = z.object({
 });
 export type ImprovementProposal = z.infer<typeof improvementProposalSchema>;
 
+/**
+ * 프로젝트 전역 proposal 큐 항목. 기존 proposal 필드 + 출처 ingest 메타.
+ * commitSubject/evalRunId/reviewRunId 는 ingest context_json 에서 추출하며 누락 가능 → nullable.
+ */
+export const proposalWithSourceSchema = improvementProposalSchema.extend({
+  commitSubject: z.string().nullable(),
+  gitRef: z.string(),
+  evalRunId: z.string().nullable(),
+  reviewRunId: z.string().nullable(),
+});
+export type ProposalWithSource = z.infer<typeof proposalWithSourceSchema>;
+
 export const feedbackIngestRequestSchema = z.object({
   projectId: id,
   gitRef: z.string().min(1),

@@ -163,6 +163,50 @@ export function listProposalsByIngestId(ingestId: string): ImprovementProposal[]
   return rows.map(rowToProposal);
 }
 
+export interface ProposalWithSourceRow extends ImprovementProposal {
+  commitSubject: string | null;
+  gitRef: string;
+  evalRunId: string | null;
+  reviewRunId: string | null;
+}
+
+/**
+ * 프로젝트 전역 proposal 목록 (피드백 결정 큐). 출처 ingest 메타 동봉.
+ * status 인자가 있으면 해당 상태만 필터.
+ */
+export function listProposalsByProject(
+  projectId: string,
+  status?: ImprovementProposal["status"],
+): ProposalWithSourceRow[] {
+  const sql = `SELECT p.id,
+                      p.ingest_id AS ingestId,
+                      p.run_id AS runId,
+                      p.target_kind AS targetKind,
+                      p.target_path AS targetPath,
+                      p.rationale,
+                      p.content,
+                      p.status,
+                      p.applied_commit AS appliedCommit,
+                      p.created_at AS createdAt,
+                      ib.git_ref AS gitRef,
+                      json_extract(ib.context_json, '$.commitSubject') AS commitSubject,
+                      json_extract(ib.context_json, '$.evalRunId') AS evalRunId,
+                      json_extract(ib.context_json, '$.reviewRunId') AS reviewRunId
+                 FROM improvement_proposal p
+                 JOIN ingest_bundle ib ON p.ingest_id = ib.id
+                WHERE ib.project_id = ?${status ? " AND p.status = ?" : ""}
+                ORDER BY p.created_at DESC`;
+  const args = status ? [projectId, status] : [projectId];
+  const rows = getDb().prepare(sql).all(...args) as Record<string, unknown>[];
+  return rows.map((row) => ({
+    ...rowToProposal(row),
+    gitRef: row.gitRef as string,
+    commitSubject: (row.commitSubject as string | null) ?? null,
+    evalRunId: (row.evalRunId as string | null) ?? null,
+    reviewRunId: (row.reviewRunId as string | null) ?? null,
+  }));
+}
+
 export interface IngestBundleListRow {
   id: string;
   projectId: string;
