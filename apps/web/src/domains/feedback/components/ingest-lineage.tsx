@@ -8,6 +8,16 @@ function shortId(id: string, len = 8): string {
   return id.slice(0, len);
 }
 
+// 통합 그래프 토큰(run/lib/trace-node-token.ts)과 색을 맞춘 단계 아이콘 액센트.
+// commit=system(muted) / eval=assistant(info) / review=thinking(purple) / apply=result(success).
+// 도메인 경계상 run lib 를 import 하지 않고 같은 디자인 토큰 색 변수만 공유한다.
+const stageIconColor = {
+  commit: "text-muted-foreground",
+  eval: "text-info",
+  review: "text-purple",
+  apply: "text-success",
+} as const;
+
 interface IngestLineageProps {
   data: IngestBundleDetail;
   onOpenRun: (runId: string) => void;
@@ -34,7 +44,7 @@ export function IngestLineage({ data, onOpenRun }: IngestLineageProps) {
       </CardHeader>
       <CardContent className="space-y-3 pt-4 text-sm">
         <LineageRow
-          icon={<GitCommit className="h-4 w-4" />}
+          icon={<GitCommit className={`h-4 w-4 ${stageIconColor.commit}`} />}
           title="시작 커밋"
           body={
             <>
@@ -45,7 +55,7 @@ export function IngestLineage({ data, onOpenRun }: IngestLineageProps) {
         />
         {evalRunId !== undefined && (
           <LineageRow
-            icon={<Play className="h-4 w-4" />}
+            icon={<Play className={`h-4 w-4 ${stageIconColor.eval}`} />}
             title="eval run (work-evaluator)"
             body={
               <>
@@ -70,7 +80,7 @@ export function IngestLineage({ data, onOpenRun }: IngestLineageProps) {
         )}
         {reviewRunId !== undefined && (
           <LineageRow
-            icon={<ShieldCheck className="h-4 w-4" />}
+            icon={<ShieldCheck className={`h-4 w-4 ${stageIconColor.review}`} />}
             title="review run (proposal-reviewer)"
             body={
               <>
@@ -89,7 +99,7 @@ export function IngestLineage({ data, onOpenRun }: IngestLineageProps) {
         )}
         {applied.length > 0 && (
           <LineageRow
-            icon={<Sparkles className="h-4 w-4" />}
+            icon={<Sparkles className={`h-4 w-4 ${stageIconColor.apply}`} />}
             title="clone 반영"
             body={
               <span className="space-y-1">

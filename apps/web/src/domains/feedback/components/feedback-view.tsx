@@ -1,7 +1,13 @@
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Ban, Check, Expand, FileCode, Info, RefreshCw, Share2, X } from "lucide-react";
-import type { ImprovementProposal, Project, ProposalReviewMeta } from "@opspilot/shared-types";
+import { Ban, Check, Expand, FileCode, Info, Layers, RefreshCw, Share2, X } from "lucide-react";
+import type {
+  ImprovementProposal,
+  ImprovementProposalStatus,
+  Project,
+  ProposalReviewMeta,
+  ProposalWithSource,
+} from "@opspilot/shared-types";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
@@ -25,6 +31,7 @@ import {
   useApproveProposal,
   useIngestDetail,
   useIngests,
+  useProjectProposals,
   useRejectProposal,
   useReprocessIngest,
   useReprocessReviewIngest,
@@ -32,9 +39,7 @@ import {
 } from "../use-feedback";
 import { IngestPipelineSteps } from "./ingest-pipeline-steps";
 import { IngestLineage } from "./ingest-lineage";
-import { IngestPipelineMiniBadges } from "./ingest-pipeline-mini-badges";
 import { PostApplyBanner } from "./post-apply-banner";
-import { ingestListSubtitle, ingestListTitle } from "../lib/ingest-label";
 
 const statusVariant: Record<string, "default" | "secondary" | "destructive" | "success" | "warning"> = {
   done: "success",
@@ -52,10 +57,25 @@ const proposalVariant: Record<string, "default" | "secondary" | "destructive" | 
   rejected: "destructive",
 };
 
-interface FeedbackViewProps {
-  projectId: string | null;
-  onProjectIdChange: (projectId: string) => void;
-  onOpenEvalRun: (runId: string) => void;
+// 결정 큐 필터 — proposal status → 한국어 라벨. order = 표시 순서.
+const decisionFilters: { status: ImprovementProposalStatus; label: string }[] = [
+  { status: "draft", label: "결정 대기" },
+  { status: "approved", label: "승인됨" },
+  { status: "applied", label: "반영됨" },
+  { status: "rejected", label: "거절" },
+];
+
+// 파이프라인 흐름 띠 — IngestBundleStatus → 단계. pending=대기, evaluating=평가 중,
+// reviewing=리뷰 중, done/reviewed=검토됨. failed 는 별도 단계로 따로 센다.
+const flowStages: { key: string; label: string; match: (s: string) => boolean }[] = [
+  { key: "pending", label: "대기", match: (s) => s === "pending" },
+  { key: "evaluating", label: "평가 중", match: (s) => s === "evaluating" },
+  { key: "reviewing", label: "리뷰 중", match: (s) => s === "reviewing" },
+  { key: "reviewed", label: "검토됨", match: (s) => s === "done" || s === "reviewed" },
+];
+
+function shortRef(ref: string): string {
+  return ref.slice(0, 8);
 }
 
 function ProposalDetailDialog({
@@ -128,21 +148,26 @@ function ProposalDetailDialog({
 
 function ProposalCard({
   proposal,
-  ingestId,
   projectId,
   project,
-  reviewMeta,
+  onOpenEvalRun,
+  onOpenIngest,
 }: {
-  proposal: ImprovementProposal;
-  ingestId: string;
+  proposal: ProposalWithSource;
   projectId: string;
   project: Project;
-  reviewMeta?: ProposalReviewMeta;
+  onOpenEvalRun: (runId: string) => void;
+  onOpenIngest: (ingestId: string) => void;
 }) {
-  const approve = useApproveProposal(ingestId, projectId);
-  const reject = useRejectProposal(ingestId, projectId);
-  const apply = useApplyProposal(ingestId, projectId);
+  const approve = useApproveProposal(proposal.ingestId, projectId);
+  const reject = useRejectProposal(proposal.ingestId, projectId);
+  const apply = useApplyProposal(proposal.ingestId, projectId);
   const busy = approve.isPending || reject.isPending || apply.isPending;
+
+  const sourceLabel =
+    proposal.commitSubject != null && proposal.commitSubject.trim() !== ""
+      ? proposal.commitSubject
+      : `commit ${shortRef(proposal.gitRef)}`;
 
   return (
     <Card className="border-border/80">
@@ -156,7 +181,6 @@ function ProposalCard({
         </div>
         <ProposalDetailDialog
           proposal={proposal}
-          reviewMeta={reviewMeta}
           trigger={
             <Button type="button" variant="outline" size="sm" className="shrink-0">
               <Expand className="h-3.5 w-3.5" />
@@ -166,34 +190,45 @@ function ProposalCard({
         />
       </CardHeader>
       <CardContent className="space-y-3 pt-3">
+        {/* 출처 라벨 — commitSubject(없으면 gitRef) + eval/review 트레이스 · ingest 드릴다운. */}
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/60 bg-muted/20 px-2 py-1.5 text-xs">
+          <button
+            type="button"
+            onClick={() => onOpenIngest(proposal.ingestId)}
+            className="min-w-0 flex items-center gap-1.5 text-left text-muted-foreground transition-colors hover:text-foreground"
+            title="이 개선안의 출처 ingest 상세(reprocess·review 등)"
+          >
+            <Layers className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate font-medium text-foreground/90">{sourceLabel}</span>
+          </button>
+          {proposal.evalRunId !== null && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-6 px-1.5 text-xs"
+              onClick={() => onOpenEvalRun(proposal.evalRunId as string)}
+            >
+              <Share2 className="h-3 w-3" />
+              eval 트레이스
+            </Button>
+          )}
+          {proposal.reviewRunId !== null && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-6 px-1.5 text-xs"
+              onClick={() => onOpenEvalRun(proposal.reviewRunId as string)}
+            >
+              <Share2 className="h-3 w-3" />
+              review 트레이스
+            </Button>
+          )}
+        </div>
         <p className="line-clamp-3 text-sm text-muted-foreground">{proposal.rationale}</p>
-        {reviewMeta !== undefined && (
-          <div className="rounded-md border border-border/80 bg-muted/30 p-2 text-xs space-y-1">
-            <p>
-              reviewer: <strong>{reviewMeta.decision}</strong> · {reviewMeta.risk} risk ·{" "}
-              {reviewMeta.confidence}
-              {reviewMeta.applied === true && " · auto-applied"}
-            </p>
-            <p className="text-muted-foreground">{reviewMeta.rationale}</p>
-            {(reviewMeta.conflicts ?? []).length > 0 && (
-              <p className="text-warning">conflicts: {(reviewMeta.conflicts ?? []).join(", ")}</p>
-            )}
-            {reviewMeta.applyError !== undefined && proposal.status === "approved" && (
-              <p className="text-xs text-warning">
-                reviewer auto-apply 실패 — 「clone에 반영」으로 수동 적용하세요
-                <span className="block text-muted-foreground">({reviewMeta.applyError})</span>
-              </p>
-            )}
-            {reviewMeta.applyError !== undefined &&
-              proposal.status !== "approved" &&
-              proposal.status !== "applied" && (
-              <p className="text-destructive">apply: {reviewMeta.applyError}</p>
-            )}
-          </div>
-        )}
         <ProposalDetailDialog
           proposal={proposal}
-          reviewMeta={reviewMeta}
           trigger={
             <button
               type="button"
@@ -269,15 +304,46 @@ function ProposalCard({
   );
 }
 
-function IngestDetailPanel({
+/** 파이프라인 흐름 띠 — ingest status 집계. 자동 ingest(ADR 0004) 미구현 → 흐름 표시만. */
+function PipelineFlowBand({ statuses }: { statuses: string[] }) {
+  const failedCount = statuses.filter((s) => s === "failed").length;
+  return (
+    <Card className="border-border/80">
+      <CardContent className="flex flex-wrap items-center gap-2 py-3">
+        {flowStages.map((stage, i) => {
+          const count = statuses.filter((s) => stage.match(s)).length;
+          return (
+            <div key={stage.key} className="flex items-center gap-2">
+              <div className="flex items-center gap-2 rounded-md border border-border/70 bg-muted/30 px-3 py-1.5">
+                <span className="text-xs font-medium text-muted-foreground">{stage.label}</span>
+                <span className="text-sm font-semibold tabular-nums">{count}</span>
+              </div>
+              {i < flowStages.length - 1 && (
+                <span className="text-muted-foreground/50" aria-hidden>
+                  →
+                </span>
+              )}
+            </div>
+          );
+        })}
+        {failedCount > 0 && (
+          <Badge variant="destructive" className="ml-1">
+            실패 {failedCount}
+          </Badge>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** ingest 상세 드릴다운 본문 — 기존 IngestDetailPanel 의 lineage·steps·액션을 격하 보존. */
+function IngestDrilldownContent({
   ingestId,
   projectId,
-  project,
   onOpenEvalRun,
 }: {
   ingestId: string;
   projectId: string;
-  project: Project;
   onOpenEvalRun: (runId: string) => void;
 }) {
   const { data, isPending, isError, error } = useIngestDetail(ingestId);
@@ -289,12 +355,7 @@ function IngestDetailPanel({
   const evalRunId = data?.contextJson.evalRunId;
   const reviewRunId = data?.contextJson.reviewRunId;
 
-  if (isPending)
-    return (
-      <Card className="p-6">
-        <Loading label="ingest 상세 불러오는 중…" />
-      </Card>
-    );
+  if (isPending) return <Loading label="ingest 상세 불러오는 중…" />;
   if (isError) return <ErrorNotice error={error} />;
   if (!data) return null;
 
@@ -302,8 +363,7 @@ function IngestDetailPanel({
     data.status === "evaluating" ||
     (data.status === "failed" && data.contextJson.evalError !== undefined && evalRunId !== undefined);
 
-  const showReviewRetry =
-    data.contextJson.reviewError !== undefined && reviewRunId !== undefined;
+  const showReviewRetry = data.contextJson.reviewError !== undefined && reviewRunId !== undefined;
 
   const showManualReview =
     data.status === "done" && data.proposals.some((p) => p.status === "draft");
@@ -325,25 +385,6 @@ function IngestDetailPanel({
           <p>
             git: <code className="font-mono text-xs">{data.gitRef.slice(0, 12)}</code>
           </p>
-          {evalRunId !== undefined && (
-            <p className="text-xs text-muted-foreground">
-              eval run:{" "}
-              <code className="font-mono">{evalRunId.slice(0, 8)}</code>
-              {data.status === "evaluating" && " (진행 중)"}
-            </p>
-          )}
-          {reviewRunId !== undefined && (
-            <p className="text-xs text-muted-foreground">
-              review run: <code className="font-mono">{reviewRunId.slice(0, 8)}</code>
-              {data.status === "reviewing" && " (진행 중)"}
-            </p>
-          )}
-          {data.notionTaskUrl !== null && (
-            <p className="truncate text-muted-foreground">{data.notionTaskUrl}</p>
-          )}
-          {data.contextJson.retro !== undefined && (
-            <p className="text-muted-foreground">회고: {data.contextJson.retro}</p>
-          )}
           {data.contextJson.evalError !== undefined && (
             <p className="text-destructive text-xs">{data.contextJson.evalError}</p>
           )}
@@ -366,8 +407,8 @@ function IngestDetailPanel({
                 eval 완료 — run <code className="font-mono text-xs">{evalRunId.slice(0, 8)}</code>
               </AlertTitle>
               <AlertDescription>
-                work-evaluator 결과는 아래 개선안 {String(data.proposals.length)}건입니다. 트레이스는
-                「eval 트레이스」 버튼으로 확인하세요.
+                개선안 {String(data.proposals.length)}건은 결정 큐에서 처리하세요. 트레이스는 아래
+                버튼으로 확인합니다.
               </AlertDescription>
             </Alert>
           )}
@@ -437,59 +478,36 @@ function IngestDetailPanel({
           )}
         </CardContent>
       </Card>
-
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-muted-foreground">
-          개선안 ({String(data.proposals.length)})
-        </h3>
-        {data.proposals.length === 0 ? (
-          <EmptyState
-            title="개선안 없음"
-            hint={
-              data.status === "evaluating"
-                ? "eval run 진행 중이면 「eval 실시간 트레이스」로 흐름 그래프를 보세요."
-                : showReprocess
-                  ? "eval은 끝났을 수 있습니다 — 「eval 재처리」를 시도하세요."
-                  : "eval 완료 후 draft proposal 이 여기 표시됩니다."
-            }
-          />
-        ) : (
-          data.proposals.map((p) => (
-            <ProposalCard
-              key={p.id}
-              proposal={p}
-              ingestId={ingestId}
-              projectId={projectId}
-              project={project}
-              reviewMeta={data.contextJson.proposalReviews?.[p.id]}
-            />
-          ))
-        )}
-      </div>
     </div>
   );
 }
 
 export function FeedbackView({ projectId, onProjectIdChange, onOpenEvalRun }: FeedbackViewProps) {
-  const [selectedIngestId, setSelectedIngestId] = usePersistedState<string | null>(
-    "opspilot.feedback.ingestId",
-    null,
+  const [filterStatus, setFilterStatus] = usePersistedState<ImprovementProposalStatus>(
+    "opspilot.feedback.proposalStatus",
+    "draft",
   );
+  const [drilldownIngestId, setDrilldownIngestId] = useState<string | null>(null);
   const { data: projects } = useProjects();
-  const { data: ingests, isPending, isError, error } = useIngests(projectId);
-
+  const { data: ingests } = useIngests(projectId);
   const selectedProject = (projects ?? []).find((p) => p.id === projectId);
 
-  useEffect(() => {
-    if (selectedIngestId === null || ingests === undefined) return;
-    if (!ingests.some((item) => item.id === selectedIngestId)) {
-      setSelectedIngestId(null);
-    }
-  }, [selectedIngestId, ingests, setSelectedIngestId]);
+  const ingestStatuses = (ingests ?? []).map((i) => i.status);
+  const hasActiveIngest = ingestStatuses.some(
+    (s) => s === "pending" || s === "evaluating" || s === "reviewing",
+  );
 
-  const handleSelectIngest = (id: string) => {
-    setSelectedIngestId(id);
-  };
+  // 결정 큐 — 선택 상태의 proposal 만. 카운트 버튼용 전체 카운트는 status 없이 한 번 더.
+  const {
+    data: proposals,
+    isPending,
+    isError,
+    error,
+  } = useProjectProposals(projectId, filterStatus, hasActiveIngest);
+  const { data: allProposals } = useProjectProposals(projectId, undefined, hasActiveIngest);
+
+  const countByStatus = (status: ImprovementProposalStatus): number =>
+    (allProposals ?? []).filter((p) => p.status === status).length;
 
   return (
     <div className="space-y-4">
@@ -497,96 +515,131 @@ export function FeedbackView({ projectId, onProjectIdChange, onOpenEvalRun }: Fe
         selectedProjectId={projectId}
         onSelect={(id) => {
           onProjectIdChange(id);
-          setSelectedIngestId(null);
         }}
       />
 
       {projectId === null ? (
-        <EmptyState title="프로젝트를 선택하세요" hint="위에서 프로젝트를 등록·선택하면 ingest 목록이 표시됩니다." />
+        <EmptyState
+          title="프로젝트를 선택하세요"
+          hint="위에서 프로젝트를 등록·선택하면 파이프라인 흐름과 개선안 결정 큐가 표시됩니다."
+        />
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
+        <div className="space-y-4">
           {selectedProject?.workspaceMode === "managed" && (
-            <div className="lg:col-span-2">
-              <Alert variant="info">
-                <Info className="h-4 w-4" />
-                <AlertTitle>관리 클론 모드</AlertTitle>
-                <AlertDescription>
-                  apply는 <code className="font-mono text-xs">{selectedProject.clonePath}</code> 에만
-                  반영됩니다. Cursor dev 폴더와 다르면 apply 후 sync 배너의 명령 또는{" "}
-                  <code className="font-mono text-xs">/opspilot-sync-managed-clone</code> 을 사용하세요.
-                  이중 checkout을 피하려면 프로젝트 등록에서{" "}
-                  <strong>로컬 경로 연결</strong>을 권장합니다.
-                </AlertDescription>
-              </Alert>
-            </div>
+            <Alert variant="info">
+              <Info className="h-4 w-4" />
+              <AlertTitle>관리 클론 모드</AlertTitle>
+              <AlertDescription>
+                apply는 <code className="font-mono text-xs">{selectedProject.clonePath}</code> 에만
+                반영됩니다. Cursor dev 폴더와 다르면 apply 후 sync 배너의 명령 또는{" "}
+                <code className="font-mono text-xs">/opspilot-sync-managed-clone</code> 을 사용하세요.
+                이중 checkout을 피하려면 프로젝트 등록에서 <strong>로컬 경로 연결</strong>을 권장합니다.
+              </AlertDescription>
+            </Alert>
           )}
-          <Card className="p-4 space-y-3">
-            <h2 className="text-sm font-semibold text-muted-foreground">Ingest</h2>
-            {isPending && <Loading label="목록 불러오는 중…" />}
-            {isError && <ErrorNotice error={error} />}
-            {!isPending && !isError && (ingests ?? []).length === 0 && (
-              <EmptyState
-                title="ingest 없음"
-                hint="MCP ingest_cursor_session 또는 POST /api/feedback/ingest 로 번들을 만드세요."
-              />
-            )}
-            <ul className="space-y-1">
-              {(ingests ?? []).map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    onClick={() => handleSelectIngest(item.id)}
-                    className={cn(
-                      "w-full rounded-md border px-3 py-2 text-left transition-colors",
-                      item.id === selectedIngestId
-                        ? "border-primary bg-accent"
-                        : "border-transparent hover:border-border hover:bg-accent/50",
-                    )}
-                  >
-                    <div className="flex items-start gap-2">
-                      <Badge
-                        variant={statusVariant[item.status] ?? "secondary"}
-                        className="mt-0.5 shrink-0 px-1.5 py-0 text-[10px]"
-                      >
-                        {item.status}
-                      </Badge>
-                      <div className="min-w-0 flex-1">
-                        <p className="line-clamp-2 text-sm font-medium leading-snug">
-                          {ingestListTitle(item)}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">{ingestListSubtitle(item)}</p>
-                        <IngestPipelineMiniBadges item={item} />
-                        {(item.evalRunId != null || item.reviewRunId != null) && (
-                          <p className="mt-1 font-mono text-[10px] text-muted-foreground">
-                            {item.evalRunId != null && <>eval {item.evalRunId.slice(0, 8)}</>}
-                            {item.evalRunId != null && item.reviewRunId != null && " · "}
-                            {item.reviewRunId != null && <>review {item.reviewRunId.slice(0, 8)}</>}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </Card>
 
-          {selectedIngestId !== null &&
-          selectedProject &&
-          (ingests ?? []).some((item) => item.id === selectedIngestId) ? (
-            <IngestDetailPanel
-              ingestId={selectedIngestId}
-              projectId={projectId}
-              project={selectedProject}
-              onOpenEvalRun={onOpenEvalRun}
-            />
-          ) : (
-            <Card className="p-6 flex min-h-[240px] items-center justify-center text-sm text-muted-foreground">
-              왼쪽 ingest 클릭 — eval·review 트레이스는 상세 패널 버튼으로 열 수 있습니다
+          {/* 상단: 파이프라인 흐름 띠 */}
+          <PipelineFlowBand statuses={ingestStatuses} />
+
+          {/* 메인: 결정 큐 (좌 필터 + 우 카드 목록) */}
+          <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
+            <Card className="h-fit p-4 space-y-3">
+              <h2 className="text-sm font-semibold text-muted-foreground">결정 큐</h2>
+              <div className="space-y-1.5">
+                {decisionFilters.map((f) => {
+                  const count = countByStatus(f.status);
+                  const active = filterStatus === f.status;
+                  return (
+                    <button
+                      key={f.status}
+                      type="button"
+                      onClick={() => setFilterStatus(f.status)}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors",
+                        active
+                          ? "border-primary bg-accent"
+                          : "border-transparent hover:border-border hover:bg-accent/50",
+                      )}
+                    >
+                      <span className="flex items-center gap-2">
+                        <Badge variant={proposalVariant[f.status] ?? "secondary"} className="px-1.5 py-0 text-[10px]">
+                          {f.status}
+                        </Badge>
+                        {f.label}
+                      </span>
+                      <span className="font-semibold tabular-nums text-muted-foreground">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </Card>
-          )}
+
+            <div className="space-y-3">
+              {isPending && (
+                <Card className="p-6">
+                  <Loading label="개선안 불러오는 중…" />
+                </Card>
+              )}
+              {isError && <ErrorNotice error={error} />}
+              {!isPending && !isError && (proposals ?? []).length === 0 && (
+                <EmptyState
+                  title={`${decisionFilters.find((f) => f.status === filterStatus)?.label ?? filterStatus} 개선안 없음`}
+                  hint={
+                    filterStatus === "draft"
+                      ? "Cursor 작업을 ingest 하고 eval 이 끝나면 결정 대기 개선안이 여기 쌓입니다."
+                      : "다른 상태 탭을 확인하세요."
+                  }
+                />
+              )}
+              {!isPending &&
+                !isError &&
+                selectedProject &&
+                (proposals ?? []).map((p) => (
+                  <ProposalCard
+                    key={p.id}
+                    proposal={p}
+                    projectId={projectId}
+                    project={selectedProject}
+                    onOpenEvalRun={onOpenEvalRun}
+                    onOpenIngest={setDrilldownIngestId}
+                  />
+                ))}
+            </div>
+          </div>
         </div>
       )}
+
+      {/* ingest 상세 드릴다운 (reprocess·review·트레이스 보존) */}
+      <Dialog
+        open={drilldownIngestId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDrilldownIngestId(null);
+        }}
+      >
+        <DialogContent className="flex max-h-[min(90vh,900px)] max-w-3xl flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="border-b px-6 py-4 pr-12 text-left">
+            <DialogTitle className="text-base">ingest 상세 · 파이프라인</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            {drilldownIngestId !== null && selectedProject && projectId !== null && (
+              <IngestDrilldownContent
+                ingestId={drilldownIngestId}
+                projectId={projectId}
+                onOpenEvalRun={(runId) => {
+                  setDrilldownIngestId(null);
+                  onOpenEvalRun(runId);
+                }}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+}
+
+interface FeedbackViewProps {
+  projectId: string | null;
+  onProjectIdChange: (projectId: string) => void;
+  onOpenEvalRun: (runId: string) => void;
 }
