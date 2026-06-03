@@ -153,6 +153,8 @@ export function startRun(params: RunParams): Run {
     scenarioId: params.scenarioId,
     runner: params.source.kind,
     retro: params.retro ?? null,
+    // ADR 0003 (D1): 설계 산출(scenario)의 source 를 run 으로 상속 → source 별 A/B 집계.
+    source: scenario.source ?? null,
   });
 
   // OPSP-18: 데이몬 pane 에 시작 한 줄(컬러). asset name 까지 끌어오면 join 추가 비용 → scenario.name + source 만.

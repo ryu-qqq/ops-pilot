@@ -1,6 +1,11 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { assetSchema, expectationSchema, scenarioSchema } from "@opspilot/shared-types";
+import {
+  assetSchema,
+  designSourceSchema,
+  expectationSchema,
+  scenarioSchema,
+} from "@opspilot/shared-types";
 import { assetExists } from "../../domains/registry/repository.js";
 import {
   createScenario,
@@ -16,6 +21,8 @@ const createBody = z.object({
   description: z.string().nullable().default(null),
   input: z.string().min(1),
   expectation: expectationSchema.default({}),
+  // ADR 0003 (D1): suggest 산출에서 온 설계 경로(asset|baked). 수동 작성은 생략(null).
+  source: designSourceSchema.nullable().default(null),
 });
 const updateBody = z.object({
   name: z.string().min(1).optional(),

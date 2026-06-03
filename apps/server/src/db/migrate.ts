@@ -14,6 +14,30 @@ export function migrate(dbPath?: string): void {
   reconcileImprovementProposalTargetKind(db);
   reconcileIngestBundleStatus(db);
   reconcileProjectWorkspaceMode(db);
+  reconcileScenarioSource(db);
+  reconcileRunSource(db);
+}
+
+// ADR 0003 (D1): scenario.source · run.source 컬럼 추가(평가 설계 산출 경로 asset|baked).
+// 기존 row 는 NULL(legacy — 설계 경로 미상). 멱등(있으면 skip). CHECK 는 NULL 허용.
+function reconcileScenarioSource(db: ReturnType<typeof getDb>): void {
+  const cols = db.prepare("SELECT name FROM pragma_table_info('scenario')").all() as { name: string }[];
+  if (!cols.some((c) => c.name === "source")) {
+    db.exec(
+      `ALTER TABLE scenario ADD COLUMN source TEXT
+         CHECK (source IS NULL OR source IN ('asset', 'baked'))`,
+    );
+  }
+}
+
+function reconcileRunSource(db: ReturnType<typeof getDb>): void {
+  const cols = db.prepare("SELECT name FROM pragma_table_info('run')").all() as { name: string }[];
+  if (!cols.some((c) => c.name === "source")) {
+    db.exec(
+      `ALTER TABLE run ADD COLUMN source TEXT
+         CHECK (source IS NULL OR source IN ('asset', 'baked'))`,
+    );
+  }
 }
 
 // 카드 B: asset.source 컬럼 추가. 기존 row 는 DEFAULT 'unknown' 로 채워진다(legacy —

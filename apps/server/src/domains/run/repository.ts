@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Run, RunDiffFile, RunStatus } from "@opspilot/shared-types";
+import type { DesignSource, Run, RunDiffFile, RunStatus } from "@opspilot/shared-types";
 import { getDb } from "../../db/index.js";
 import type { CollectedDiffFile } from "./diff.js";
 import type { NormalizedEvent, RunUsage } from "./normalizer.js";
@@ -11,18 +11,21 @@ export function createRun(input: {
   scenarioId: string;
   runner: string;
   retro?: string | null;
+  // ADR 0003 (D1): scenario.source 상속(asset|baked). 미상이면 null.
+  source?: DesignSource | null;
 }): string {
   const db = getDb();
   const id = randomUUID();
   db.prepare(
-    `INSERT INTO run (id, asset_version_id, scenario_id, status, runner, retro, started_at, created_at)
-     VALUES (@id, @assetVersionId, @scenarioId, 'running', @runner, @retro, @now, @now)`,
+    `INSERT INTO run (id, asset_version_id, scenario_id, status, runner, retro, source, started_at, created_at)
+     VALUES (@id, @assetVersionId, @scenarioId, 'running', @runner, @retro, @source, @now, @now)`,
   ).run({
     id,
     assetVersionId: input.assetVersionId,
     scenarioId: input.scenarioId,
     runner: input.runner,
     retro: input.retro ?? null,
+    source: input.source ?? null,
     now: nowIso(),
   });
   return id;
@@ -101,7 +104,7 @@ export function getRun(id: string): Run | undefined {
       `SELECT id, asset_version_id AS assetVersionId, scenario_id AS scenarioId, status, runner,
               model, started_at AS startedAt, finished_at AS finishedAt, error,
               prompt_tokens AS promptTokens, completion_tokens AS completionTokens,
-              cost_usd AS costUsd, retro, created_at AS createdAt
+              cost_usd AS costUsd, retro, source, created_at AS createdAt
        FROM run WHERE id = ?`,
     )
     .get(id) as Run | undefined;
