@@ -26,9 +26,11 @@ interface Props {
   assetId: string;
   assetVersionId: string;
   onLaunched: (runIds: string[]) => void;
+  // A/B 측정은 벤치마크(bySource) 뷰로 보내 asset vs baked 분포·§6.4 외부신호 게이트를 본다.
+  onBenchmark: (runIds: string[]) => void;
 }
 
-export function RunLauncher({ assetId, assetVersionId, onLaunched }: Props) {
+export function RunLauncher({ assetId, assetVersionId, onLaunched, onBenchmark }: Props) {
   const [name, setName] = useState("");
   const [purpose, setPurpose] = useState("");
   const [input, setInput] = useState("");
@@ -219,7 +221,8 @@ export function RunLauncher({ assetId, assetVersionId, onLaunched }: Props) {
                         source,
                       },
                       {
-                        onSuccess: (res) => onLaunched([res.assetRunId, res.bakedRunId]),
+                        // A/B 측정 → 벤치마크 뷰(bySource): asset vs baked 분포 + §6.4 외부신호 게이트.
+                        onSuccess: (res) => onBenchmark([res.assetRunId, res.bakedRunId]),
                       },
                     )
                   }

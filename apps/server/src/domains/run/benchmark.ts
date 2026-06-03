@@ -35,7 +35,7 @@ function durationOf(r: Run): number | null {
 // 한 run 에 같은 scorer 가 여러 행이면 가장 최근 행을 채택.
 function pickLatestScore(
   scores: Score[] | undefined,
-  scorer: "assertion" | "llm_judge",
+  scorer: "assertion" | "llm_judge" | "human",
 ): Score | null {
   const list = (scores ?? []).filter((s) => s.scorer === scorer);
   return list.length === 0 ? null : list[list.length - 1] ?? null;
@@ -51,6 +51,8 @@ function summarizeSubset(
   const assertionValues: number[] = [];
   let assertionPassN = 0;
   const judgeValues: number[] = [];
+  // ADR 0003 §6.4 (B3): human(외부 사람 신호) — 각 run 의 최신 human score(0~1) 만 채택.
+  const humanValues: number[] = [];
   for (const r of runs) {
     if (r.status === "succeeded") {
       succeeded += 1;
@@ -65,6 +67,8 @@ function summarizeSubset(
     }
     const j = pickLatestScore(scoresByRun[r.id], "llm_judge");
     if (j && j.score !== null) judgeValues.push(j.score);
+    const h = pickLatestScore(scoresByRun[r.id], "human");
+    if (h && h.score !== null) humanValues.push(h.score);
   }
   const assertionStats = stats(assertionValues);
   return {
@@ -73,6 +77,9 @@ function summarizeSubset(
     assertion:
       assertionStats === null ? null : { ...assertionStats, passN: assertionPassN },
     judge: stats(judgeValues),
+    // humanSampleCount = human score 가 있는 run 수(=외부 표본 N). count(전체 run 수)와 다름.
+    human: stats(humanValues),
+    humanSampleCount: humanValues.length,
   };
 }
 

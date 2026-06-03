@@ -239,6 +239,11 @@ export const benchmarkBySourceEntrySchema = z.object({
     .extend({ passN: z.number().int().nonnegative() })
     .nullable(),
   judge: numericStatsSchema.nullable(),
+  // ADR 0003 §6.4 (B3): human(=외부 사람 신호) 소표본 분포. 자가(assertion/judge)와
+  // 분리해 1급으로 노출 — "자가+외부 둘 다일 때만 비교 신뢰" 게이트를 프론트가 판단 가능하게.
+  // 없으면 null. humanSampleCount = 이 source subset 에서 human score 가 있는 run 수.
+  human: numericStatsSchema.nullable(),
+  humanSampleCount: z.number().int().nonnegative(),
 });
 export type BenchmarkBySourceEntry = z.infer<typeof benchmarkBySourceEntrySchema>;
 
