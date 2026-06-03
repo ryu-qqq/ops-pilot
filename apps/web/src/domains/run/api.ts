@@ -4,6 +4,7 @@ import {
   runDiffFileSchema,
   runSchema,
   scenarioAbPairResponseSchema,
+  scenarioAbRunResponseSchema,
   scenarioSchema,
   scoreSchema,
   traceEventTypeSchema,
@@ -153,6 +154,18 @@ export async function suggestScenario(v: { assetId: string; hint?: string }) {
 // asset 경로 불가(scenario-designer 미sync) 시 백엔드 400 — detail 그대로 노출.
 export async function generateScenarioAb(v: { assetId: string; hint?: string }) {
   return apiPost("/api/assist/scenario-ab", v, scenarioAbPairResponseSchema);
+}
+
+// ADR 0003 Follow-up #2 (A/B 자동 오케스트레이션): 같은 입력을 asset·baked 양쪽 산출 →
+// 두 source-tagged 시나리오 저장 → 둘 다 startRun(비동기·즉시 반환, status=running)까지 한 번에.
+// 반환된 두 runId 로 비교 뷰 점프 → 종료되면 폴링 멈추고 source별 결과가 나란히 채워진다.
+export async function generateScenarioAbRun(v: {
+  assetId: string;
+  assetVersionId: string;
+  hint?: string;
+  source: "fixture" | "local-claude";
+}) {
+  return apiPost("/api/assist/scenario-ab-run", v, scenarioAbRunResponseSchema);
 }
 
 // OPSP-10/20 비교 뷰: N개 run 요약 + assertion/judge/human score 통합.

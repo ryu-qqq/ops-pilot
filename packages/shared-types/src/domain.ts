@@ -136,6 +136,17 @@ export const scenarioAbPairResponseSchema = z.object({
 });
 export type ScenarioAbPairResponse = z.infer<typeof scenarioAbPairResponseSchema>;
 
+// ADR 0003 Follow-up #2 (A/B 자동 오케스트레이션): 두 source-tagged 시나리오 생성 +
+// 둘 다 즉시 실행(비동기 startRun)까지 한 번에. run 은 status=running 으로 반환되고
+// 자동 채점(assertion)은 run 종료 시 기존 evaluateAssertionsForRun 가 수행한다.
+export const scenarioAbRunResponseSchema = z.object({
+  assetScenario: scenarioSchema,
+  bakedScenario: scenarioSchema,
+  assetRunId: z.string().uuid(),
+  bakedRunId: z.string().uuid(),
+});
+export type ScenarioAbRunResponse = z.infer<typeof scenarioAbRunResponseSchema>;
+
 export const runSchema = z.object({
   id,
   assetVersionId: id,

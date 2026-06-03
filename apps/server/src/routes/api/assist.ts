@@ -1,9 +1,17 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { designSourceSchema, scenarioAbPairResponseSchema } from "@opspilot/shared-types";
+import {
+  designSourceSchema,
+  scenarioAbPairResponseSchema,
+  scenarioAbRunResponseSchema,
+} from "@opspilot/shared-types";
 import { ClaudeAssistError } from "../../domains/assist/claude.js";
 import { judgeResultSchema, judgeRuns } from "../../domains/assist/judge-runs.js";
-import { createScenarioAbPair } from "../../domains/assist/scenario-ab-service.js";
+import {
+  createScenarioAbPair,
+  createScenarioAbPairAndRun,
+} from "../../domains/assist/scenario-ab-service.js";
+import { RunInputError } from "../../domains/run/service.js";
 import {
   scenarioSuggestionSchema,
   suggestScenarioWithMeta,
@@ -104,6 +112,39 @@ const assist: FastifyPluginAsyncZod = async (fastify) => {
       } catch (e) {
         if (e instanceof ClaudeAssistError) {
           return reply.status(400).send({ error: "AssistError", detail: e.message });
+        }
+        throw e;
+      }
+    },
+  );
+
+  // ADR 0003 Follow-up #2 (A/B 자동 오케스트레이션): 위 scenario-ab 는 생성만 하고 실행은 수동이었다.
+  // 이 라우트는 두 source-tagged 시나리오를 생성한 뒤 둘 다 즉시 실행(비동기 startRun)한다.
+  // run 은 status=running 으로 반환되고 자동 채점·bySource 집계는 기존 다운스트림이 재사용된다.
+  // asset 경로 불가(미sync)면 400(ClaudeAssistError), assetVersionId 등 실행 입력 오류도 400(RunInputError).
+  fastify.post(
+    "/assist/scenario-ab-run",
+    {
+      schema: {
+        body: z.object({
+          assetId: z.string().uuid(),
+          assetVersionId: z.string().uuid(),
+          hint: z.string().optional(),
+          ticketText: z.string().optional(),
+          source: z.enum(["fixture", "local-claude"]).default("fixture"),
+        }),
+        response: { 200: scenarioAbRunResponseSchema, 400: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      try {
+        return await createScenarioAbPairAndRun(req.body);
+      } catch (e) {
+        if (e instanceof ClaudeAssistError) {
+          return reply.status(400).send({ error: "AssistError", detail: e.message });
+        }
+        if (e instanceof RunInputError) {
+          return reply.status(400).send({ error: "BadRequest", detail: e.message });
         }
         throw e;
       }
