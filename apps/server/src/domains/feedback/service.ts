@@ -69,6 +69,7 @@ export function ingestFeedback(input: FeedbackIngestRequest): IngestBundleDetail
     diffSummary,
     contextJson,
     status: "pending",
+    trigger: input.trigger,
   });
 
   queueFeedbackEval(bundle.id, input.evalSource);
