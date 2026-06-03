@@ -1,6 +1,7 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import {
+  autoIngestConfigSchema,
   feedbackApplyRequestSchema,
   feedbackIngestRequestSchema,
   feedbackProposalApplyResponseSchema,
@@ -10,6 +11,7 @@ import {
   ingestBundleListResponseSchema,
   proposalWithSourceSchema,
 } from "@opspilot/shared-types";
+import { getAutoIngestConfig } from "../../domains/feedback/auto-ingest.js";
 import {
   FeedbackIngestError,
   getIngestDetail,
@@ -163,6 +165,17 @@ const feedback: FastifyPluginAsyncZod = async (fastify) => {
         throw e;
       }
     },
+  );
+
+  // ADR 0004: 자동 ingest 스캐너의 현재 env 설정 조회(읽기 전용). 전역이라 projectId 불필요.
+  fastify.get(
+    "/feedback/auto-ingest-config",
+    {
+      schema: {
+        response: { 200: autoIngestConfigSchema },
+      },
+    },
+    async () => getAutoIngestConfig(),
   );
 
   fastify.get(

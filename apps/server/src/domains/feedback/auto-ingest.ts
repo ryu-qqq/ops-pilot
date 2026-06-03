@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import type { AutoIngestConfig } from "@opspilot/shared-types";
 import { listProjects } from "../project/repository.js";
 import { isOpsPilotHarnessSubject } from "./commit-format.js";
 import { listRecentCommits } from "./diff.js";
@@ -18,6 +19,9 @@ import { ingestFeedback } from "./service.js";
 
 const DEFAULT_WINDOW = 20;
 const DEFAULT_BATCH = 3;
+// interval 기본값은 plugin(auto-ingest-scan)도 import 해 단일 진실 유지.
+// (plugin → auto-ingest 단방향 import 라 순환 없음.)
+export const DEFAULT_INTERVAL_MS = 30 * 60 * 1000;
 
 function envInt(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -26,9 +30,35 @@ function envInt(name: string, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
+/**
+ * interval 은 0(=interval 스캔 비활성, 부팅 1회만) 을 허용하므로 envInt(>0) 와 다른 게이트(>=0).
+ * plugin 의 interval 해석과 동일한 단일 진실.
+ */
+export function autoIngestIntervalMs(): number {
+  const raw = process.env.OPS_AUTO_INGEST_INTERVAL_MS;
+  if (raw === undefined) return DEFAULT_INTERVAL_MS;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : DEFAULT_INTERVAL_MS;
+}
+
 function evalSource(): FeedbackEvalSource {
   // 기본 local-claude(실 플라이휠). 'fixture' 면 토큰 0(검증용).
   return process.env.OPS_AUTO_INGEST_EVAL_SOURCE === "fixture" ? "fixture" : "local-claude";
+}
+
+/**
+ * ADR 0004: 자동 ingest 스캐너의 현재 env 설정을 읽어 반환(읽기 전용 — 동작 변경 없음).
+ * enabled 게이트는 plugin 과 동일 규칙(OPS_AUTO_INGEST==='1'), 나머지는 runAutoIngestScan
+ * 의 env 헬퍼·기본값을 그대로 재사용해 단일 진실을 보장한다.
+ */
+export function getAutoIngestConfig(): AutoIngestConfig {
+  return {
+    enabled: process.env.OPS_AUTO_INGEST === "1",
+    intervalMs: autoIngestIntervalMs(),
+    batch: envInt("OPS_AUTO_INGEST_BATCH", DEFAULT_BATCH),
+    window: envInt("OPS_AUTO_INGEST_WINDOW", DEFAULT_WINDOW),
+    evalSource: evalSource(),
+  };
 }
 
 export interface AutoIngestScanResult {
