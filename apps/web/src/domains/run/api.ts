@@ -3,6 +3,7 @@ import {
   benchmarkAggregateSchema,
   runDiffFileSchema,
   runSchema,
+  scenarioAbPairResponseSchema,
   scenarioSchema,
   scoreSchema,
   traceEventTypeSchema,
@@ -145,6 +146,13 @@ export type ScenarioSuggestion = z.infer<typeof scenarioSuggestionResponse>;
 
 export async function suggestScenario(v: { assetId: string; hint?: string }) {
   return apiPost("/api/assist/scenario-suggest", v, scenarioSuggestionResponse);
+}
+
+// ADR 0003 Follow-up #2 (A/B 품질 측정): 같은 입력을 asset·baked 양쪽으로 강제 산출 →
+// 두 source-tagged 시나리오 저장. 둘 다 실행하면 aggregateBenchmark.bySource 로 비교됨.
+// asset 경로 불가(scenario-designer 미sync) 시 백엔드 400 — detail 그대로 노출.
+export async function generateScenarioAb(v: { assetId: string; hint?: string }) {
+  return apiPost("/api/assist/scenario-ab", v, scenarioAbPairResponseSchema);
 }
 
 // OPSP-10/20 비교 뷰: N개 run 요약 + assertion/judge/human score 통합.

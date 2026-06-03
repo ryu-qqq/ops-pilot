@@ -11,7 +11,12 @@ import { Textarea } from "../../../components/ui/textarea";
 import { InfoMark, InlineError, Loading } from "../../../lib/ui";
 import { ScenarioImport } from "../../integration/components/scenario-import";
 import { useAssetVersions } from "../../registry/use-registry";
-import { useLaunchBatchRun, useLaunchRun, useSuggestScenario } from "../use-run";
+import {
+  useGenerateScenarioAb,
+  useLaunchBatchRun,
+  useLaunchRun,
+  useSuggestScenario,
+} from "../use-run";
 
 // OPSP-43: 시나리오 출처 — 직접 작성 / 지라에서 / 노션에서.
 type ScenarioSource = "manual" | "jira" | "notion";
@@ -36,6 +41,7 @@ export function RunLauncher({ assetId, assetVersionId, onLaunched }: Props) {
   const launch = useLaunchRun();
   const launchBatch = useLaunchBatchRun();
   const suggest = useSuggestScenario();
+  const generateAb = useGenerateScenarioAb();
   const versions = useAssetVersions(assetId);
 
   const versionList = versions.data ?? [];
@@ -176,6 +182,36 @@ export function RunLauncher({ assetId, assetVersionId, onLaunched }: Props) {
                   <span className="text-xs text-success">초안 적용됨 — 다듬어 실행하세요</span>
                 )}
                 {suggest.isError && <InlineError error={suggest.error} />}
+              </div>
+              {/* ADR 0003 Follow-up #2: A/B 산출 — 같은 입력을 asset·baked 양쪽으로 강제 생성 */}
+              <div className="flex flex-wrap items-center gap-2 border-t border-info/30 pt-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={generateAb.isPending}
+                  onClick={() =>
+                    generateAb.mutate({
+                      assetId,
+                      hint: hint.trim() === "" ? undefined : hint.trim(),
+                    })
+                  }
+                >
+                  {generateAb.isPending ? (
+                    <Loading label="asset·baked 산출 중…" />
+                  ) : (
+                    "A/B 산출 (asset vs baked)"
+                  )}
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  실 토큰 ~10-40초 ×2 — 폼은 안 바뀌고 시나리오 2개가 아래 목록에 저장됩니다.
+                </span>
+                {generateAb.isSuccess && (
+                  <span className="text-xs text-success">
+                    asset·baked 시나리오 2개 생성됨 — 둘 다 실행하면 source별로 비교됩니다.
+                  </span>
+                )}
+                {generateAb.isError && <InlineError error={generateAb.error} />}
               </div>
             </AlertDescription>
           </Alert>
