@@ -1,4 +1,10 @@
 import type { DesignSource, Scenario } from "@opspilot/shared-types";
+import { startRun } from "../run/service.js";
+import {
+  DEMO_FIXTURE,
+  fixtureSource,
+  localClaudeSource,
+} from "../run/source.js";
 import { createScenario } from "../scenario/repository.js";
 import { generateScenarioAbPair, type ScenarioSuggestion } from "./scenario-suggest.js";
 
@@ -49,9 +55,11 @@ function createScenarioWithUniqueName(args: {
   throw new Error("이름 충돌 회피 재시도 소진");
 }
 
-// asset+baked 양쪽 산출 → 각각 source-tagged scenario 로 저장. asset 경로 불가(미sync)면
-// generateScenarioAbPair 가 ClaudeAssistError 를 throw → route 에서 400 으로 매핑(A/B 불성립 명시).
-export async function createScenarioAbPair(input: {
+// 공유 추출(중복 제거): asset+baked 양쪽 산출 → 각각 source-tagged scenario 로 저장.
+// createScenarioAbPair(생성 전용)·createScenarioAbPairAndRun(생성+실행) 둘 다 이 헬퍼를 쓴다.
+// asset 경로 불가(미sync)면 generateScenarioAbPair 가 ClaudeAssistError 를 throw →
+// route 에서 400 으로 매핑(A/B 불성립 명시).
+async function buildScenarioAbPair(input: {
   assetId: string;
   hint?: string;
   ticketText?: string;
@@ -77,4 +85,55 @@ export async function createScenarioAbPair(input: {
   });
 
   return { asset, baked };
+}
+
+// asset+baked 양쪽 산출 → 각각 source-tagged scenario 로 저장(생성 전용).
+export async function createScenarioAbPair(input: {
+  assetId: string;
+  hint?: string;
+  ticketText?: string;
+}): Promise<{ asset: Scenario; baked: Scenario }> {
+  return buildScenarioAbPair(input);
+}
+
+// RunnerSource 빌드 — POST /runs 와 동일 규약(fixture→DEMO_FIXTURE 재생, local-claude→spawn).
+function buildRunnerSource(source: "fixture" | "local-claude") {
+  return source === "fixture" ? fixtureSource(DEMO_FIXTURE) : localClaudeSource();
+}
+
+// ADR 0003 Follow-up #2 (A/B 자동 오케스트레이션): 두 시나리오를 생성(공유 추출 재사용)한 뒤
+// 각각 startRun 으로 즉시 실행한다. startRun 은 비동기(즉시 반환·백그라운드 runLoop)라 두 run 모두
+// status=running 으로 반환된다. run.source 는 scenario.source(asset|baked)를 상속(D1)하고,
+// 자동 채점(assertion)은 run 종료 시 기존 evaluateAssertionsForRun 가 수행 — 새 러너·스코어러 없음.
+export async function createScenarioAbPairAndRun(input: {
+  assetId: string;
+  assetVersionId: string;
+  hint?: string;
+  ticketText?: string;
+  source: "fixture" | "local-claude";
+}): Promise<{
+  assetScenario: Scenario;
+  bakedScenario: Scenario;
+  assetRunId: string;
+  bakedRunId: string;
+}> {
+  const { asset, baked } = await buildScenarioAbPair(input);
+
+  const assetRun = startRun({
+    assetVersionId: input.assetVersionId,
+    scenarioId: asset.id,
+    source: buildRunnerSource(input.source),
+  });
+  const bakedRun = startRun({
+    assetVersionId: input.assetVersionId,
+    scenarioId: baked.id,
+    source: buildRunnerSource(input.source),
+  });
+
+  return {
+    assetScenario: asset,
+    bakedScenario: baked,
+    assetRunId: assetRun.id,
+    bakedRunId: bakedRun.id,
+  };
 }

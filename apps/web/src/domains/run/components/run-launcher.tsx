@@ -13,6 +13,7 @@ import { ScenarioImport } from "../../integration/components/scenario-import";
 import { useAssetVersions } from "../../registry/use-registry";
 import {
   useGenerateScenarioAb,
+  useGenerateScenarioAbRun,
   useLaunchBatchRun,
   useLaunchRun,
   useSuggestScenario,
@@ -42,6 +43,7 @@ export function RunLauncher({ assetId, assetVersionId, onLaunched }: Props) {
   const launchBatch = useLaunchBatchRun();
   const suggest = useSuggestScenario();
   const generateAb = useGenerateScenarioAb();
+  const generateAbRun = useGenerateScenarioAbRun();
   const versions = useAssetVersions(assetId);
 
   const versionList = versions.data ?? [];
@@ -183,13 +185,13 @@ export function RunLauncher({ assetId, assetVersionId, onLaunched }: Props) {
                 )}
                 {suggest.isError && <InlineError error={suggest.error} />}
               </div>
-              {/* ADR 0003 Follow-up #2: A/B 산출 — 같은 입력을 asset·baked 양쪽으로 강제 생성 */}
+              {/* ADR 0003 Follow-up #2: A/B 산출(생성만) vs A/B 측정(생성→실행→비교) */}
               <div className="flex flex-wrap items-center gap-2 border-t border-info/30 pt-2">
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  disabled={generateAb.isPending}
+                  disabled={generateAb.isPending || generateAbRun.isPending}
                   onClick={() =>
                     generateAb.mutate({
                       assetId,
@@ -200,11 +202,38 @@ export function RunLauncher({ assetId, assetVersionId, onLaunched }: Props) {
                   {generateAb.isPending ? (
                     <Loading label="asset·baked 산출 중…" />
                   ) : (
-                    "A/B 산출 (asset vs baked)"
+                    "A/B 산출 (생성만)"
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="default"
+                  disabled={generateAb.isPending || generateAbRun.isPending}
+                  onClick={() =>
+                    generateAbRun.mutate(
+                      {
+                        assetId,
+                        assetVersionId,
+                        hint: hint.trim() === "" ? undefined : hint.trim(),
+                        source,
+                      },
+                      {
+                        onSuccess: (res) => onLaunched([res.assetRunId, res.bakedRunId]),
+                      },
+                    )
+                  }
+                >
+                  {generateAbRun.isPending ? (
+                    <Loading label="생성→실행 중…" />
+                  ) : (
+                    "A/B 측정 (생성→실행→비교)"
                   )}
                 </Button>
                 <span className="text-xs text-muted-foreground">
-                  실 토큰 ~10-40초 ×2 — 폼은 안 바뀌고 시나리오 2개가 아래 목록에 저장됩니다.
+                  {source === "local-claude"
+                    ? "생성 실토큰 ×2 + 실행 실토큰 ×2 (local-claude). 측정은 비교 뷰로 바로 점프합니다."
+                    : "생성 실토큰 ×2 (실행은 fixture라 토큰0). 측정은 비교 뷰로 바로 점프합니다."}
                 </span>
                 {generateAb.isSuccess && (
                   <span className="text-xs text-success">
@@ -212,6 +241,7 @@ export function RunLauncher({ assetId, assetVersionId, onLaunched }: Props) {
                   </span>
                 )}
                 {generateAb.isError && <InlineError error={generateAb.error} />}
+                {generateAbRun.isError && <InlineError error={generateAbRun.error} />}
               </div>
             </AlertDescription>
           </Alert>

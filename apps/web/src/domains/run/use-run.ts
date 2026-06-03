@@ -4,6 +4,7 @@ import {
   createHumanScore,
   deleteScenario,
   generateScenarioAb,
+  generateScenarioAbRun,
   getRunAnalysis,
   rerunRun,
   startAnalysis,
@@ -89,6 +90,20 @@ export function useGenerateScenarioAb() {
   return useMutation({
     mutationFn: generateScenarioAb,
     onSuccess: () => qc.invalidateQueries({ queryKey: scenarioKeys.all }),
+  });
+}
+
+// ADR 0003 Follow-up #2: A/B 측정 — asset·baked 시나리오 산출 + 둘 다 즉시 실행.
+// 성공 시 두 시나리오가 저장되고 두 run 이 시작됐으므로 시나리오·run 캐시 둘 다 무효화
+// (네비는 호출부에서 onLaunched 로 — 패칭 훅은 패칭만).
+export function useGenerateScenarioAbRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: generateScenarioAbRun,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: scenarioKeys.all });
+      qc.invalidateQueries({ queryKey: runKeys.all });
+    },
   });
 }
 
