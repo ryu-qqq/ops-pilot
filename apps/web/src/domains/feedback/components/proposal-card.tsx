@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { Check, Expand, FileCode, Layers, Share2, X } from "lucide-react";
+import { Check, Expand, FileCode, Layers, X } from "lucide-react";
 import type {
   ImprovementProposal,
   Project,
@@ -104,13 +104,11 @@ export function ProposalCard({
   proposal,
   projectId,
   project,
-  onOpenEvalRun,
   onOpenIngest,
 }: {
   proposal: ProposalWithSource;
   projectId: string;
   project: Project;
-  onOpenEvalRun: (runId: string) => void;
   onOpenIngest: (ingestId: string) => void;
 }) {
   const approve = useApproveProposal(proposal.ingestId, projectId);
@@ -156,30 +154,6 @@ export function ProposalCard({
             <span className="truncate font-medium text-foreground/90">{sourceLabel}</span>
           </button>
           <TriggerBadge trigger={proposal.trigger} />
-          {proposal.evalRunId !== null && (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-6 px-1.5 text-xs"
-              onClick={() => onOpenEvalRun(proposal.evalRunId as string)}
-            >
-              <Share2 className="h-3 w-3" />
-              평가 과정
-            </Button>
-          )}
-          {proposal.reviewRunId !== null && (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-6 px-1.5 text-xs"
-              onClick={() => onOpenEvalRun(proposal.reviewRunId as string)}
-            >
-              <Share2 className="h-3 w-3" />
-              검토 과정
-            </Button>
-          )}
         </div>
         <p className="line-clamp-3 text-sm text-muted-foreground">{proposal.rationale}</p>
         <ProposalDetailDialog

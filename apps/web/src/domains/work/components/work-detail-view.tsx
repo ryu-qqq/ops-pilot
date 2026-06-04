@@ -211,7 +211,6 @@ export function WorkDetailIngest({
             }}
             projectId={projectId}
             project={project}
-            onOpenEvalRun={onOpenRun}
             onOpenIngest={() => {
               /* 이미 이 작업 상세 안 — no-op */
             }}
