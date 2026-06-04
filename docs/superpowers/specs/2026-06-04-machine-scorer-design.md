@@ -62,7 +62,7 @@ run 완료
 
 ## 5. 트리거 · 비용
 
-- `project.yaml` `eval.autoMachineScore` (기본 **off**). ON인 프로젝트만 run 완료 시 자동 채점.
+- **env 전역 토글 `OPS_AUTO_MACHINE_SCORE` (기본 off)**. `'1'`일 때만 run 완료 시 자동 채점. ADR 0004 자동 ingest가 실제로 `project.yaml`이 아닌 env(`OPS_AUTO_INGEST`)로 구현된 선례와 일관 — project.yaml은 경량 직접 파서라 eval 섹션 파싱 추가가 부담. **프로젝트별 project.yaml 토글은 후속(§8)**.
 - assertion(무상 substring)은 지금처럼 항상 자동. **machine judge만 토글 뒤**에 둔다 — ADR 0004 `OPS_AUTO_INGEST` off-by-default와 같은 비용 방어.
 - 수동 경로도 유지: `POST /runs/:id/machine-score`(단건) — 토글 OFF여도 사용자가 특정 run을 눌러 채점 가능. (현재 `POST /runs/:id/grade`와 대칭.)
 
@@ -84,6 +84,7 @@ run 완료
 ## 8. 범위 밖 (후속)
 
 - **원클릭 반영** — 보강/초안 제안을 시나리오에 바로 apply하는 HITL 액션. 1차는 제안 표시만. (ADR 0004 proposal→apply HITL 패턴 차용 가능.)
+- **프로젝트별 토글** — `project.yaml` `eval.autoMachineScore`로 프로젝트마다 on/off. 1차는 env 전역. (경량 yaml 파서 확장 필요.)
 - **임베딩·로컬모델 시맨틱 유사도** — API 외 의존성 추가라 제외.
 - **사람 점수↔머신 점수 자동 환류** — 머신이 자기 점수로 추천을 닫는 자가편향(§6.4) 위험. 졸업 후.
 
@@ -96,4 +97,4 @@ run 완료
 - `apps/server/src/routes/api/runs.ts` — `POST /runs/:id/machine-score`, compare에 machineScore
 - `apps/server/src/domains/run/benchmark.ts` — machine 분포·신뢰 게이트
 - `apps/web` — verdict-strip · compare · benchmark-summary · grade-panel 표면화
-- `apps/server/.../config` 또는 project.yaml 로더 — `eval.autoMachineScore`
+- 토글 게이트 = env `OPS_AUTO_MACHINE_SCORE` (hook 안에서 직접 읽음, 새 config 파일 불필요)
