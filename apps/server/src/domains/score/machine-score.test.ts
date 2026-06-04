@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { closeDb, getDb } from "../../db/index.js";
 import { migrate } from "../../db/migrate.js";
+import { evaluateCriteriaGate } from "./machine-score.js";
 
 let dir: string;
 let dbPath: string;
@@ -135,5 +136,17 @@ describe("score 마이그레이션 — machine scorer", () => {
         )
         .run(randomUUID(), runId, now),
     ).not.toThrow();
+  });
+});
+
+describe("evaluateCriteriaGate — 결정적 사전 판정", () => {
+  it("assertions 가 비면 no_criteria", () => {
+    expect(evaluateCriteriaGate([])).toBe("no_criteria");
+  });
+  it("공백만 있는 줄만 있으면 no_criteria", () => {
+    expect(evaluateCriteriaGate(["  ", ""])).toBe("no_criteria");
+  });
+  it("의미 있는 기준이 있으면 null(=LLM 판정으로 위임)", () => {
+    expect(evaluateCriteriaGate(['응답에 "AWS_SECRET_KEY" 포함'])).toBeNull();
   });
 });
