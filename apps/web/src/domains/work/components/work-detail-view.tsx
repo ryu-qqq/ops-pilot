@@ -14,6 +14,7 @@ import { ErrorNotice, Loading } from "../../../lib/ui";
 import { ProposalCard } from "../../feedback/components/proposal-card";
 import { IngestPipelineSteps } from "../../feedback/components/ingest-pipeline-steps";
 import { useIngestDetail } from "../../feedback/use-feedback";
+import { useRun } from "../../run/use-run";
 import { DiffView } from "../../run/components/diff-view";
 import { FlowGraph } from "../../run/components/flow-graph";
 import { GradePanel } from "../../run/components/grade-panel";
@@ -184,6 +185,112 @@ export function WorkDetailIngest({
           </Dialog>
         </section>
       )}
+    </div>
+  );
+}
+
+interface RunProps {
+  runId: string;
+  onBack: () => void;
+  /** eval/review run 으로 점프(트레이스 그래프 노드 선택 등). */
+  onOpenRun: (id: string) => void;
+}
+
+/** 수동 실행 run 의 상세: 판정 → ① 평가 → ④ diff. (ingest 서사 아님 → ② 검토·③ 개선안 없음) */
+export function WorkDetailRun({ runId, onBack, onOpenRun }: RunProps) {
+  // NOTE: useRun 은 base Run 스키마를 반환한다 — assetName/assetKind/scenarioName 은
+  // 목록(RunListItem)에만 있고 단건엔 없다. 단건 진입(props 에 projectId 없음)에서
+  // 목록을 불러와 find 하는 건 과하므로 헤더는 Run 에 실존하는 필드(runner·model)로만 채운다.
+  const { data: run } = useRun(runId);
+  const [traceMode, setTraceMode] = useState<"list" | "graph">("list");
+  const [traceOpen, setTraceOpen] = useState(false);
+
+  return (
+    <div className="space-y-4">
+      <Button variant="ghost" size="sm" onClick={onBack}>
+        <ArrowLeft className="h-3.5 w-3.5" /> 목록
+      </Button>
+
+      {/* 실행 헤더 */}
+      <div className="space-y-1">
+        <h2 className="text-lg font-semibold">수동 실행</h2>
+        <p className="font-mono text-xs text-muted-foreground">
+          {run != null ? (
+            <>
+              {run.runner}
+              {run.model != null && ` · ${run.model}`}
+              {` · ${run.status}`}
+            </>
+          ) : (
+            runId.slice(0, 8)
+          )}
+        </p>
+      </div>
+
+      <VerdictStrip runId={runId} />
+
+      {/* ① 평가 */}
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold text-muted-foreground">① 평가</h3>
+        <Card>
+          <CardContent className="space-y-3 pt-4">
+            <GradePanel runId={runId} />
+            <HumanScore runId={runId} />
+            <RunRetro runId={runId} />
+          </CardContent>
+        </Card>
+        {/* 트레이스 리스트 ⇄ 흐름 그래프 인라인 펼침 */}
+        <div className="flex w-fit rounded-md border p-0.5">
+          <Button
+            variant={traceMode === "list" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => {
+              setTraceMode("list");
+              setTraceOpen(true);
+            }}
+          >
+            <ListTree className="h-3.5 w-3.5" /> 트레이스 리스트
+          </Button>
+          <Button
+            variant={traceMode === "graph" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => {
+              setTraceMode("graph");
+              setTraceOpen(true);
+            }}
+          >
+            <Share2 className="h-3.5 w-3.5" /> 흐름 그래프
+          </Button>
+        </div>
+        {traceOpen &&
+          (traceMode === "graph" ? (
+            <FlowGraph selectedRunId={runId} onSelectRun={onOpenRun} showRunSelect={false} />
+          ) : (
+            <Card>
+              <CardContent className="pt-4">
+                <TraceView runId={runId} />
+              </CardContent>
+            </Card>
+          ))}
+      </section>
+
+      {/* ④ 변경 diff */}
+      <section className="space-y-2">
+        <h3 className="text-sm font-semibold text-muted-foreground">④ 변경 diff</h3>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm">
+              <FileDiff className="h-3.5 w-3.5" /> 변경 보기
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-5xl">
+            <DialogHeader>
+              <DialogTitle>변경 (파일 diff)</DialogTitle>
+            </DialogHeader>
+            <DiffView runId={runId} />
+          </DialogContent>
+        </Dialog>
+      </section>
     </div>
   );
 }
