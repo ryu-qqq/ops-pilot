@@ -50,8 +50,20 @@ export const scorerSchema = z.enum([
   "assertion",
   "llm_judge",
   "human",
+  "machine",
 ]);
 export type Scorer = z.infer<typeof scorerSchema>;
+
+// 머신 스코어러 기준 게이트 상태 — 채점 전 successCriteria 품질 판정 결과.
+//  scored        = 기준 충분, PASS/FAIL + score 유효
+//  criteria_weak = 기준 있으나 모호 → 점수 내되 신뢰 보류
+//  no_criteria   = 기준 비었음 → 점수 null, 채점 불가
+export const machineGateStatusSchema = z.enum([
+  "scored",
+  "criteria_weak",
+  "no_criteria",
+]);
+export type MachineGateStatus = z.infer<typeof machineGateStatusSchema>;
 
 // ADR 0003 (D1): 평가 "설계" 산출이 어느 프롬프트 경로로 만들어졌는가 —
 // "asset"=agent-crew 자산 본문 주입(ADR 0002 1B), "baked"=fallback(4B).
@@ -216,6 +228,10 @@ export const scoreSchema = z.object({
       reason: z.string().optional(),
       expected: z.unknown().optional(),
       actual: z.unknown().optional(),
+      // 머신 스코어러 전용(scorer='machine'일 때만 채워짐).
+      gateStatus: machineGateStatusSchema.optional(),
+      criteriaCritique: z.string().optional(),
+      suggestedCriteria: z.array(z.string()).optional(),
     })
     .nullable(),
   createdAt: ts,
@@ -244,6 +260,10 @@ export const benchmarkBySourceEntrySchema = z.object({
   // 없으면 null. humanSampleCount = 이 source subset 에서 human score 가 있는 run 수.
   human: numericStatsSchema.nullable(),
   humanSampleCount: z.number().int().nonnegative(),
+  // 머신 스코어러 분포 + 기준 보류 카운트(§6.4 신뢰 게이트용).
+  machine: numericStatsSchema.nullable(),
+  machineCriteriaWeak: z.number().int().nonnegative(),
+  machineNoCriteria: z.number().int().nonnegative(),
 });
 export type BenchmarkBySourceEntry = z.infer<typeof benchmarkBySourceEntrySchema>;
 
@@ -266,6 +286,10 @@ export const benchmarkAggregateSchema = z.object({
     .nullable(),
   // LLM judge(OPSP-10 follow-up) — 있으면.
   judge: numericStatsSchema.nullable(),
+  // 머신 스코어러 분포 + 기준 보류 카운트(§6.4 신뢰 게이트용).
+  machine: numericStatsSchema.nullable(),
+  machineCriteriaWeak: z.number().int().nonnegative(),
+  machineNoCriteria: z.number().int().nonnegative(),
   // ADR 0003 (C3·D1): source(asset|baked) 별 분포. source 가 기록된 run 이 하나도
   // 없으면 null. 있으면 해당 source 키만 채워진다(§6.4 — 단순 가산 아닌 source 별 분리).
   bySource: z

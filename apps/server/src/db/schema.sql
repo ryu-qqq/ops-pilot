@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS trace_event (
 CREATE TABLE IF NOT EXISTS score (
   id         TEXT PRIMARY KEY,
   run_id     TEXT NOT NULL REFERENCES run (id) ON DELETE CASCADE,
-  scorer     TEXT NOT NULL CHECK (scorer IN ('schema', 'assertion', 'llm_judge', 'human')),
+  scorer     TEXT NOT NULL CHECK (scorer IN ('schema', 'assertion', 'llm_judge', 'human', 'machine')),
   passed     INTEGER NOT NULL CHECK (passed IN (0, 1)),
   score      REAL CHECK (score IS NULL OR (score >= 0 AND score <= 1)),
   detail     TEXT,

@@ -1,4 +1,5 @@
 import { ChevronRight, CircleCheck, CircleX, Loader2 } from "lucide-react";
+import type { MachineGateStatus } from "@opspilot/shared-types";
 import { Badge } from "../../../components/ui/badge";
 import { Card, CardContent } from "../../../components/ui/card";
 import { InfoMark } from "../../../lib/ui";
@@ -62,6 +63,72 @@ function Metric({
   );
 }
 
+// 머신 스코어러 게이트 3상태 표면화 — verdict/compare/benchmark 공통 의미.
+//  scored        🟢 score 그대로
+//  criteria_weak 🟡 score + "신뢰 보류"
+//  no_criteria   🔴 "기준 없음" (score 칸 —)
+// SSOT: 게이트 메타(emoji·label·help·variant)는 여기 한 곳뿐. grade-panel·comparison-view 가 import.
+export const machineGateMeta: Record<
+  MachineGateStatus,
+  { emoji: string; label: string; help: string; variant: "success" | "warning" | "destructive" }
+> = {
+  scored: {
+    emoji: "🟢",
+    label: "기준 충분",
+    help: "successCriteria 가 충분해 머신이 정상 채점했습니다. 점수는 0~1.",
+    variant: "success",
+  },
+  criteria_weak: {
+    emoji: "🟡",
+    label: "신뢰 보류",
+    help: "기준이 있으나 모호해 점수는 내되 신뢰를 보류합니다. detail 의 기준 보강 제안을 참고하세요.",
+    variant: "warning",
+  },
+  no_criteria: {
+    emoji: "🔴",
+    label: "기준 없음",
+    help: "successCriteria 가 비어 채점 불가(통과로 위장 금지). 기준 초안 제안을 시나리오에 반영하세요.",
+    variant: "destructive",
+  },
+};
+
+// machine score 의 detail.gateStatus 기준으로 verdict-strip 의 한 칸 표시.
+// 구조적 타입(fmtScore 호환 + detail.gateStatus)으로 받아 hook 추론과의 타입 결합 회피.
+interface MachineScoreLike {
+  passed: boolean;
+  score: number | null;
+  detail?: { gateStatus?: MachineGateStatus } | null;
+}
+function MachineMetric({ machine }: { machine: MachineScoreLike | null | undefined }) {
+  if (machine === null || machine === undefined) {
+    return <Metric label="머신" value="—" />;
+  }
+  const gate = machine.detail?.gateStatus;
+  if (gate === undefined) {
+    // gateStatus 없는 레거시 machine score — score/PASS-FAIL 만.
+    return <Metric label="머신" value={fmtScore(machine)} />;
+  }
+  const meta = machineGateMeta[gate];
+  const valueText =
+    gate === "no_criteria" ? "—" : `${meta.emoji} ${fmtScore(machine)}`;
+  return (
+    <div className="flex flex-col">
+      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        머신
+        <InfoMark label={`머신 스코어러 — ${meta.label}`} help={meta.help} />
+      </span>
+      <span className="font-mono text-sm">
+        {gate === "no_criteria" ? `🔴 ${meta.label}` : valueText}
+        {gate === "criteria_weak" && (
+          <Badge variant="warning" className="ml-1 text-[10px]">
+            {meta.label}
+          </Badge>
+        )}
+      </span>
+    </div>
+  );
+}
+
 export function VerdictStrip({ runId }: { runId: string | null }) {
   const { data: run } = useRun(runId);
   const { data: scores } = useScores(runId);
@@ -83,6 +150,7 @@ export function VerdictStrip({ runId }: { runId: string | null }) {
   const assertion = lastBy("assertion");
   const judge = lastBy("llm_judge");
   const human = lastBy("human");
+  const machine = lastBy("machine");
 
   const duration =
     run.startedAt !== null && run.finishedAt !== null
@@ -140,6 +208,7 @@ export function VerdictStrip({ runId }: { runId: string | null }) {
           </div>
           <Metric label="단언" value={fmtScore(assertion)} />
           <Metric label="LLM 판정" value={fmtScore(judge)} />
+          <MachineMetric machine={machine} />
           <Metric label="사람" value={fmtScore(human)} />
           <Metric label="토큰 (p+c)" value={tokens} />
           <Metric label="비용" value={cost} />

@@ -4,6 +4,7 @@ import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { InlineError, Loading } from "../../../lib/ui";
 import { useGradeRun, useRun, useScores } from "../use-run";
+import { machineGateMeta } from "./verdict-strip";
 
 // T4-e: LLM grader 패널 — substring 자동채점을 보강. 표면준수(단어만 언급)는 FAIL.
 // 사람 평가(HumanScore)와 짝: 성공조건 → LLM 자동채점 → 사람 평가 흐름.
@@ -19,6 +20,11 @@ export function GradePanel({ runId }: { runId: string | null }) {
   const judgeScores = (scores ?? []).filter((sc) => sc.scorer === "llm_judge");
   const lastJudge = judgeScores[judgeScores.length - 1];
   const result = grade.data;
+
+  // 머신 스코어러 최신 1건 — 기준 비평·보강 제안(읽기 전용 표시. 반영 버튼은 후속 spec §8).
+  const machineScores = (scores ?? []).filter((sc) => sc.scorer === "machine");
+  const lastMachine = machineScores[machineScores.length - 1];
+  const gate = lastMachine?.detail?.gateStatus;
 
   return (
     <Card>
@@ -102,6 +108,48 @@ export function GradePanel({ runId }: { runId: string | null }) {
                 {result.critique}
               </div>
             )}
+          </div>
+        )}
+
+        {/* 머신 스코어러 — 기준 게이트 + 보강 제안(읽기 전용). 시나리오 반영은 수동(후속 §8). */}
+        {lastMachine && gate !== undefined && (
+          <div className="space-y-2 border-t pt-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">머신 스코어러</span>
+              <Badge variant={machineGateMeta[gate].variant} className="text-[10px]">
+                {machineGateMeta[gate].emoji} {machineGateMeta[gate].label}
+              </Badge>
+              {gate !== "no_criteria" && lastMachine.score !== null && (
+                <span className="font-mono text-sm">{lastMachine.score.toFixed(2)}</span>
+              )}
+            </div>
+            {lastMachine.detail?.criteriaCritique && (
+              <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">기준 비평 · </span>
+                {lastMachine.detail.criteriaCritique}
+              </div>
+            )}
+            {lastMachine.detail?.suggestedCriteria &&
+              lastMachine.detail.suggestedCriteria.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-foreground">
+                    기준 보강 제안{" "}
+                    <span className="font-normal text-muted-foreground">
+                      (시나리오 successCriteria 에 수동 반영)
+                    </span>
+                  </p>
+                  <ul className="space-y-1">
+                    {lastMachine.detail.suggestedCriteria.map((c, i) => (
+                      <li
+                        key={`${String(i)}-${c}`}
+                        className="rounded-md border border-l-4 border-l-warning/60 bg-warning/5 px-3 py-1.5 text-xs"
+                      >
+                        {c}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
           </div>
         )}
       </CardContent>

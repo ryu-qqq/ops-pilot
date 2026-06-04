@@ -69,6 +69,24 @@ function StatBox({
   );
 }
 
+// 머신 스코어러 기준 보강 게이트 — criteria_weak/no_criteria 비율이 측정 신뢰를 갉는다.
+// 외부(사람) 표본 게이트(§6.4 ConfidenceGate)와 같은 보류 시맨틱: 하나라도 있으면 보류.
+function CriteriaGate({ weak, none }: { weak: number; none: number }) {
+  if (weak === 0 && none === 0) return null;
+  const parts: string[] = [];
+  if (none > 0) parts.push(`기준 없음 ${none}`);
+  if (weak > 0) parts.push(`신뢰 보류 ${weak}`);
+  return (
+    <div className="inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning/10 px-2 py-1 text-xs text-warning">
+      기준 보강 필요 — 측정 신뢰 보류 ({parts.join(" · ")})
+      <InfoMark
+        label="기준 보강 필요"
+        help="머신 스코어러가 채점 전 successCriteria 품질을 게이트한다. 기준이 비었거나(no_criteria) 모호하면(criteria_weak) 점수의 신뢰를 보류한다. 각 run 상세에서 머신 채점의 기준 보강·초안 제안을 시나리오 successCriteria 에 반영하면 해소된다."
+      />
+    </div>
+  );
+}
+
 // ADR 0003 (D1·C3): source(asset|baked) 한 칸 — 통과율 바 + assertion 평균.
 function BySourceRow({
   source,
@@ -122,6 +140,16 @@ function BySourceRow({
             </span>
           </span>
         )}
+      </div>
+      {/* 머신 스코어러 분포 + 기준 보강 게이트 (source 단위) */}
+      <div className="mt-1 flex items-baseline justify-between text-xs">
+        <span className="text-muted-foreground">머신 평균</span>
+        <span className="font-mono">
+          {entry.machine === null ? "—" : fmtScore(entry.machine.mean)}
+        </span>
+      </div>
+      <div className="mt-2">
+        <CriteriaGate weak={entry.machineCriteriaWeak} none={entry.machineNoCriteria} />
       </div>
     </div>
   );
@@ -281,7 +309,22 @@ export function BenchmarkSummary({ runIds, onSelectRun }: Props) {
             stdDev={data.judge?.stdDev ?? null}
             fmt={fmtScore}
           />
+          <StatBox
+            label="머신 점수"
+            mean={data.machine?.mean ?? null}
+            stdDev={data.machine?.stdDev ?? null}
+            hint={
+              data.machineCriteriaWeak > 0 || data.machineNoCriteria > 0
+                ? `보류 ${data.machineCriteriaWeak} · 기준없음 ${data.machineNoCriteria}`
+                : undefined
+            }
+            fmt={fmtScore}
+          />
         </div>
+
+        {/* 머신 스코어러 기준 보강 게이트 — criteria_weak/no_criteria 가 하나라도 있으면
+            측정 신뢰 보류. 외부(사람) 표본 게이트(§6.4)와 같은 보류 패턴. */}
+        <CriteriaGate weak={data.machineCriteriaWeak} none={data.machineNoCriteria} />
 
         {/* ADR 0003 (D1·C3): source 차원 분포 — asset vs baked. legacy(null)면 숨김. */}
         {data.bySource !== null &&
