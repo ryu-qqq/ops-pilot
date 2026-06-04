@@ -30,6 +30,52 @@ import { RunRetro } from "../../run/components/run-retro";
 import { TraceView } from "../../run/components/trace-view";
 import { VerdictStrip } from "../../run/components/verdict-strip";
 
+/**
+ * 트레이스 리스트 ⇄ 흐름 그래프 인라인 펼침 토글. WorkDetailIngest·WorkDetailRun 이 공유
+ * (각자 가졌던 traceMode/traceOpen state + 버튼 2개 + 조건부 FlowGraph/TraceView 의 중복 제거).
+ */
+function TraceSection({ runId, onOpenRun }: { runId: string; onOpenRun: (id: string) => void }) {
+  const [mode, setMode] = useState<"list" | "graph">("list");
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <div className="flex w-fit rounded-md border p-0.5">
+        <Button
+          variant={mode === "list" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => {
+            setMode("list");
+            setOpen(true);
+          }}
+        >
+          <ListTree className="h-3.5 w-3.5" /> 트레이스 리스트
+        </Button>
+        <Button
+          variant={mode === "graph" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => {
+            setMode("graph");
+            setOpen(true);
+          }}
+        >
+          <Share2 className="h-3.5 w-3.5" /> 흐름 그래프
+        </Button>
+      </div>
+      {open &&
+        (mode === "graph" ? (
+          <FlowGraph selectedRunId={runId} onSelectRun={onOpenRun} showRunSelect={false} />
+        ) : (
+          <Card>
+            <CardContent className="pt-4">
+              <TraceView runId={runId} />
+            </CardContent>
+          </Card>
+        ))}
+    </>
+  );
+}
+
 interface IngestProps {
   ingestId: string;
   projectId: string;
@@ -53,8 +99,6 @@ export function WorkDetailIngest({
   const reprocessReview = useReprocessReviewIngest(ingestId, projectId);
   const cancelEval = useCancelRun();
   const qc = useQueryClient();
-  const [traceMode, setTraceMode] = useState<"list" | "graph">("list");
-  const [traceOpen, setTraceOpen] = useState(false);
 
   if (isPending) return <Loading label="작업 불러오는 중…" />;
   if (isError) return <ErrorNotice error={error} />;
@@ -117,38 +161,7 @@ export function WorkDetailIngest({
             </CardContent>
           </Card>
           {/* 트레이스 리스트 ⇄ 흐름 그래프 인라인 펼침 */}
-          <div className="flex w-fit rounded-md border p-0.5">
-            <Button
-              variant={traceMode === "list" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => {
-                setTraceMode("list");
-                setTraceOpen(true);
-              }}
-            >
-              <ListTree className="h-3.5 w-3.5" /> 트레이스 리스트
-            </Button>
-            <Button
-              variant={traceMode === "graph" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => {
-                setTraceMode("graph");
-                setTraceOpen(true);
-              }}
-            >
-              <Share2 className="h-3.5 w-3.5" /> 흐름 그래프
-            </Button>
-          </div>
-          {traceOpen &&
-            (traceMode === "graph" ? (
-              <FlowGraph selectedRunId={evalRunId} onSelectRun={onOpenRun} showRunSelect={false} />
-            ) : (
-              <Card>
-                <CardContent className="pt-4">
-                  <TraceView runId={evalRunId} />
-                </CardContent>
-              </Card>
-            ))}
+          <TraceSection runId={evalRunId} onOpenRun={onOpenRun} />
         </section>
       )}
 
@@ -312,8 +325,6 @@ export function WorkDetailRun({ runId, onBack, onOpenRun }: RunProps) {
   // 목록(RunListItem)에만 있고 단건엔 없다. 단건 진입(props 에 projectId 없음)에서
   // 목록을 불러와 find 하는 건 과하므로 헤더는 Run 에 실존하는 필드(runner·model)로만 채운다.
   const { data: run } = useRun(runId);
-  const [traceMode, setTraceMode] = useState<"list" | "graph">("list");
-  const [traceOpen, setTraceOpen] = useState(false);
 
   return (
     <div className="space-y-4">
@@ -350,38 +361,7 @@ export function WorkDetailRun({ runId, onBack, onOpenRun }: RunProps) {
           </CardContent>
         </Card>
         {/* 트레이스 리스트 ⇄ 흐름 그래프 인라인 펼침 */}
-        <div className="flex w-fit rounded-md border p-0.5">
-          <Button
-            variant={traceMode === "list" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => {
-              setTraceMode("list");
-              setTraceOpen(true);
-            }}
-          >
-            <ListTree className="h-3.5 w-3.5" /> 트레이스 리스트
-          </Button>
-          <Button
-            variant={traceMode === "graph" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => {
-              setTraceMode("graph");
-              setTraceOpen(true);
-            }}
-          >
-            <Share2 className="h-3.5 w-3.5" /> 흐름 그래프
-          </Button>
-        </div>
-        {traceOpen &&
-          (traceMode === "graph" ? (
-            <FlowGraph selectedRunId={runId} onSelectRun={onOpenRun} showRunSelect={false} />
-          ) : (
-            <Card>
-              <CardContent className="pt-4">
-                <TraceView runId={runId} />
-              </CardContent>
-            </Card>
-          ))}
+        <TraceSection runId={runId} onOpenRun={onOpenRun} />
       </section>
 
       {/* ④ 변경 diff */}
