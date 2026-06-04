@@ -12,11 +12,7 @@ import type { WorkSelection } from "./domains/work/types";
 import { SettingsDialog } from "./domains/settings/components/settings-dialog";
 import { InfoDialog } from "./components/overview-info-dialog";
 import { ServerHealthIndicator } from "./components/server-health-indicator";
-
-type Tab = "overview" | "registry" | "work";
-
-// 영속 탭 키가 옛 값(피드백·실행)을 들고 있을 수 있어 화이트리스트로 폴백 가드한다.
-const VALID_TABS: Tab[] = ["overview", "registry", "work"];
+import { type Tab, VALID_TABS } from "./app-tabs";
 
 export function App() {
   const [tabRaw, setTab] = usePersistedState<Tab>("opspilot.tab.v3", "overview");
