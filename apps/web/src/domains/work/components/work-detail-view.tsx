@@ -68,12 +68,11 @@ function Disclosure({
 }
 
 /**
- * 트레이스 리스트 ⇄ 흐름 그래프 인라인 펼침 토글. WorkDetailIngest·WorkDetailRun 이 공유
- * (각자 가졌던 traceMode/traceOpen state + 버튼 2개 + 조건부 FlowGraph/TraceView 의 중복 제거).
+ * 트레이스 리스트 ⇄ 흐름 그래프 모드 전환만 담당. 펼침/접힘은 바깥 "실행 과정" Disclosure 가
+ * 제어하므로 자체 open 토글은 두지 않는다(접힘 중첩 제거) — 펼치면 트레이스가 바로 보인다.
  */
 function TraceSection({ runId, onOpenRun }: { runId: string; onOpenRun: (id: string) => void }) {
   const [mode, setMode] = useState<"list" | "graph">("list");
-  const [open, setOpen] = useState(false);
 
   return (
     <>
@@ -81,34 +80,27 @@ function TraceSection({ runId, onOpenRun }: { runId: string; onOpenRun: (id: str
         <Button
           variant={mode === "list" ? "default" : "ghost"}
           size="sm"
-          onClick={() => {
-            setMode("list");
-            setOpen(true);
-          }}
+          onClick={() => setMode("list")}
         >
           <ListTree className="h-3.5 w-3.5" /> 트레이스 리스트
         </Button>
         <Button
           variant={mode === "graph" ? "default" : "ghost"}
           size="sm"
-          onClick={() => {
-            setMode("graph");
-            setOpen(true);
-          }}
+          onClick={() => setMode("graph")}
         >
           <Share2 className="h-3.5 w-3.5" /> 흐름 그래프
         </Button>
       </div>
-      {open &&
-        (mode === "graph" ? (
-          <FlowGraph selectedRunId={runId} onSelectRun={onOpenRun} showRunSelect={false} />
-        ) : (
-          <Card>
-            <CardContent className="pt-4">
-              <TraceView runId={runId} />
-            </CardContent>
-          </Card>
-        ))}
+      {mode === "graph" ? (
+        <FlowGraph selectedRunId={runId} onSelectRun={onOpenRun} showRunSelect={false} />
+      ) : (
+        <Card>
+          <CardContent className="pt-4">
+            <TraceView runId={runId} />
+          </CardContent>
+        </Card>
+      )}
     </>
   );
 }
@@ -220,35 +212,41 @@ export function WorkDetailIngest({
         ))}
       </section>
 
-      {/* 심화(접힘): 처리 단계 · 평가 · 검토 — 파고들 때만 */}
-      <Disclosure title="처리 단계 · 평가 · 검토 상세">
+      {/* 심화(접힘): 평가 — GradePanel·HumanScore·RunRetro */}
+      {evalRunId !== null && (
+        <Disclosure title="평가">
+          <Card>
+            <CardContent className="space-y-3 pt-4">
+              <GradePanel runId={evalRunId} />
+              <HumanScore runId={evalRunId} />
+              <RunRetro runId={evalRunId} />
+            </CardContent>
+          </Card>
+        </Disclosure>
+      )}
+
+      {/* 심화(접힘): 실행 과정 — 트레이스 리스트⇄그래프 (평가에서 분리) */}
+      {evalRunId !== null && (
+        <Disclosure title="실행 과정">
+          <TraceSection runId={evalRunId} onOpenRun={onOpenRun} />
+        </Disclosure>
+      )}
+
+      {/* 심화(접힘): 검토 — reviewSummary + 검토 과정 버튼 */}
+      {reviewRunId !== null && (
+        <Disclosure title="검토">
+          {data.contextJson.reviewSummary !== undefined && (
+            <p className="text-xs text-muted-foreground">{data.contextJson.reviewSummary}</p>
+          )}
+          <Button size="sm" variant="outline" onClick={() => onOpenRun(reviewRunId)}>
+            <Share2 className="h-3.5 w-3.5" /> 검토 과정
+          </Button>
+        </Disclosure>
+      )}
+
+      {/* 심화(접힘): 처리 단계 — 파이프라인 단계 + 액션(eval/review 재처리·강제종료) */}
+      <Disclosure title="처리 단계">
         <IngestPipelineSteps data={data} />
-
-        {evalRunId !== null && (
-          <section className="space-y-3">
-            <h4 className="text-sm font-semibold text-muted-foreground">① 평가</h4>
-            <Card>
-              <CardContent className="space-y-3 pt-4">
-                <GradePanel runId={evalRunId} />
-                <HumanScore runId={evalRunId} />
-                <RunRetro runId={evalRunId} />
-              </CardContent>
-            </Card>
-            <TraceSection runId={evalRunId} onOpenRun={onOpenRun} />
-          </section>
-        )}
-
-        {reviewRunId !== null && (
-          <section className="space-y-2">
-            <h4 className="text-sm font-semibold text-muted-foreground">② 검토</h4>
-            {data.contextJson.reviewSummary !== undefined && (
-              <p className="text-xs text-muted-foreground">{data.contextJson.reviewSummary}</p>
-            )}
-            <Button size="sm" variant="outline" onClick={() => onOpenRun(reviewRunId)}>
-              <Share2 className="h-3.5 w-3.5" /> review 트레이스
-            </Button>
-          </section>
-        )}
 
         {/* 파이프라인 액션 — eval/review 재처리·강제종료 (기존 IngestDrilldownContent 보존) */}
         {(showPipelineActions ||
@@ -350,7 +348,7 @@ interface RunProps {
   onOpenRun: (id: string) => void;
 }
 
-/** 수동 실행 run 의 상세: 판정 → ① 평가 → ④ diff. (ingest 서사 아님 → ② 검토·③ 개선안 없음) */
+/** 수동 실행 run 의 상세: 판정 → 평가 → 실행 과정 → 변경 diff. (ingest 서사 아님 → 검토·처리단계·개선안 없음) */
 export function WorkDetailRun({ runId, onBack, onOpenRun }: RunProps) {
   // NOTE: useRun 은 base Run 스키마를 반환한다 — assetName/assetKind/scenarioName 은
   // 목록(RunListItem)에만 있고 단건엔 없다. 단건 진입(props 에 projectId 없음)에서
@@ -384,8 +382,8 @@ export function WorkDetailRun({ runId, onBack, onOpenRun }: RunProps) {
       {/* 핵심(항상 펼침): 판정 */}
       <VerdictStrip runId={runId} />
 
-      {/* 심화(접힘): 평가 상세 */}
-      <Disclosure title="평가 상세">
+      {/* 심화(접힘): 평가 */}
+      <Disclosure title="평가">
         <Card>
           <CardContent className="space-y-3 pt-4">
             <GradePanel runId={runId} />
@@ -393,6 +391,10 @@ export function WorkDetailRun({ runId, onBack, onOpenRun }: RunProps) {
             <RunRetro runId={runId} />
           </CardContent>
         </Card>
+      </Disclosure>
+
+      {/* 심화(접힘): 실행 과정 — 트레이스 리스트⇄그래프 */}
+      <Disclosure title="실행 과정">
         <TraceSection runId={runId} onOpenRun={onOpenRun} />
       </Disclosure>
 
