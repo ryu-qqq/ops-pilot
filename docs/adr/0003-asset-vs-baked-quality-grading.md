@@ -221,13 +221,22 @@ source DB 영속화.**)
 
 ## 후속 작업 (Follow-ups)
 
-1. **선행: source DB 영속화** — `meta.source`를 로그 전용에서 `score`/`run` 테이블로
+> **구현 상태(2026-06-03)**: #1~#3 구현 완료. #1 source DB 영속화(D1, merge `e817b78`) —
+> `scenario.source`→`run.source` 상속 + `aggregateBenchmark.bySource`. #2 A/B 파이프라인
+> (merge `6a3003f`/`3f0f429`) — `POST /assist/scenario-ab`(asset·baked 강제 산출) +
+> `/assist/scenario-ab-run`(생성→둘 다 실행→비교 자동 오케스트레이션). #3 사람 소표본
+> (merge `c5574ed`) — bySource에 human(외부 신호)·humanSampleCount + §6.4 신뢰 게이트
+> (자가+외부 둘 다일 때만 "외부 검증됨", 아니면 "비교 신뢰 보류"). **#4(D2·졸업조건)은
+> 미착수** — local-claude로 실제 A/B 데이터를 쌓아 asset>baked가 확인돼야 ADR 0002 fallback
+> 졸업(baked 데드코드 제거) 판단 가능(데이터·운영 의존, 코드 아님).
+
+1. **선행: source DB 영속화** ✅ — `meta.source`를 로그 전용에서 `score`/`run` 테이블로
    영속화(`TriggerDesignMeta.source`·`SuggestScenarioMeta.source`를 측정 시점에 기록).
    C·D 옵션의 선결 조건이다(열린 질문 3).
-2. **소표본 A/B 측정 파이프라인(C4 + C3)** — 같은 입력으로 asset·baked 둘 다 산출 →
+2. **소표본 A/B 측정 파이프라인(C4 + C3)** ✅ — 같은 입력으로 asset·baked 둘 다 산출 →
    다운스트림 측정을 source별로 집계. `aggregateBenchmark`·`compare_runs`에 source
    차원을 추가(B4 누적분포 자연 구현).
-3. **사람 소표본 채점 경로(B3)** — `scorer=human` 병행으로 자가+외부 둘 다 있는
+3. **사람 소표본 채점 경로(B3)** ✅ — `scorer=human` 병행으로 자가+외부 둘 다 있는
    비교를 성립시킨다(§6.4).
 4. **졸업조건 판단 후 D2 검토** — 자동 스코어러 풀구현·`machine` enum 추가·사람 점수
    환류는 ADR 0002 fallback 졸업조건 판단 이후 점진적으로 검토한다(이번 범위 아님).
