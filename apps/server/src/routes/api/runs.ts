@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import {
   benchmarkAggregateSchema,
+  machineGateStatusSchema,
   runDiffFileSchema,
   runSchema,
   scoreSchema,
@@ -31,6 +32,10 @@ import {
   gradeResultSchema,
   gradeRunAssertions,
 } from "../../domains/score/llm-grade.js";
+import {
+  MachineScoreError,
+  machineScoreRun,
+} from "../../domains/score/machine-score.js";
 import {
   getAnalysis,
   startAnalysis,
@@ -362,6 +367,41 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  // 머신 스코어러 — 기준 게이트 + LLM 채점(수동 단건). 토글 off 여도 호출 가능.
+  // 정식 머신 채점 경로는 이 라우트 / 자동 hook(OPS_AUTO_MACHINE_SCORE). POST /runs/:id/scores 의
+  // 수동 score 입력과는 별개(그쪽은 human 용).
+  fastify.post(
+    "/runs/:id/machine-score",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: {
+          200: z.object({
+            runId: z.string(),
+            gateStatus: machineGateStatusSchema,
+            passed: z.boolean(),
+            score: z.number().nullable(),
+            criteriaCritique: z.string(),
+            suggestedCriteria: z.array(z.string()),
+          }),
+          400: errorSchema,
+        },
+      },
+    },
+    async (req, reply) => {
+      try {
+        return await machineScoreRun(req.params.id);
+      } catch (e) {
+        if (e instanceof MachineScoreError) {
+          return reply
+            .status(400)
+            .send({ error: "MachineScoreError", detail: e.message });
+        }
+        throw e;
+      }
+    },
+  );
+
   // OPSP-10: 비교 뷰용 N개 run 요약 한꺼번에(N+1 회피).
   // OPSP-20: assertion / llm_judge / human score 를 같이 합쳐 컬럼 데이터로.
   // OPSP-9: scenarioName 추가(회귀 모드면 컬럼 헤더에 시나리오 이름 표시).
@@ -381,6 +421,7 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
                 assertionScore: scoreSchema.nullable(),
                 judgeScore: scoreSchema.nullable(),
                 humanScore: scoreSchema.nullable(),
+                machineScore: scoreSchema.nullable(),
               }),
             ),
           }),
@@ -409,7 +450,7 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
       // 한 run 에 같은 scorer 가 여러 행이면 가장 최근(createdAt 오름차순이므로 마지막).
       const pickLatest = (
         runId: string,
-        scorer: "assertion" | "llm_judge" | "human",
+        scorer: "assertion" | "llm_judge" | "human" | "machine",
       ) => {
         const list = (scoresByRun[runId] ?? []).filter(
           (s) => s.scorer === scorer,
@@ -425,6 +466,7 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
           assertionScore: pickLatest(run.id, "assertion"),
           judgeScore: pickLatest(run.id, "llm_judge"),
           humanScore: pickLatest(run.id, "human"),
+          machineScore: pickLatest(run.id, "machine"),
         })),
       };
     },
