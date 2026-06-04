@@ -67,24 +67,28 @@ function Metric({
 //  scored        🟢 score 그대로
 //  criteria_weak 🟡 score + "신뢰 보류"
 //  no_criteria   🔴 "기준 없음" (score 칸 —)
+// SSOT: 게이트 메타(emoji·label·help·variant)는 여기 한 곳뿐. grade-panel·comparison-view 가 import.
 export const machineGateMeta: Record<
   MachineGateStatus,
-  { emoji: string; label: string; help: string }
+  { emoji: string; label: string; help: string; variant: "success" | "warning" | "destructive" }
 > = {
   scored: {
     emoji: "🟢",
     label: "기준 충분",
     help: "successCriteria 가 충분해 머신이 정상 채점했습니다. 점수는 0~1.",
+    variant: "success",
   },
   criteria_weak: {
     emoji: "🟡",
     label: "신뢰 보류",
     help: "기준이 있으나 모호해 점수는 내되 신뢰를 보류합니다. detail 의 기준 보강 제안을 참고하세요.",
+    variant: "warning",
   },
   no_criteria: {
     emoji: "🔴",
     label: "기준 없음",
     help: "successCriteria 가 비어 채점 불가(통과로 위장 금지). 기준 초안 제안을 시나리오에 반영하세요.",
+    variant: "destructive",
   },
 };
 

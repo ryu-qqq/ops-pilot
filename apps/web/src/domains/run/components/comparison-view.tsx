@@ -239,16 +239,19 @@ export function ComparisonView({ runIds, onSelectRun }: Props) {
                       className="border-b p-2 align-top"
                       title={sc.detail?.criteriaCritique ?? machineGateMeta.no_criteria.help}
                     >
-                      <span className="font-semibold text-destructive">🔴 기준 없음</span>
+                      <span className="font-semibold text-destructive">
+                        {machineGateMeta.no_criteria.emoji} {machineGateMeta.no_criteria.label}
+                      </span>
                     </td>
                   );
                 }
                 const emoji = gate === undefined ? "" : `${machineGateMeta[gate].emoji} `;
+                const helpFallback = gate === undefined ? "" : machineGateMeta[gate].help;
                 return (
                   <td
                     key={it.run.id}
                     className="border-b p-2 align-top"
-                    title={sc.detail?.criteriaCritique ?? sc.detail?.reason ?? ""}
+                    title={sc.detail?.criteriaCritique ?? sc.detail?.reason ?? helpFallback}
                   >
                     <span className="font-semibold">
                       {emoji}
@@ -256,7 +259,7 @@ export function ComparisonView({ runIds, onSelectRun }: Props) {
                     </span>
                     {gate === "criteria_weak" && (
                       <Badge variant="warning" className="ml-1 text-[10px]">
-                        신뢰 보류
+                        {machineGateMeta.criteria_weak.label}
                       </Badge>
                     )}
                   </td>

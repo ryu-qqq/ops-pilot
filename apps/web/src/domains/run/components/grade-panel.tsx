@@ -4,6 +4,7 @@ import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { InlineError, Loading } from "../../../lib/ui";
 import { useGradeRun, useRun, useScores } from "../use-run";
+import { machineGateMeta } from "./verdict-strip";
 
 // T4-e: LLM grader 패널 — substring 자동채점을 보강. 표면준수(단어만 언급)는 FAIL.
 // 사람 평가(HumanScore)와 짝: 성공조건 → LLM 자동채점 → 사람 평가 흐름.
@@ -24,11 +25,6 @@ export function GradePanel({ runId }: { runId: string | null }) {
   const machineScores = (scores ?? []).filter((sc) => sc.scorer === "machine");
   const lastMachine = machineScores[machineScores.length - 1];
   const gate = lastMachine?.detail?.gateStatus;
-  const machineGateMeta = {
-    scored: { emoji: "🟢", label: "기준 충분", variant: "success" as const },
-    criteria_weak: { emoji: "🟡", label: "신뢰 보류", variant: "warning" as const },
-    no_criteria: { emoji: "🔴", label: "기준 없음", variant: "destructive" as const },
-  };
 
   return (
     <Card>
@@ -145,7 +141,7 @@ export function GradePanel({ runId }: { runId: string | null }) {
                   <ul className="space-y-1">
                     {lastMachine.detail.suggestedCriteria.map((c, i) => (
                       <li
-                        key={i}
+                        key={`${String(i)}-${c}`}
                         className="rounded-md border border-l-4 border-l-warning/60 bg-warning/5 px-3 py-1.5 text-xs"
                       >
                         {c}
