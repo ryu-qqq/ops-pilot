@@ -26,6 +26,7 @@ export const runListItemSchema = z.object({
   assetName: z.string(),
   assetKind: z.string(),
   gitCommit: z.string(),
+  projectName: z.string(),
 });
 export type RunListItem = z.infer<typeof runListItemSchema>;
 
@@ -44,7 +45,8 @@ const traceResponse = z.object({ trace: z.array(traceEventViewSchema) });
 // Query Key Factory (CONVENTIONS.md 2).
 export const runKeys = {
   all: ["runs"] as const,
-  list: () => [...runKeys.all, "list"] as const,
+  list: (projectId?: string | null) =>
+    [...runKeys.all, "list", projectId ?? "all"] as const,
   detail: (runId: string) => [...runKeys.all, "detail", runId] as const,
   trace: (runId: string) => [...runKeys.all, "trace", runId] as const,
   scores: (runId: string) => [...runKeys.all, "scores", runId] as const,
@@ -67,8 +69,9 @@ export const scenarioKeys = {
   forAsset: (assetId: string) => [...scenarioKeys.all, "for-asset", assetId] as const,
 };
 
-export async function getRuns() {
-  return (await apiGet("/api/runs", runsResponse)).runs;
+export async function getRuns(projectId?: string | null) {
+  const qs = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+  return (await apiGet(`/api/runs${qs}`, runsResponse)).runs;
 }
 
 export async function getRun(runId: string) {

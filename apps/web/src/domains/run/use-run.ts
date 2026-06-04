@@ -33,10 +33,10 @@ import {
 } from "./api";
 import { feedbackKeys } from "../feedback/api";
 
-export function useRuns() {
+export function useRuns(projectId?: string | null) {
   return useQuery({
-    queryKey: runKeys.list(),
-    queryFn: getRuns,
+    queryKey: runKeys.list(projectId),
+    queryFn: () => getRuns(projectId),
     // 실행 중인 run 이 있으면 목록도 폴링(상태 갱신), 없으면 멈춤
     refetchInterval: (q) =>
       (q.state.data ?? []).some((r) => r.status === "running") ? 2000 : false,
