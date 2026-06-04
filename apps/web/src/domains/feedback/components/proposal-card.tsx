@@ -144,7 +144,7 @@ export function ProposalCard({
         />
       </CardHeader>
       <CardContent className="space-y-3 pt-3">
-        {/* 출처 라벨 — commitSubject(없으면 gitRef) + eval/review 트레이스 · ingest 드릴다운. */}
+        {/* 출처 라벨 — commitSubject(없으면 gitRef) + 평가 과정/검토 과정 · ingest 드릴다운. */}
         <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/60 bg-muted/20 px-2 py-1.5 text-xs">
           <button
             type="button"
@@ -165,7 +165,7 @@ export function ProposalCard({
               onClick={() => onOpenEvalRun(proposal.evalRunId as string)}
             >
               <Share2 className="h-3 w-3" />
-              eval 트레이스
+              평가 과정
             </Button>
           )}
           {proposal.reviewRunId !== null && (
@@ -177,7 +177,7 @@ export function ProposalCard({
               onClick={() => onOpenEvalRun(proposal.reviewRunId as string)}
             >
               <Share2 className="h-3 w-3" />
-              review 트레이스
+              검토 과정
             </Button>
           )}
         </div>

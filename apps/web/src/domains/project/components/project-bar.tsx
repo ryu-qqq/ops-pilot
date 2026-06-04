@@ -38,7 +38,7 @@ function ProjectModeBadge({ mode }: { mode: ProjectWorkspaceMode }) {
   );
 }
 
-// 프로젝트 선택 + 액션(스캔·작업 신호 스캔·버전 훅 설치) + 등록 버튼을 한 줄 툴바로.
+// 프로젝트 선택 + 액션(스캔·정정 신호 새로고침·버전 훅 설치) + 등록 버튼을 한 줄 툴바로.
 // 등록 폼은 모달(ProjectRegisterDialog)로 분리해 툴바를 슬림화.
 export function ProjectBar({ selectedProjectId, onSelect }: Props) {
   const { data: projects, isPending: projectsPending } = useProjects();
@@ -117,10 +117,10 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
           }}
         >
           <RotateCw className={cn("h-3.5 w-3.5", scanWork.isPending && "animate-spin")} />
-          {scanWork.isPending ? "스캔 중…" : "작업 신호 스캔"}
+          {scanWork.isPending ? "새로고침 중…" : "정정 신호 새로고침"}
           <InfoMark
-            label="작업 신호 스캔"
-            help="로컬 세션을 훑어 자산별 정정왕복(참고 신호)을 갱신합니다. 품질 점수가 아니라 참고용입니다."
+            label="정정 신호 새로고침"
+            help="이 자산을 쓸 때 사람이 몇 번 고쳐줬는지(정정 왕복) 참고 신호를 갱신합니다. 품질 점수가 아니라 참고용."
           />
         </Button>
 
@@ -163,7 +163,7 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
           {scanWork.isSuccess && (
             <span className="inline-flex items-center gap-1 text-success">
               <CheckCircle2 className="h-3.5 w-3.5" />
-              작업 신호 갱신됨
+              정정 신호 새로고침됨
             </span>
           )}
           {hooks.isSuccess && (

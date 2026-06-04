@@ -44,7 +44,7 @@ function AutoIngestStatusChip({ config }: { config: AutoIngestConfig }) {
         자동 평가 꺼짐
         <InfoMark
           label="자동 평가"
-          help="새 커밋을 자동으로 평가하는 기능이 꺼져 있습니다. 켜려면 서버 OPS_AUTO_INGEST 를 켭니다."
+          help="새 커밋을 자동으로 평가하는 기능이 꺼져 있습니다. 서버 관리자 설정에서 켜고 끕니다 — 이 화면에선 바꿀 수 없어요."
         />
       </Badge>
     );
@@ -55,7 +55,7 @@ function AutoIngestStatusChip({ config }: { config: AutoIngestConfig }) {
       자동 평가 켜짐
       <InfoMark
         label="자동 평가"
-        help={`새 커밋을 ${fmtInterval(config.intervalMs)}마다 최대 ${String(config.batch)}건씩 자동 평가합니다. 끄려면 서버 OPS_AUTO_INGEST 를 끕니다.`}
+        help={`서버 관리자 설정에서 켜고 끕니다 — 이 화면에선 바꿀 수 없어요. 켜져 있으면 새 커밋을 ${fmtInterval(config.intervalMs)}마다 최대 ${String(config.batch)}건씩 자동 평가합니다.`}
       />
     </Badge>
   );
