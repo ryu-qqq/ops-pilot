@@ -1,4 +1,4 @@
-import type { MachineGateStatus } from "@opspilot/shared-types";
+import { machineGateStatusSchema, type MachineGateStatus } from "@opspilot/shared-types";
 import { z } from "zod";
 import { extractJsonObject, runClaudeOnce } from "../assist/claude.js";
 import { getRun, listLastAssistantTexts } from "../run/repository.js";
@@ -19,7 +19,9 @@ export class MachineScoreError extends Error {}
 
 // LLM 응답: 게이트 판정(scored|criteria_weak) + 채점 + 기준 비평/보강제안 을 한 번에.
 const machineGradeSchema = z.object({
-  gateStatus: z.enum(["scored", "criteria_weak"]),
+  // SSOT: shared-types 의 게이트 enum 에서 파생. LLM 은 scored/criteria_weak 만 판정 —
+  // no_criteria 는 결정적 게이트(evaluateCriteriaGate) 몫이라 제외한다.
+  gateStatus: machineGateStatusSchema.exclude(["no_criteria"]),
   passed: z.boolean(),
   score: z.number().min(0).max(1),
   criteriaCritique: z.string(),
@@ -44,13 +46,7 @@ JSON 한 객체만 출력. 코드펜스/설명 금지.
 { "gateStatus": "scored|criteria_weak", "passed": true, "score": 0.0,
   "criteriaCritique": "<1-2문장 한국어>", "suggestedCriteria": ["<조건>"] }`;
 
-interface MachineGradeLlm {
-  gateStatus: "scored" | "criteria_weak";
-  passed: boolean;
-  score: number;
-  criteriaCritique: string;
-  suggestedCriteria: string[];
-}
+type MachineGradeLlm = z.infer<typeof machineGradeSchema>;
 
 // LLM 으로 게이트 판정 + 채점.
 async function gradeWithCriteria(
@@ -100,8 +96,10 @@ ${output.slice(0, 2000)}`;
     const obj = extractJsonObject(raw);
     const arr = z.array(z.string()).safeParse(obj);
     return arr.success ? arr.data.slice(0, 3) : [];
-  } catch {
-    return []; // 제안 실패는 치명적 아님 — 빈 제안으로 둔다.
+  } catch (e) {
+    // 제안 실패는 치명적 아님 — 빈 제안으로 둔다(단, 인프라 장애를 침묵시키지 않게 흔적).
+    console.warn(`머신 스코어러 기준 제안 실패: ${(e as Error).message}`);
+    return [];
   }
 }
 
