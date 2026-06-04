@@ -1,4 +1,4 @@
-import { Moon, Sun } from "lucide-react";
+import { Compass, Moon, Sun } from "lucide-react";
 import { useState } from "react";
 import { Button } from "./components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
@@ -13,6 +13,9 @@ import { SettingsDialog } from "./domains/settings/components/settings-dialog";
 import { InfoDialog } from "./components/overview-info-dialog";
 import { ServerHealthIndicator } from "./components/server-health-indicator";
 import { type Tab, VALID_TABS } from "./app-tabs";
+import { useIngests } from "./domains/feedback/use-feedback";
+import { useTour } from "./domains/onboarding/use-tour";
+import { TourOverlay } from "./domains/onboarding/tour-overlay";
 
 export function App() {
   const [tabRaw, setTab] = usePersistedState<Tab>("opspilot.tab.v3", "overview");
@@ -27,6 +30,18 @@ export function App() {
   const [compareRunIds, setCompareRunIds] = useState<string[]>([]);
   const [benchmarkRunIds, setBenchmarkRunIds] = useState<string[]>([]);
   const { theme, toggle } = useTheme();
+
+  // 가이드 투어 — 상세 단계(needsSelection)에서 첫 작업을 자동 선택하기 위해 첫 ingest id 를 조회.
+  // useIngests 는 진행 중 ingest 가 있을 때만 폴링하고 work 탭과 같은 쿼리 키라 중복 요청은 dedupe 된다.
+  const { data: tourIngests } = useIngests(projectId);
+  const firstWorkId = tourIngests?.[0]?.id ?? null;
+  const tour = useTour({
+    onTab: (t) => setTab(t),
+    onSelection: (needs) => {
+      if (needs && firstWorkId != null) setWorkSelection({ kind: "ingest", id: firstWorkId });
+      else setWorkSelection(null);
+    },
+  });
 
   // run 생성: 2개 이상이면 비교 패널, 단일이면 그 run 드릴다운. 항상 벤치마크는 해제.
   const handleRunCreated = (runIds: string[]) => {
@@ -60,6 +75,15 @@ export function App() {
         <div className="flex items-center gap-1">
           <ServerHealthIndicator />
           <InfoDialog tab={tab} />
+          <Button
+            variant={tour.active ? "default" : "ghost"}
+            size="icon"
+            onClick={tour.toggle}
+            title="가이드 투어"
+            aria-label="가이드 투어"
+          >
+            <Compass className="h-4 w-4" />
+          </Button>
           <SettingsDialog />
           <Button
             variant="ghost"
@@ -106,6 +130,15 @@ export function App() {
           />
         </TabsContent>
       </Tabs>
+      <TourOverlay
+        active={tour.active}
+        step={tour.step}
+        stepIndex={tour.stepIndex}
+        total={tour.total}
+        onNext={tour.next}
+        onPrev={tour.prev}
+        onClose={tour.close}
+      />
     </main>
     </TooltipProvider>
   );
