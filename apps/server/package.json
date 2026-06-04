@@ -9,6 +9,7 @@
     "start": "node dist/server.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:reset": "tsx src/db/reset.ts",
     "sync:agent-crew": "tsx src/domains/agent-crew/sync-cli.ts"
@@ -29,6 +30,7 @@
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.10.2",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.8"
   }
 }
