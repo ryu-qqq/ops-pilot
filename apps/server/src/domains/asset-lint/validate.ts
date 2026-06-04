@@ -47,6 +47,11 @@ export function validateFrontmatter(
   // agent/skill/command 만 검증 (cursor_* 는 별도 frontmatter 규약 — 통과).
   if (!allowed) return { ok: true, issues };
 
+  // frontmatter(--- ---) 블록이 실제로 있는지 — "없음" vs "있으나 파싱 실패" 를 정확히 가른다.
+  // (예: description 에 콜론+공백 "키: 값" 이 들어가면 YAML 이 깨져 data 가 비거나 throw 된다.
+  //  블록은 분명히 있는데 "없음" 이라 표시하면 거짓 — 사용자 신뢰를 깬다.)
+  const hasFrontmatterBlock = /^\s*---\r?\n[\s\S]*?\r?\n---/.test(content);
+
   let data: Record<string, unknown>;
   try {
     data = matter(content).data as Record<string, unknown>;
@@ -57,7 +62,9 @@ export function validateFrontmatter(
         {
           severity: "error",
           field: "frontmatter",
-          message: `frontmatter 파싱 실패: ${(e as Error).message}`,
+          message: hasFrontmatterBlock
+            ? `frontmatter YAML 파싱 실패: ${(e as Error).message}`
+            : `frontmatter 파싱 실패: ${(e as Error).message}`,
         },
       ],
     };
@@ -66,7 +73,9 @@ export function validateFrontmatter(
     issues.push({
       severity: "error",
       field: "frontmatter",
-      message: "frontmatter(--- ---) 가 없음 — name·description 필수",
+      message: hasFrontmatterBlock
+        ? "frontmatter(--- ---) 블록은 있으나 YAML 로 읽히지 않음 — 값에 콜론+공백('키: 값') 또는 따옴표 누락 확인 (예: description)"
+        : "frontmatter(--- ---) 가 없음 — name·description 필수",
     });
     return { ok: false, issues };
   }
