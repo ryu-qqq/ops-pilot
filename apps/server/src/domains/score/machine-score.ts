@@ -146,18 +146,31 @@ export async function machineScoreRun(runId: string): Promise<MachineScoreResult
     };
   }
 
-  createScoreWithDetail({
-    runId,
-    scorer: "machine",
-    passed: result.passed,
-    score: result.score,
-    detail: {
-      reason: result.criteriaCritique,
-      gateStatus: result.gateStatus,
-      criteriaCritique: result.criteriaCritique,
-      suggestedCriteria: result.suggestedCriteria,
-    },
-  });
+  try {
+    createScoreWithDetail({
+      runId,
+      scorer: "machine",
+      passed: result.passed,
+      score: result.score,
+      detail: {
+        reason: result.criteriaCritique,
+        gateStatus: result.gateStatus,
+        criteriaCritique: result.criteriaCritique,
+        suggestedCriteria: result.suggestedCriteria,
+      },
+    });
+  } catch (e) {
+    // better-sqlite3 SqliteError 는 code 를 노출한다. 영속 DB 가 'machine' scorer 를
+    // CHECK 에 미반영(서버 부팅 시 자동 migrate 안 함)이면 INSERT 가
+    // SQLITE_CONSTRAINT_CHECK 로 throw → 모호한 500 대신 MachineScoreError 로 정규화.
+    const code = (e as { code?: string }).code;
+    if (code === "SQLITE_CONSTRAINT_CHECK") {
+      throw new MachineScoreError(
+        "score 스키마에 'machine' scorer 가 없습니다 — 'pnpm db:migrate' 로 마이그레이션하세요(서버는 부팅 시 자동 migrate 하지 않음).",
+      );
+    }
+    throw e;
+  }
   return result;
 }
 

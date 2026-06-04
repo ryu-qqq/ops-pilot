@@ -9,6 +9,7 @@ import {
   evaluateCriteriaGate,
   isAutoMachineScoreEnabled,
 } from "./machine-score.js";
+import { createScoreWithDetail } from "./repository.js";
 
 let dir: string;
 let dbPath: string;
@@ -139,6 +140,46 @@ describe("score 마이그레이션 — machine scorer", () => {
         )
         .run(randomUUID(), runId, now),
     ).not.toThrow();
+  });
+
+  // 정규화 분기(machineScoreRun 의 try/catch)의 전제 검증:
+  // 미마이그레이션 DB(machine 없는 CHECK)에서 createScoreWithDetail({scorer:'machine'})
+  // 가 SqliteError(code='SQLITE_CONSTRAINT_CHECK')를 던지는지 확인. 이 code 가
+  // machineScoreRun 의 MachineScoreError 정규화 분기 판별 근거다.
+  it("legacy CHECK DB 에서 createScoreWithDetail(scorer='machine') 은 SQLITE_CONSTRAINT_CHECK 로 throw 한다", () => {
+    const db = getDb(dbPath);
+    const runId = seedRun();
+
+    // score 테이블을 'machine' 없는 구 CHECK 로 되돌린다(재마이그레이션 없이).
+    db.exec("PRAGMA foreign_keys=OFF;");
+    db.exec(`
+      DROP TABLE score;
+      CREATE TABLE score (
+        id         TEXT PRIMARY KEY,
+        run_id     TEXT NOT NULL REFERENCES run (id) ON DELETE CASCADE,
+        scorer     TEXT NOT NULL CHECK (scorer IN ('schema','assertion','llm_judge','human')),
+        passed     INTEGER NOT NULL CHECK (passed IN (0,1)),
+        score      REAL CHECK (score IS NULL OR (score >= 0 AND score <= 1)),
+        detail     TEXT,
+        created_at TEXT NOT NULL
+      );
+    `);
+    db.exec("PRAGMA foreign_keys=ON;");
+
+    let thrown: { code?: string } | undefined;
+    try {
+      createScoreWithDetail({
+        runId,
+        scorer: "machine",
+        passed: false,
+        score: null,
+        detail: { reason: "x" },
+      });
+    } catch (e) {
+      thrown = e as { code?: string };
+    }
+    expect(thrown).toBeDefined();
+    expect(thrown?.code).toBe("SQLITE_CONSTRAINT_CHECK");
   });
 });
 
