@@ -160,3 +160,17 @@ export async function machineScoreRun(runId: string): Promise<MachineScoreResult
   });
   return result;
 }
+
+// ADR 0004 OPS_AUTO_INGEST 선례와 일관 — env 전역 토글, 기본 off(LLM 비용 방어).
+export function isAutoMachineScoreEnabled(): boolean {
+  return process.env.OPS_AUTO_MACHINE_SCORE === "1";
+}
+
+// runLoop 말미에서 호출. 토글 off 면 즉시 noop. on 이면 비동기로 머신 채점을 띄우고
+// 실패는 흡수(실행 결과·다른 자동측정에 영향 X). assertion 자동채점과 동일한 안전 계약.
+export function maybeAutoMachineScore(runId: string): void {
+  if (!isAutoMachineScoreEnabled()) return;
+  void machineScoreRun(runId).catch((e) => {
+    console.warn(`머신 스코어러 자동 채점 실패(run ${runId}): ${(e as Error).message}`);
+  });
+}

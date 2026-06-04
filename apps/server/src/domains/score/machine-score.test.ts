@@ -5,7 +5,10 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { closeDb, getDb } from "../../db/index.js";
 import { migrate } from "../../db/migrate.js";
-import { evaluateCriteriaGate } from "./machine-score.js";
+import {
+  evaluateCriteriaGate,
+  isAutoMachineScoreEnabled,
+} from "./machine-score.js";
 
 let dir: string;
 let dbPath: string;
@@ -148,5 +151,20 @@ describe("evaluateCriteriaGate — 결정적 사전 판정", () => {
   });
   it("의미 있는 기준이 있으면 null(=LLM 판정으로 위임)", () => {
     expect(evaluateCriteriaGate(['응답에 "AWS_SECRET_KEY" 포함'])).toBeNull();
+  });
+});
+
+describe("isAutoMachineScoreEnabled — env 토글", () => {
+  // 다른 테스트로 새지 않게 각 테스트가 끝나면 env 를 원복(off).
+  afterEach(() => {
+    delete process.env.OPS_AUTO_MACHINE_SCORE;
+  });
+  it("OPS_AUTO_MACHINE_SCORE 미설정이면 false", () => {
+    delete process.env.OPS_AUTO_MACHINE_SCORE;
+    expect(isAutoMachineScoreEnabled()).toBe(false);
+  });
+  it("'1' 이면 true", () => {
+    process.env.OPS_AUTO_MACHINE_SCORE = "1";
+    expect(isAutoMachineScoreEnabled()).toBe(true);
   });
 });

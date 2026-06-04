@@ -8,6 +8,7 @@ import {
 } from "../registry/repository.js";
 import { getScenario } from "../scenario/repository.js";
 import { evaluateAssertionsForRun } from "../score/auto-evaluate.js";
+import { maybeAutoMachineScore } from "../score/machine-score.js";
 import { collectDiffFiles } from "./diff.js";
 import {
   extractUsage,
@@ -122,6 +123,7 @@ async function runLoop(
     // OPSP-20: run 종료 후 시나리오 assertions 자동 측정 → score(scorer='assertion') 저장.
     // 실패해도 noop, 실행 결과에 영향 X.
     evaluateAssertionsForRun(runId);
+    maybeAutoMachineScore(runId); // 토글 OPS_AUTO_MACHINE_SCORE=1 일 때만(비동기·실패흡수)
     notifyRunCompleted(runId);
     // OPSP-18: 종료 결과 컬러 한 줄(데이몬 pane).
     const final = getRun(runId);
