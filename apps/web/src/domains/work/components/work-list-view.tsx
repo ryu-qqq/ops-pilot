@@ -200,12 +200,23 @@ export function WorkListView({
         />
       )}
       {!empty && (
-        <div className="space-y-4">
+        <div className="space-y-4" data-tour="work-list">
           {filteredCursor.length > 0 && (
-            <WorkSection title="코드 작업" items={filteredCursor} onSelect={onSelect} />
+            <WorkSection
+              title="코드 작업"
+              items={filteredCursor}
+              onSelect={onSelect}
+              tourFirstCard
+            />
           )}
           {showManual && (
-            <WorkSection title="수동 실행" items={groups.manual} onSelect={onSelect} />
+            <WorkSection
+              title="수동 실행"
+              items={groups.manual}
+              onSelect={onSelect}
+              // 코드 작업 섹션이 비었을 때만 첫 카드 투어 타겟을 이 섹션이 받는다(중복 방지).
+              tourFirstCard={filteredCursor.length === 0}
+            />
           )}
         </div>
       )}
@@ -218,19 +229,23 @@ function WorkSection({
   title,
   items,
   onSelect,
+  tourFirstCard = false,
 }: {
   title: string;
   items: WorkItem[];
   onSelect: (s: WorkSelection) => void;
+  /** true 면 이 섹션의 첫 항목 버튼에만 data-tour="work-card" 를 부여(투어 타겟). */
+  tourFirstCard?: boolean;
 }) {
   return (
     <section className="space-y-2">
       <h2 className="text-sm font-semibold text-muted-foreground">{title}</h2>
       <ul className="space-y-1">
-        {items.map((item) => (
+        {items.map((item, index) => (
           <li key={item.id}>
             <button
               type="button"
+              data-tour={tourFirstCard && index === 0 ? "work-card" : undefined}
               onClick={() => onSelect({ kind: item.kind, id: item.id })}
               className={cn(
                 "w-full rounded-md border border-transparent px-3 py-2 text-left transition-colors hover:border-border hover:bg-accent/50",

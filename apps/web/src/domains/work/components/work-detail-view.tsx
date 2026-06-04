@@ -178,11 +178,15 @@ export function WorkDetailIngest({
         </div>
       </div>
 
-      {/* 핵심(항상 펼침): 판정 한 줄 */}
-      {evalRunId !== null && <VerdictStrip runId={evalRunId} />}
+      {/* 핵심(항상 펼침): 판정 한 줄 — VerdictStrip 은 외부 컴포넌트라 wrapper div 가 투어 타겟. */}
+      {evalRunId !== null && (
+        <div data-tour="verdict">
+          <VerdictStrip runId={evalRunId} />
+        </div>
+      )}
 
       {/* 핵심(항상 펼침): 개선안 결정 큐 — "뭘 고치나"의 답 */}
-      <section className="space-y-3">
+      <section className="space-y-3" data-tour="proposals">
         <h3 className="text-sm font-semibold text-muted-foreground">
           개선안 ({data.proposals.length})
         </h3>
