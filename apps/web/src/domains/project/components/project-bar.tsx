@@ -41,7 +41,7 @@ function ProjectModeBadge({ mode }: { mode: ProjectWorkspaceMode }) {
 // 프로젝트 선택 + 액션(스캔·작업 신호 스캔·버전 훅 설치) + 등록 버튼을 한 줄 툴바로.
 // 등록 폼은 모달(ProjectRegisterDialog)로 분리해 툴바를 슬림화.
 export function ProjectBar({ selectedProjectId, onSelect }: Props) {
-  const { data: projects } = useProjects();
+  const { data: projects, isPending: projectsPending } = useProjects();
   const scan = useScanProject(selectedProjectId);
   const hooks = useInstallHooks();
   const scanWork = useScanWorkMetrics();
@@ -57,11 +57,19 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
     <Card className="space-y-3 p-4">
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-[240px] flex-1">
-          <Select value={selectedProjectId ?? ""} onValueChange={onSelect}>
+          <Select
+            value={selectedProjectId ?? ""}
+            onValueChange={onSelect}
+            disabled={projectsPending}
+          >
             <SelectTrigger>
-              <SelectValue
-                placeholder={projects && projects.length > 0 ? "프로젝트 선택" : "등록된 프로젝트 없음"}
-              />
+              {projectsPending ? (
+                <Loading label="프로젝트 불러오는 중…" />
+              ) : (
+                <SelectValue
+                  placeholder={projects && projects.length > 0 ? "프로젝트 선택" : "등록된 프로젝트 없음"}
+                />
+              )}
             </SelectTrigger>
             <SelectContent>
               {(projects ?? []).map((p) => (
