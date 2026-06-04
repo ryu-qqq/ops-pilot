@@ -35,7 +35,7 @@ function durationOf(r: Run): number | null {
 // 한 run 에 같은 scorer 가 여러 행이면 가장 최근 행을 채택.
 function pickLatestScore(
   scores: Score[] | undefined,
-  scorer: "assertion" | "llm_judge" | "human",
+  scorer: "assertion" | "llm_judge" | "human" | "machine",
 ): Score | null {
   const list = (scores ?? []).filter((s) => s.scorer === scorer);
   return list.length === 0 ? null : list[list.length - 1] ?? null;
@@ -53,6 +53,10 @@ function summarizeSubset(
   const judgeValues: number[] = [];
   // ADR 0003 §6.4 (B3): human(외부 사람 신호) — 각 run 의 최신 human score(0~1) 만 채택.
   const humanValues: number[] = [];
+  // 머신 스코어러 분포 + 기준 보류 카운트(§6.4 신뢰 게이트용).
+  const machineValues: number[] = [];
+  let machineCriteriaWeak = 0;
+  let machineNoCriteria = 0;
   for (const r of runs) {
     if (r.status === "succeeded") {
       succeeded += 1;
@@ -69,6 +73,13 @@ function summarizeSubset(
     if (j && j.score !== null) judgeValues.push(j.score);
     const h = pickLatestScore(scoresByRun[r.id], "human");
     if (h && h.score !== null) humanValues.push(h.score);
+    const m = pickLatestScore(scoresByRun[r.id], "machine");
+    if (m) {
+      const gs = m.detail?.gateStatus;
+      if (gs === "criteria_weak") machineCriteriaWeak += 1;
+      else if (gs === "no_criteria") machineNoCriteria += 1;
+      if (m.score !== null) machineValues.push(m.score);
+    }
   }
   const assertionStats = stats(assertionValues);
   return {
@@ -80,6 +91,9 @@ function summarizeSubset(
     // humanSampleCount = human score 가 있는 run 수(=외부 표본 N). count(전체 run 수)와 다름.
     human: stats(humanValues),
     humanSampleCount: humanValues.length,
+    machine: stats(machineValues),
+    machineCriteriaWeak,
+    machineNoCriteria,
   };
 }
 
@@ -112,6 +126,10 @@ export function aggregateBenchmark(runIds: string[]): BenchmarkAggregate {
   const assertionValues: number[] = [];
   let assertionPassN = 0;
   const judgeValues: number[] = [];
+  // 머신 스코어러 분포 + 기준 보류 카운트(§6.4 신뢰 게이트용).
+  const machineValues: number[] = [];
+  let machineCriteriaWeak = 0;
+  let machineNoCriteria = 0;
   for (const r of runs) {
     const a = pickLatestScore(scoresByRun[r.id], "assertion");
     if (a && a.score !== null) {
@@ -120,6 +138,13 @@ export function aggregateBenchmark(runIds: string[]): BenchmarkAggregate {
     }
     const j = pickLatestScore(scoresByRun[r.id], "llm_judge");
     if (j && j.score !== null) judgeValues.push(j.score);
+    const m = pickLatestScore(scoresByRun[r.id], "machine");
+    if (m) {
+      const gs = m.detail?.gateStatus;
+      if (gs === "criteria_weak") machineCriteriaWeak += 1;
+      else if (gs === "no_criteria") machineNoCriteria += 1;
+      if (m.score !== null) machineValues.push(m.score);
+    }
   }
 
   const assertionStats = stats(assertionValues);
@@ -142,6 +167,9 @@ export function aggregateBenchmark(runIds: string[]): BenchmarkAggregate {
         ? null
         : { ...assertionStats, passN: assertionPassN },
     judge: judgeStats,
+    machine: stats(machineValues),
+    machineCriteriaWeak,
+    machineNoCriteria,
     bySource,
   };
 }

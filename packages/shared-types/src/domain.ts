@@ -260,6 +260,10 @@ export const benchmarkBySourceEntrySchema = z.object({
   // 없으면 null. humanSampleCount = 이 source subset 에서 human score 가 있는 run 수.
   human: numericStatsSchema.nullable(),
   humanSampleCount: z.number().int().nonnegative(),
+  // 머신 스코어러 분포 + 기준 보류 카운트(§6.4 신뢰 게이트용).
+  machine: numericStatsSchema.nullable(),
+  machineCriteriaWeak: z.number().int().nonnegative(),
+  machineNoCriteria: z.number().int().nonnegative(),
 });
 export type BenchmarkBySourceEntry = z.infer<typeof benchmarkBySourceEntrySchema>;
 
@@ -282,6 +286,10 @@ export const benchmarkAggregateSchema = z.object({
     .nullable(),
   // LLM judge(OPSP-10 follow-up) — 있으면.
   judge: numericStatsSchema.nullable(),
+  // 머신 스코어러 분포 + 기준 보류 카운트(§6.4 신뢰 게이트용).
+  machine: numericStatsSchema.nullable(),
+  machineCriteriaWeak: z.number().int().nonnegative(),
+  machineNoCriteria: z.number().int().nonnegative(),
   // ADR 0003 (C3·D1): source(asset|baked) 별 분포. source 가 기록된 run 이 하나도
   // 없으면 null. 있으면 해당 source 키만 채워진다(§6.4 — 단순 가산 아닌 source 별 분리).
   bySource: z

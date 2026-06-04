@@ -65,6 +65,11 @@ interface SeedRunInput {
   source: DesignSource | null;
   assertion?: { score: number; passed: boolean };
   human?: { score: number; passed: boolean };
+  machine?: {
+    score: number | null;
+    passed: boolean;
+    gateStatus: "scored" | "criteria_weak" | "no_criteria";
+  };
 }
 
 function seedRun(input: SeedRunInput): string {
@@ -95,6 +100,19 @@ function seedRun(input: SeedRunInput): string {
       `INSERT INTO score (id, run_id, scorer, passed, score, created_at)
        VALUES (?, ?, 'human', ?, ?, ?)`,
     ).run(randomUUID(), runId, input.human.passed ? 1 : 0, input.human.score, now);
+  }
+  if (input.machine) {
+    db.prepare(
+      `INSERT INTO score (id, run_id, scorer, passed, score, detail, created_at)
+       VALUES (?, ?, 'machine', ?, ?, ?, ?)`,
+    ).run(
+      randomUUID(),
+      runId,
+      input.machine.passed ? 1 : 0,
+      input.machine.score,
+      JSON.stringify({ gateStatus: input.machine.gateStatus }),
+      now,
+    );
   }
   return runId;
 }
@@ -205,5 +223,46 @@ describe("aggregateBenchmark", () => {
     // assertion score [1.0, 0.5, 0.0] → mean ≈ 0.5, passN = 1(passed=true 1건).
     expect(agg.assertion?.mean).toBeCloseTo(0.5, 10);
     expect(agg.assertion?.passN).toBe(1);
+  });
+
+  it("machine score 분포와 criteria_weak/no_criteria 카운트를 집계한다", () => {
+    const { assetVersionId, scenarioId } = seedChain();
+    const ids = [
+      seedRun({
+        assetVersionId,
+        scenarioId,
+        status: "succeeded",
+        source: "asset",
+        machine: { score: 0.8, passed: true, gateStatus: "scored" },
+      }),
+      seedRun({
+        assetVersionId,
+        scenarioId,
+        status: "succeeded",
+        source: "asset",
+        machine: { score: 0.5, passed: false, gateStatus: "criteria_weak" },
+      }),
+      seedRun({
+        assetVersionId,
+        scenarioId,
+        status: "failed",
+        source: "asset",
+        // 기준 보류 — score=null, 분포에서 제외되고 noCriteria 카운트만 증가.
+        machine: { score: null, passed: false, gateStatus: "no_criteria" },
+      }),
+    ];
+
+    const agg = aggregateBenchmark(ids);
+
+    // 전체 집계: score 가 있는 [0.8, 0.5] 만 분포에 포함(null 제외).
+    expect(agg.machine?.mean).toBeCloseTo(0.65, 10); // (0.8+0.5)/2
+    expect(agg.machineCriteriaWeak).toBe(1);
+    expect(agg.machineNoCriteria).toBe(1);
+
+    // bySource(asset) 도 동일하게 집계되어야 한다(summarizeSubset 경로).
+    const asset = agg.bySource?.asset;
+    expect(asset?.machine?.mean).toBeCloseTo(0.65, 10);
+    expect(asset?.machineCriteriaWeak).toBe(1);
+    expect(asset?.machineNoCriteria).toBe(1);
   });
 });
