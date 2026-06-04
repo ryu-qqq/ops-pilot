@@ -20,6 +20,14 @@ import { HumanScore } from "./human-score";
 import { RunRetro } from "./run-retro";
 import { VerdictStrip } from "./verdict-strip";
 import { InfoMark } from "../../../lib/ui";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../../components/ui/select";
+import { useProjects } from "../../project/use-project";
 import { useCancelRun, useRerunRun, useRun } from "../use-run";
 
 export type RunViewMode = "list" | "graph";
@@ -33,6 +41,8 @@ interface Props {
   onClearBenchmark: () => void;
   viewMode: RunViewMode;
   onViewModeChange: (m: RunViewMode) => void;
+  projectId: string | null;
+  onProjectIdChange: (id: string | null) => void;
 }
 
 export function RunsView({
@@ -44,6 +54,8 @@ export function RunsView({
   onClearBenchmark,
   viewMode,
   onViewModeChange,
+  projectId,
+  onProjectIdChange,
 }: Props) {
   const compareActive = compareRunIds.length >= 2;
   const benchmarkActive = benchmarkRunIds.length >= 1;
@@ -53,8 +65,11 @@ export function RunsView({
   return (
     <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
       <Card className="p-4 space-y-3">
-        <h2 className="text-sm font-semibold text-muted-foreground">실행 (run)</h2>
-        <RunList selectedId={selectedRunId} onSelect={onSelectRun} />
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold text-muted-foreground">실행 (run)</h2>
+          <RunProjectFilter value={projectId} onChange={onProjectIdChange} />
+        </div>
+        <RunList selectedId={selectedRunId} onSelect={onSelectRun} projectId={projectId} />
       </Card>
       <div className="space-y-4">
         {/* 관측소 (1)+(2): 판정 한 줄 + 출처 브레드크럼 — 모든 카드보다 위 */}
@@ -195,5 +210,30 @@ export function RunsView({
         )}
       </div>
     </div>
+  );
+}
+
+function RunProjectFilter({
+  value,
+  onChange,
+}: {
+  value: string | null;
+  onChange: (id: string | null) => void;
+}) {
+  const { data: projects } = useProjects();
+  return (
+    <Select value={value ?? "all"} onValueChange={(v) => onChange(v === "all" ? null : v)}>
+      <SelectTrigger className="h-8 text-xs">
+        <SelectValue placeholder="프로젝트 전체" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">프로젝트 전체</SelectItem>
+        {(projects ?? []).map((p) => (
+          <SelectItem key={p.id} value={p.id}>
+            {p.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

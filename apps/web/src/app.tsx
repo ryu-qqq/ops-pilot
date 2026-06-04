@@ -116,6 +116,8 @@ export function App() {
             onClearBenchmark={() => setBenchmarkRunIds([])}
             viewMode={runViewMode}
             onViewModeChange={setRunViewMode}
+            projectId={projectId}
+            onProjectIdChange={setProjectId}
           />
         </TabsContent>
       </Tabs>
