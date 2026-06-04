@@ -23,6 +23,7 @@ import {
   launchBatchScenarios,
   launchBenchmark,
   launchRun,
+  machineScoreRun,
   runKeys,
   scenarioKeys,
   setRunRetro,
@@ -32,10 +33,10 @@ import {
 } from "./api";
 import { feedbackKeys } from "../feedback/api";
 
-export function useRuns() {
+export function useRuns(projectId?: string | null) {
   return useQuery({
-    queryKey: runKeys.list(),
-    queryFn: getRuns,
+    queryKey: runKeys.list(projectId),
+    queryFn: () => getRuns(projectId),
     // 실행 중인 run 이 있으면 목록도 폴링(상태 갱신), 없으면 멈춤
     refetchInterval: (q) =>
       (q.state.data ?? []).some((r) => r.status === "running") ? 2000 : false,
@@ -178,6 +179,19 @@ export function useGradeRun(runId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => gradeRun(runId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: runKeys.scores(runId) });
+      qc.invalidateQueries({ queryKey: runKeys.all });
+    },
+  });
+}
+
+// 머신 스코어러 수동 트리거 — 사용자가 고른 run 만 채점(토큰 통제). useGradeRun 동형.
+// 성공 시 score(machine) 가 저장되므로 scores 캐시 + 비교 뷰 machine 행 갱신 위해 runs 무효화.
+export function useMachineScoreRun(runId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => machineScoreRun(runId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: runKeys.scores(runId) });
       qc.invalidateQueries({ queryKey: runKeys.all });

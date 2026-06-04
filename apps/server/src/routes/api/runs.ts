@@ -69,6 +69,7 @@ const runListItem = z.object({
   assetName: z.string(),
   assetKind: z.string(),
   gitCommit: z.string(),
+  projectName: z.string(),
 });
 
 const traceResponse = z.object({
@@ -499,8 +500,13 @@ const runs: FastifyPluginAsyncZod = async (fastify) => {
 
   fastify.get(
     "/runs",
-    { schema: { response: { 200: z.object({ runs: z.array(runListItem) }) } } },
-    async () => ({ runs: listRuns() }),
+    {
+      schema: {
+        querystring: z.object({ projectId: z.string().uuid().optional() }),
+        response: { 200: z.object({ runs: z.array(runListItem) }) },
+      },
+    },
+    async (req) => ({ runs: listRuns(req.query.projectId) }),
   );
 
   fastify.get(

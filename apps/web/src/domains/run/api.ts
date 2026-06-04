@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   benchmarkAggregateSchema,
+  machineGateStatusSchema,
   runDiffFileSchema,
   runSchema,
   scenarioAbPairResponseSchema,
@@ -25,6 +26,7 @@ export const runListItemSchema = z.object({
   assetName: z.string(),
   assetKind: z.string(),
   gitCommit: z.string(),
+  projectName: z.string(),
 });
 export type RunListItem = z.infer<typeof runListItemSchema>;
 
@@ -43,7 +45,8 @@ const traceResponse = z.object({ trace: z.array(traceEventViewSchema) });
 // Query Key Factory (CONVENTIONS.md 2).
 export const runKeys = {
   all: ["runs"] as const,
-  list: () => [...runKeys.all, "list"] as const,
+  list: (projectId?: string | null) =>
+    [...runKeys.all, "list", projectId ?? "all"] as const,
   detail: (runId: string) => [...runKeys.all, "detail", runId] as const,
   trace: (runId: string) => [...runKeys.all, "trace", runId] as const,
   scores: (runId: string) => [...runKeys.all, "scores", runId] as const,
@@ -66,8 +69,9 @@ export const scenarioKeys = {
   forAsset: (assetId: string) => [...scenarioKeys.all, "for-asset", assetId] as const,
 };
 
-export async function getRuns() {
-  return (await apiGet("/api/runs", runsResponse)).runs;
+export async function getRuns(projectId?: string | null) {
+  const qs = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+  return (await apiGet(`/api/runs${qs}`, runsResponse)).runs;
 }
 
 export async function getRun(runId: string) {
@@ -223,6 +227,23 @@ export type RunGradeResult = z.infer<typeof runGradeResultSchema>;
 
 export async function gradeRun(runId: string) {
   return apiPost(`/api/runs/${runId}/grade`, {}, runGradeResultSchema);
+}
+
+// 머신 스코어러 — 기준 게이트 + LLM 채점. 사용자가 원하는 run 만 수동 트리거(토큰 통제).
+// 응답은 백엔드 POST /runs/:id/machine-score 와 동형. score(machine) 도 저장됨.
+// successCriteria 비면 no_criteria 로 채점 불가 — 보강 제안만 돌아온다.
+export const machineScoreResultSchema = z.object({
+  runId: z.string(),
+  gateStatus: machineGateStatusSchema,
+  passed: z.boolean(),
+  score: z.number().nullable(),
+  criteriaCritique: z.string(),
+  suggestedCriteria: z.array(z.string()),
+});
+export type MachineScoreResult = z.infer<typeof machineScoreResultSchema>;
+
+export async function machineScoreRun(runId: string) {
+  return apiPost(`/api/runs/${runId}/machine-score`, {}, machineScoreResultSchema);
 }
 
 // OPSP-37 (3): 한 run trace AI 분석. OPSP-39: 비동기 작업화 + DB 캐시.

@@ -6,6 +6,7 @@ import { useRuns } from "../use-run";
 interface Props {
   selectedId: string | null;
   onSelect: (id: string) => void;
+  projectId?: string | null;
 }
 
 const statusVariant: Record<string, "default" | "secondary" | "destructive" | "success" | "warning"> = {
@@ -15,8 +16,8 @@ const statusVariant: Record<string, "default" | "secondary" | "destructive" | "s
   pending: "secondary",
 };
 
-export function RunList({ selectedId, onSelect }: Props) {
-  const { data: runs, isPending, isError, error } = useRuns();
+export function RunList({ selectedId, onSelect, projectId }: Props) {
+  const { data: runs, isPending, isError, error } = useRuns(projectId);
 
   if (isPending)
     return (
@@ -54,8 +55,14 @@ export function RunList({ selectedId, onSelect }: Props) {
               <span className="font-mono text-xs text-muted-foreground">{r.assetKind}</span>
               <span className="truncate">{r.assetName}</span>
             </div>
-            <div className="mt-1 truncate text-xs text-muted-foreground">
-              {r.scenarioName} · <code className="font-mono">{r.gitCommit.slice(0, 8)}</code> · {r.runner}
+            <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                {r.projectName}
+              </Badge>
+              <span className="truncate">{r.scenarioName}</span>
+            </div>
+            <div className="truncate text-xs text-muted-foreground">
+              <code className="font-mono">{r.gitCommit.slice(0, 8)}</code> · {r.runner}
               {r.promptTokens !== null &&
                 ` · ${String(r.promptTokens + (r.completionTokens ?? 0))} tok`}
             </div>

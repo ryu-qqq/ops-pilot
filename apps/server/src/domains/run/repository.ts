@@ -130,23 +130,27 @@ export interface RunListItem {
   assetName: string;
   assetKind: string;
   gitCommit: string;
+  projectName: string;
 }
 
-export function listRuns(): RunListItem[] {
+export function listRuns(projectId?: string): RunListItem[] {
+  const where = projectId ? "WHERE p.id = @projectId" : "";
   return getDb()
     .prepare(
       `SELECT r.id, r.status, r.runner, r.created_at AS createdAt,
               r.prompt_tokens AS promptTokens, r.completion_tokens AS completionTokens,
               r.cost_usd AS costUsd,
               s.id AS scenarioId, s.name AS scenarioName, a.name AS assetName, a.kind AS assetKind,
-              av.git_commit AS gitCommit
+              av.git_commit AS gitCommit, p.name AS projectName
        FROM run r
        JOIN scenario s ON s.id = r.scenario_id
        JOIN asset_version av ON av.id = r.asset_version_id
        JOIN asset a ON a.id = av.asset_id
+       JOIN project p ON p.id = a.project_id
+       ${where}
        ORDER BY r.created_at DESC`,
     )
-    .all() as RunListItem[];
+    .all({ projectId: projectId ?? null }) as RunListItem[];
 }
 
 export interface TraceRow {
