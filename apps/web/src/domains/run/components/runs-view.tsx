@@ -27,8 +27,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../../components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
 import { useProjects } from "../../project/use-project";
 import { useCancelRun, useRerunRun, useRun } from "../use-run";
+import { useState } from "react";
 
 export type RunViewMode = "list" | "graph";
 
@@ -57,6 +59,7 @@ export function RunsView({
   projectId,
   onProjectIdChange,
 }: Props) {
+  const [detailTab, setDetailTab] = useState<"trace" | "eval" | "scenario">("trace");
   const compareActive = compareRunIds.length >= 2;
   const benchmarkActive = benchmarkRunIds.length >= 1;
   const rerun = useRerunRun();
@@ -121,92 +124,118 @@ export function RunsView({
           </Card>
         )}
 
-        {/* OPSP-37 (2): 트레이스 리스트 ⇄ 흐름 그래프 뷰 토글 + 변경 보기 */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-md border p-0.5">
+        {/* 액션: 변경 보기 · 강제 종료 · 다시 실행 (탭 위에 고정) */}
+        {selectedRunId !== null && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <FileDiff className="h-3.5 w-3.5" />
+                  변경 보기
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-5xl">
+                <DialogHeader>
+                  <DialogTitle>변경 (파일 diff)</DialogTitle>
+                </DialogHeader>
+                <DiffView runId={selectedRunId} />
+              </DialogContent>
+            </Dialog>
+            {selectedRun?.status === "running" && (
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={cancel.isPending}
+                onClick={() => cancel.mutate(selectedRunId)}
+                title="running/pending run을 failed로 마킹 (좀비·멈춘 eval 정리)"
+              >
+                <Ban className={`h-3.5 w-3.5 ${cancel.isPending ? "animate-pulse" : ""}`} />
+                강제 종료
+              </Button>
+            )}
+            {/* OPSP-38 follow-up: 다시 실행 — run 액션이라 뷰 무관 위치로 */}
             <Button
-              variant={viewMode === "list" ? "default" : "ghost"}
+              variant="outline"
               size="sm"
-              onClick={() => onViewModeChange("list")}
+              disabled={rerun.isPending || selectedRun?.status === "running"}
+              onClick={() =>
+                rerun.mutate(selectedRunId, {
+                  onSuccess: (newRun) => onSelectRun(newRun.id),
+                })
+              }
+              title="같은 자산버전·시나리오·소스로 새 run 시작 (feedback ingest 연결 retro 유지)"
             >
-              <ListTree className="h-3.5 w-3.5" />
-              트레이스 리스트
-            </Button>
-            <Button
-              variant={viewMode === "graph" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => onViewModeChange("graph")}
-            >
-              <Share2 className="h-3.5 w-3.5" />
-              흐름 그래프
+              <RotateCw className={`h-3.5 w-3.5 ${rerun.isPending ? "animate-spin" : ""}`} />
+              다시 실행
             </Button>
           </div>
-          {selectedRunId !== null && (
-            <>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <FileDiff className="h-3.5 w-3.5" />
-                    변경 보기
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-5xl">
-                  <DialogHeader>
-                    <DialogTitle>변경 (파일 diff)</DialogTitle>
-                  </DialogHeader>
-                  <DiffView runId={selectedRunId} />
-                </DialogContent>
-              </Dialog>
-              {selectedRun?.status === "running" && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  disabled={cancel.isPending}
-                  onClick={() => cancel.mutate(selectedRunId)}
-                  title="running/pending run을 failed로 마킹 (좀비·멈춘 eval 정리)"
-                >
-                  <Ban className={`h-3.5 w-3.5 ${cancel.isPending ? "animate-pulse" : ""}`} />
-                  강제 종료
-                </Button>
-              )}
-              {/* OPSP-38 follow-up: 다시 실행 — run 액션이라 그래프 밖, 뷰 무관 위치로 */}
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={rerun.isPending || selectedRun?.status === "running"}
-                onClick={() =>
-                  rerun.mutate(selectedRunId, {
-                    onSuccess: (newRun) => onSelectRun(newRun.id),
-                  })
-                }
-                title="같은 자산버전·시나리오·소스로 새 run 시작 (feedback ingest 연결 retro 유지)"
-              >
-                <RotateCw className={`h-3.5 w-3.5 ${rerun.isPending ? "animate-spin" : ""}`} />
-                다시 실행
-              </Button>
-            </>
-          )}
-        </div>
+        )}
 
-        {viewMode === "graph" ? (
-          <FlowGraph
-            selectedRunId={selectedRunId}
-            onSelectRun={onSelectRun}
-            showRunSelect={false}
-          />
-        ) : (
-          <Card>
-            <CardHeader className="border-b pb-3">
-              <CardTitle className="text-base">트레이스 — 왜 그렇게 행동했나</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-4">
-              <ScenarioPanel runId={selectedRunId} />
-              <GradePanel runId={selectedRunId} />
-              <HumanScore runId={selectedRunId} />
-              <RunRetro runId={selectedRunId} />
-              <TraceView runId={selectedRunId} />
-            </CardContent>
-          </Card>
+        {selectedRunId !== null && (
+          <Tabs
+            value={detailTab}
+            onValueChange={(v) => setDetailTab(v as typeof detailTab)}
+            className="space-y-3"
+          >
+            <TabsList className="flex w-full flex-wrap justify-start gap-1">
+              <TabsTrigger value="trace">트레이스</TabsTrigger>
+              <TabsTrigger value="eval">평가</TabsTrigger>
+              <TabsTrigger value="scenario">시나리오</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="trace" className="mt-0 space-y-3">
+              {/* OPSP-37 (2): 트레이스 리스트 ⇄ 흐름 그래프 토글 — 트레이스 탭 안 */}
+              <div className="flex w-fit rounded-md border p-0.5">
+                <Button
+                  variant={viewMode === "list" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => onViewModeChange("list")}
+                >
+                  <ListTree className="h-3.5 w-3.5" />
+                  트레이스 리스트
+                </Button>
+                <Button
+                  variant={viewMode === "graph" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => onViewModeChange("graph")}
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                  흐름 그래프
+                </Button>
+              </div>
+              {viewMode === "graph" ? (
+                <FlowGraph
+                  selectedRunId={selectedRunId}
+                  onSelectRun={onSelectRun}
+                  showRunSelect={false}
+                />
+              ) : (
+                <Card>
+                  <CardContent className="pt-4">
+                    <TraceView runId={selectedRunId} />
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            <TabsContent value="eval" className="mt-0 space-y-3">
+              <Card>
+                <CardContent className="space-y-3 pt-4">
+                  <GradePanel runId={selectedRunId} />
+                  <HumanScore runId={selectedRunId} />
+                  <RunRetro runId={selectedRunId} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="scenario" className="mt-0 space-y-3">
+              <Card>
+                <CardContent className="pt-4">
+                  <ScenarioPanel runId={selectedRunId} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </div>
