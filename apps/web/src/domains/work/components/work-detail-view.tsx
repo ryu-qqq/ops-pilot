@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ArrowLeft, FileDiff, ListTree, Share2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Ban, FileDiff, ListTree, RefreshCw, Share2 } from "lucide-react";
 import type { Project } from "@opspilot/shared-types";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent } from "../../../components/ui/card";
@@ -13,8 +14,14 @@ import {
 import { ErrorNotice, Loading } from "../../../lib/ui";
 import { ProposalCard } from "../../feedback/components/proposal-card";
 import { IngestPipelineSteps } from "../../feedback/components/ingest-pipeline-steps";
-import { useIngestDetail } from "../../feedback/use-feedback";
-import { useRun } from "../../run/use-run";
+import { feedbackKeys } from "../../feedback/api";
+import {
+  useIngestDetail,
+  useReprocessIngest,
+  useReprocessReviewIngest,
+  useReviewIngest,
+} from "../../feedback/use-feedback";
+import { useCancelRun, useRun } from "../../run/use-run";
 import { DiffView } from "../../run/components/diff-view";
 import { FlowGraph } from "../../run/components/flow-graph";
 import { GradePanel } from "../../run/components/grade-panel";
@@ -41,6 +48,11 @@ export function WorkDetailIngest({
   onOpenRun,
 }: IngestProps) {
   const { data, isPending, isError, error } = useIngestDetail(ingestId);
+  const reprocess = useReprocessIngest(ingestId, projectId);
+  const review = useReviewIngest(ingestId, projectId);
+  const reprocessReview = useReprocessReviewIngest(ingestId, projectId);
+  const cancelEval = useCancelRun();
+  const qc = useQueryClient();
   const [traceMode, setTraceMode] = useState<"list" | "graph">("list");
   const [traceOpen, setTraceOpen] = useState(false);
 
@@ -51,6 +63,24 @@ export function WorkDetailIngest({
   // ingest context 의 run id 는 optional → null 로 정규화 후 가드.
   const evalRunId = data.contextJson.evalRunId ?? null;
   const reviewRunId = data.contextJson.reviewRunId ?? null;
+
+  // 파이프라인 액션 표시 조건(기존 IngestDrilldownContent 그대로 보존).
+  const showReprocess =
+    data.status === "evaluating" ||
+    (data.status === "failed" &&
+      data.contextJson.evalError !== undefined &&
+      evalRunId !== null);
+  const showReviewRetry = data.contextJson.reviewError !== undefined && reviewRunId !== null;
+  const showManualReview =
+    data.status === "done" && data.proposals.some((p) => p.status === "draft");
+  const showCancelEval = data.status === "evaluating" && evalRunId !== null;
+  const showSkipReviewReason =
+    data.contextJson.skipReviewReason !== undefined &&
+    data.contextJson.reviewError === undefined &&
+    data.status !== "reviewing" &&
+    data.status !== "reviewed";
+  const showPipelineActions =
+    showReprocess || showReviewRetry || showManualReview || showCancelEval;
   const commitSubject =
     data.contextJson.commitSubject != null && data.contextJson.commitSubject.trim() !== ""
       ? data.contextJson.commitSubject
@@ -132,6 +162,86 @@ export function WorkDetailIngest({
           <Button size="sm" variant="outline" onClick={() => onOpenRun(reviewRunId)}>
             <Share2 className="h-3.5 w-3.5" /> review 트레이스
           </Button>
+        </section>
+      )}
+
+      {/* 파이프라인 액션 — eval/review 재처리·강제종료 (기존 IngestDrilldownContent 보존) */}
+      {(showPipelineActions ||
+        data.contextJson.evalError !== undefined ||
+        data.contextJson.reviewError !== undefined ||
+        showSkipReviewReason) && (
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold text-muted-foreground">파이프라인 액션</h3>
+          {data.contextJson.evalError !== undefined && (
+            <p className="text-destructive text-xs">{data.contextJson.evalError}</p>
+          )}
+          {data.contextJson.reviewError !== undefined && (
+            <p className="text-destructive text-xs">{data.contextJson.reviewError}</p>
+          )}
+          {showSkipReviewReason && (
+            <p className="text-xs text-warning">{data.contextJson.skipReviewReason}</p>
+          )}
+          {showPipelineActions && (
+            <div className="flex flex-wrap gap-2">
+              {showCancelEval && evalRunId !== null && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={cancelEval.isPending}
+                  onClick={() =>
+                    cancelEval.mutate(evalRunId, {
+                      onSuccess: () => {
+                        void qc.invalidateQueries({ queryKey: feedbackKeys.detail(ingestId) });
+                        void qc.invalidateQueries({ queryKey: feedbackKeys.list(projectId) });
+                      },
+                    })
+                  }
+                  title="멈춘 eval run을 failed로 마킹 — 이후 eval 재처리 또는 ingest 재생성"
+                >
+                  <Ban className={`h-3.5 w-3.5 ${cancelEval.isPending ? "animate-pulse" : ""}`} />
+                  eval 강제 종료
+                </Button>
+              )}
+              {showReprocess && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={reprocess.isPending}
+                  onClick={() => reprocess.mutate()}
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${reprocess.isPending ? "animate-spin" : ""}`} />
+                  eval 재처리
+                </Button>
+              )}
+              {showManualReview && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={review.isPending}
+                  onClick={() => review.mutate()}
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${review.isPending ? "animate-spin" : ""}`} />
+                  review 시작
+                </Button>
+              )}
+              {showReviewRetry && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={reprocessReview.isPending}
+                  onClick={() => reprocessReview.mutate()}
+                >
+                  <RefreshCw
+                    className={`h-3.5 w-3.5 ${reprocessReview.isPending ? "animate-spin" : ""}`}
+                  />
+                  review 재처리
+                </Button>
+              )}
+            </div>
+          )}
+          {(reprocess.isError || review.isError || reprocessReview.isError) && (
+            <ErrorNotice error={reprocess.error ?? review.error ?? reprocessReview.error} />
+          )}
         </section>
       )}
 
