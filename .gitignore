@@ -21,3 +21,5 @@ next.md
 # 부트스트랩 데몬 로그
 .bootstrap-logs/
 *.sqlite.bak-*
+*.sqlite-wal.bak-*
+*.sqlite-shm.bak-*
