@@ -1,7 +1,7 @@
 // 탭별 사용법 안내의 단일 출처(GUIDES). 본문 인라인 배너는 제거됐고, 모든 탭이
 // 헤더 ⓘ Dialog(overview-info-dialog.tsx)에서 이 GUIDES 를 읽어 띄운다.
 
-type GuideTab = "overview" | "feedback" | "runs" | "registry";
+type GuideTab = "overview" | "work" | "registry";
 
 export interface GuideContent {
   headline: string;
@@ -31,53 +31,31 @@ export const GUIDES: Record<GuideTab, GuideContent> = {
     ],
     footnote: "여기는 보는 화면. 등록·스캔·저작·실행은 프로젝트 탭에서.",
   },
-  feedback: {
-    headline: "Cursor 작업 → eval → 개선안 검토 (HITL)",
+  work: {
+    headline: "Cursor 작업을 골라 평가·개선안·트레이스를 한 화면에서",
     steps: [
       {
-        label: "1. Ingest",
+        label: "1. 작업 목록",
         detail:
-          "Cursor에서 작업을 마친 뒤 MCP `ingest_cursor_session`(또는 REST ingest)으로 세션 번들을 넣습니다. 자동 ingest(ADR 0004)가 켜져 있으면 새 커밋이 주기 스캔으로 자동 진입합니다.",
+          "Cursor 작업(ingest)과 수동 실행(run)이 한 목록에 쌓입니다. 자동 ingest(ADR 0004)가 켜져 있으면 새 커밋이 주기 스캔으로 자동 평가됩니다. 항목을 누르면 상세로 들어갑니다.",
       },
       {
-        label: "2. Eval 관측",
+        label: "2. 평가·트레이스",
         detail:
-          "ingest 상세 「처리 단계」에서 Ingest→Eval→Review→HITL→반영 진행을 확인합니다. evaluating이면 eval 트레이스가 「실행 / 트레이스」 탭으로 열립니다.",
+          "상세에서 판정(VerdictStrip)·처리 단계·시나리오 자동 채점·사람 점수·AI 트레이스 분석을 봅니다. 트레이스 리스트와 흐름 그래프로 에이전트의 도구 호출·위임을 단계별로 확인합니다.",
       },
       {
-        label: "3. 개선안",
+        label: "3. 개선안 (HITL)",
         detail:
-          "done/reviewed 후 결정 큐에서 draft proposal을 승인·거절합니다. 승인한 뒤 「clone에 반영」하면 등록된 프로젝트 클론에 git 커밋됩니다.",
+          "done/reviewed 후 draft proposal을 승인·거절합니다. 승인 뒤 「clone에 반영」하면 등록된 프로젝트 클론에 git 커밋됩니다.",
       },
       {
-        label: "4. (선택) Review",
+        label: "4. 파이프라인 액션",
         detail:
-          "proposal-reviewer가 자동 검토합니다. draft가 남으면 「review 시작」으로 수동 재큐할 수 있습니다.",
+          "막히거나 실패한 작업은 eval 재처리·review 시작/재처리, 멈춘 eval 강제 종료로 다시 흘려보냅니다.",
       },
     ],
     footnote: "거절 패턴이 다음 eval에 자동 반영되지는 않습니다 (플라이휠 미구현).",
-  },
-  runs: {
-    headline: "모든 run의 트레이스·점수·diff 관측실",
-    steps: [
-      {
-        label: "어디서 오나",
-        detail:
-          "피드백 eval/review run, 프로젝트 탭에서 띄운 harness run, 벤치마크·버전 비교 run이 같은 목록에 쌓입니다.",
-      },
-      {
-        label: "흐름 그래프",
-        detail: "에이전트가 어떤 도구를 호출했는지, 하위 에이전트에 위임했는지 단계별로 봅니다.",
-      },
-      {
-        label: "평가",
-        detail: "시나리오 assertion 자동 채점, 사람 점수·회고 메모, AI 트레이스 분석, 변경 diff를 같은 run에서 확인합니다.",
-      },
-      {
-        label: "피드백으로 돌아가기",
-        detail: "eval/review run은 피드백 ingest 상세의 「eval 트레이스」「review 트레이스」 버튼과 연결됩니다.",
-      },
-    ],
   },
   registry: {
     headline: "Harness 자산 — 등록 · 저작 · 실행 · 채택",

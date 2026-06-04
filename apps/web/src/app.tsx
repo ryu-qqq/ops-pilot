@@ -1,57 +1,41 @@
-import { useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { useTheme } from "./lib/use-theme";
 import { usePersistedState } from "./lib/use-persisted-state";
-import { FeedbackView } from "./domains/feedback/components/feedback-view";
 import { OverviewView } from "./domains/registry/components/overview-view";
 import { RegistryView } from "./domains/registry/components/registry-view";
-import { RunsView, type RunViewMode } from "./domains/run/components/runs-view";
+import { WorkListView } from "./domains/work/components/work-list-view";
+import type { WorkSelection } from "./domains/work/types";
 import { SettingsDialog } from "./domains/settings/components/settings-dialog";
 import { InfoDialog } from "./components/overview-info-dialog";
 import { ServerHealthIndicator } from "./components/server-health-indicator";
 
-type Tab = "overview" | "feedback" | "runs" | "registry";
+type Tab = "overview" | "registry" | "work";
+
+// 영속 탭 키가 옛 값(피드백·실행)을 들고 있을 수 있어 화이트리스트로 폴백 가드한다.
+const VALID_TABS: Tab[] = ["overview", "registry", "work"];
 
 export function App() {
-  const [tab, setTab] = usePersistedState<Tab>("opspilot.tab.v2", "overview");
+  const [tabRaw, setTab] = usePersistedState<Tab>("opspilot.tab.v3", "overview");
+  const tab = VALID_TABS.includes(tabRaw) ? tabRaw : "overview";
   const [projectId, setProjectId] = usePersistedState<string | null>("opspilot.projectId", null);
-  const [selectedRunId, setSelectedRunId] = usePersistedState<string | null>(
-    "opspilot.runs.selectedRunId",
+  const [workSelection, setWorkSelection] = usePersistedState<WorkSelection>(
+    "opspilot.work.selection",
     null,
-  );
-  const [compareRunIds, setCompareRunIds] = useState<string[]>([]);
-  const [benchmarkRunIds, setBenchmarkRunIds] = useState<string[]>([]);
-  const [runViewMode, setRunViewMode] = usePersistedState<RunViewMode>(
-    "opspilot.runs.viewMode",
-    "graph",
   );
   const { theme, toggle } = useTheme();
 
+  // 단일 run 진입만 유지(★결정1) — 비교·벤치마크 다중 run 진입점은 미연결.
   const handleRunCreated = (runIds: string[]) => {
-    setSelectedRunId(runIds[0] ?? null);
-    setCompareRunIds(runIds.length >= 2 ? runIds : []);
-    setBenchmarkRunIds([]);
-    setRunViewMode("list");
-    setTab("runs");
+    setWorkSelection(runIds[0] != null ? { kind: "run", id: runIds[0] } : null);
+    setTab("work");
   };
 
   const handleBenchmarkStarted = (runIds: string[]) => {
-    setSelectedRunId(runIds[0] ?? null);
-    setBenchmarkRunIds(runIds);
-    setCompareRunIds([]);
-    setRunViewMode("list");
-    setTab("runs");
-  };
-
-  const handleOpenEvalRun = (runId: string) => {
-    setSelectedRunId(runId);
-    setCompareRunIds([]);
-    setBenchmarkRunIds([]);
-    setRunViewMode("graph");
-    setTab("runs");
+    setWorkSelection(runIds[0] != null ? { kind: "run", id: runIds[0] } : null);
+    setTab("work");
   };
 
   return (
@@ -81,8 +65,7 @@ export function App() {
         <TabsList>
           <TabsTrigger value="overview">개요</TabsTrigger>
           <TabsTrigger value="registry">프로젝트</TabsTrigger>
-          <TabsTrigger value="feedback">피드백</TabsTrigger>
-          <TabsTrigger value="runs">실행 / 트레이스</TabsTrigger>
+          <TabsTrigger value="work">작업</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" forceMount className="mt-0 data-[state=inactive]:hidden">
           <OverviewView
@@ -99,25 +82,12 @@ export function App() {
             onBenchmarkStarted={handleBenchmarkStarted}
           />
         </TabsContent>
-        <TabsContent value="feedback" forceMount className="mt-0 data-[state=inactive]:hidden">
-          <FeedbackView
+        <TabsContent value="work" forceMount className="mt-0 data-[state=inactive]:hidden">
+          <WorkListView
             projectId={projectId}
             onProjectIdChange={setProjectId}
-            onOpenEvalRun={handleOpenEvalRun}
-          />
-        </TabsContent>
-        <TabsContent value="runs" forceMount className="mt-0 data-[state=inactive]:hidden">
-          <RunsView
-            selectedRunId={selectedRunId}
-            onSelectRun={setSelectedRunId}
-            compareRunIds={compareRunIds}
-            onClearCompare={() => setCompareRunIds([])}
-            benchmarkRunIds={benchmarkRunIds}
-            onClearBenchmark={() => setBenchmarkRunIds([])}
-            viewMode={runViewMode}
-            onViewModeChange={setRunViewMode}
-            projectId={projectId}
-            onProjectIdChange={setProjectId}
+            selection={workSelection}
+            onSelect={setWorkSelection}
           />
         </TabsContent>
       </Tabs>
