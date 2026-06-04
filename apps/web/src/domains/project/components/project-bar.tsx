@@ -56,7 +56,7 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
   return (
     <Card className="space-y-3 p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="min-w-[240px] flex-1">
+        <div className="min-w-[240px] flex-1" data-tour="project-select">
           <Select
             value={selectedProjectId ?? ""}
             onValueChange={onSelect}
@@ -89,6 +89,7 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
         <Button
           type="button"
           variant="secondary"
+          data-tour="scan"
           disabled={selectedProjectId === null || scan.isPending || scan.isSuccess}
           onClick={() => {
             if (selectedProjectId === null) return;
