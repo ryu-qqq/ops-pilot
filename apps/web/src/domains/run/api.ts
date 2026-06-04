@@ -178,6 +178,8 @@ const compareItemSchema = z.object({
   assertionScore: scoreSchema.nullable(),
   judgeScore: scoreSchema.nullable(),
   humanScore: scoreSchema.nullable(),
+  // 머신 스코어러 최신 1건 — detail.gateStatus 로 3상태(scored/criteria_weak/no_criteria) 분기.
+  machineScore: scoreSchema.nullable(),
 });
 export type CompareItem = z.infer<typeof compareItemSchema>;
 const compareResponse = z.object({ items: z.array(compareItemSchema) });

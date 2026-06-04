@@ -6,6 +6,7 @@ import { EmptyState, ErrorNotice, InfoMark, InlineError, Loading } from "../../.
 import { useAdoptVersion } from "../../authoring/use-authoring";
 import type { JudgeVerdict } from "../api";
 import { useJudgeRuns, useRunsCompare } from "../use-run";
+import { machineGateMeta } from "./verdict-strip";
 
 interface Props {
   runIds: string[];
@@ -213,6 +214,51 @@ export function ComparisonView({ runIds, onSelectRun }: Props) {
                     title={sc.detail?.reason ?? ""}
                   >
                     <span className="font-semibold">{(sc.score ?? 0).toFixed(2)}</span>
+                  </td>
+                );
+              })}
+            </Row>
+            <Row
+              label="머신 점수"
+              help="머신 스코어러(scorer='machine') 최신 1건. 🟢 기준 충분 · 🟡 신뢰 보류(기준 모호) · 🔴 기준 없음."
+            >
+              {items.map((it) => {
+                const sc = it.machineScore;
+                if (sc === null) {
+                  return (
+                    <td key={it.run.id} className="border-b p-2 align-top text-muted-foreground">
+                      —
+                    </td>
+                  );
+                }
+                const gate = sc.detail?.gateStatus;
+                if (gate === "no_criteria") {
+                  return (
+                    <td
+                      key={it.run.id}
+                      className="border-b p-2 align-top"
+                      title={sc.detail?.criteriaCritique ?? machineGateMeta.no_criteria.help}
+                    >
+                      <span className="font-semibold text-destructive">🔴 기준 없음</span>
+                    </td>
+                  );
+                }
+                const emoji = gate === undefined ? "" : `${machineGateMeta[gate].emoji} `;
+                return (
+                  <td
+                    key={it.run.id}
+                    className="border-b p-2 align-top"
+                    title={sc.detail?.criteriaCritique ?? sc.detail?.reason ?? ""}
+                  >
+                    <span className="font-semibold">
+                      {emoji}
+                      {(sc.score ?? 0).toFixed(2)}
+                    </span>
+                    {gate === "criteria_weak" && (
+                      <Badge variant="warning" className="ml-1 text-[10px]">
+                        신뢰 보류
+                      </Badge>
+                    )}
                   </td>
                 );
               })}
