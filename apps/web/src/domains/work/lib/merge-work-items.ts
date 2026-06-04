@@ -1,4 +1,4 @@
-import type { IngestBundle, ProposalWithSource } from "@opspilot/shared-types";
+import type { IngestBundleListItem, ProposalWithSource } from "@opspilot/shared-types";
 import type { RunListItem } from "../../run/api";
 import type { WorkGroups, WorkItem } from "../types";
 
@@ -7,9 +7,12 @@ import type { WorkGroups, WorkItem } from "../types";
  * - cursor: ingest 한 건 = WorkItem, proposalCount = 그 ingestId 의 proposal 수.
  * - manual: ingest 가 소비한 evalRunId/reviewRunId 가 아닌 run = 수동 실행.
  * - 정렬: 각 그룹 createdAt 내림차순(최신 먼저).
+ *
+ * NOTE: ingest 는 목록 항목 타입(IngestBundleListItem) — evalRunId/reviewRunId 가
+ * contextJson 중첩이 아닌 평탄 필드이며 nullable·optional 이다.
  */
 export function mergeWorkItems(
-  ingests: IngestBundle[],
+  ingests: IngestBundleListItem[],
   runs: RunListItem[],
   proposals: ProposalWithSource[],
 ): WorkGroups {
@@ -19,8 +22,8 @@ export function mergeWorkItems(
 
   const consumedRunIds = new Set<string>();
   for (const ig of ingests) {
-    if (ig.contextJson.evalRunId !== undefined) consumedRunIds.add(ig.contextJson.evalRunId);
-    if (ig.contextJson.reviewRunId !== undefined) consumedRunIds.add(ig.contextJson.reviewRunId);
+    if (ig.evalRunId != null) consumedRunIds.add(ig.evalRunId);
+    if (ig.reviewRunId != null) consumedRunIds.add(ig.reviewRunId);
   }
 
   const cursor: WorkItem[] = ingests
