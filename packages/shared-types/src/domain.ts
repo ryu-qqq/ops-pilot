@@ -50,8 +50,20 @@ export const scorerSchema = z.enum([
   "assertion",
   "llm_judge",
   "human",
+  "machine",
 ]);
 export type Scorer = z.infer<typeof scorerSchema>;
+
+// 머신 스코어러 기준 게이트 상태 — 채점 전 successCriteria 품질 판정 결과.
+//  scored        = 기준 충분, PASS/FAIL + score 유효
+//  criteria_weak = 기준 있으나 모호 → 점수 내되 신뢰 보류
+//  no_criteria   = 기준 비었음 → 점수 null, 채점 불가
+export const machineGateStatusSchema = z.enum([
+  "scored",
+  "criteria_weak",
+  "no_criteria",
+]);
+export type MachineGateStatus = z.infer<typeof machineGateStatusSchema>;
 
 // ADR 0003 (D1): 평가 "설계" 산출이 어느 프롬프트 경로로 만들어졌는가 —
 // "asset"=agent-crew 자산 본문 주입(ADR 0002 1B), "baked"=fallback(4B).
@@ -216,6 +228,10 @@ export const scoreSchema = z.object({
       reason: z.string().optional(),
       expected: z.unknown().optional(),
       actual: z.unknown().optional(),
+      // 머신 스코어러 전용(scorer='machine'일 때만 채워짐).
+      gateStatus: machineGateStatusSchema.optional(),
+      criteriaCritique: z.string().optional(),
+      suggestedCriteria: z.array(z.string()).optional(),
     })
     .nullable(),
   createdAt: ts,
