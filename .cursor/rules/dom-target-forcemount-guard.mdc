@@ -1,0 +1,34 @@
+---
+description: forceMount된 숨은 탭/패널이 있을 때 DOM 타겟 쿼리는 visible 요소만 선택
+alwaysApply: false
+globs:
+  - apps/web/src/**/*.tsx
+---
+# DOM 타겟 쿼리 — forceMount 숨김 중복 가드
+
+app.tsx 등에서 탭/패널을 `forceMount`(inactive 는 hidden)로 렌더하면
+동일한 `data-*` 속성이 **보이지 않는 사본**에도 동시에 존재한다.
+`document.querySelector` 는 DOM 순서상 첫 요소를 반환하므로 숨은(0 크기) 요소를
+잡아 좌표 측정·오버레이·스크롤이 어긋난다(예: 온보딩 투어 스포트라이트).
+
+## 규칙
+
+- `querySelector` 로 단일 타겟을 찾아 **위치/크기를 측정**하는 코드는
+  `querySelectorAll` + `getBoundingClientRect()` 의 `width > 0 && height > 0`
+  필터로 **실제로 보이는 요소**를 골라야 한다.
+- 보이는 후보가 없으면(아직 마운트 전) RAF 재시도 또는 명시적 fallback 분기를 둔다.
+- `data-tour` / `data-testid` 같은 속성이 forceMount 컴포넌트 트리에 들어가면
+  중복 가능성을 항상 전제한다.
+
+## 예시
+
+```ts
+// 나쁨 — 숨은 탭의 사본을 잡을 수 있음
+const el = document.querySelector(`[data-tour="${target}"]`);
+
+// 좋음 — 보이는 요소만 선택
+for (const cand of document.querySelectorAll(`[data-tour="${target}"]`)) {
+  const r = cand.getBoundingClientRect();
+  if (r.width > 0 && r.height > 0) { measure(r); break; }
+}
+```
