@@ -1,4 +1,5 @@
 import { Moon, Sun } from "lucide-react";
+import { useState } from "react";
 import { Button } from "./components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { TooltipProvider } from "./components/ui/tooltip";
@@ -25,16 +26,30 @@ export function App() {
     "opspilot.work.selection",
     null,
   );
+  // 비교·벤치마크 다중 run 진입점(★결정1: 유지 + 작업 목록 상단 보조 진입점).
+  // 영속할 필요 없는 일시 상태 — 작업 목록 상단 패널 표시 여부만 좌우한다.
+  const [compareRunIds, setCompareRunIds] = useState<string[]>([]);
+  const [benchmarkRunIds, setBenchmarkRunIds] = useState<string[]>([]);
   const { theme, toggle } = useTheme();
 
-  // 단일 run 진입만 유지(★결정1) — 비교·벤치마크 다중 run 진입점은 미연결.
+  // run 생성: 2개 이상이면 비교 패널, 단일이면 그 run 드릴다운. 항상 벤치마크는 해제.
   const handleRunCreated = (runIds: string[]) => {
-    setWorkSelection(runIds[0] != null ? { kind: "run", id: runIds[0] } : null);
+    setBenchmarkRunIds([]);
+    if (runIds.length >= 2) {
+      setCompareRunIds(runIds);
+      setWorkSelection(null);
+    } else {
+      setCompareRunIds([]);
+      setWorkSelection(runIds[0] != null ? { kind: "run", id: runIds[0] } : null);
+    }
     setTab("work");
   };
 
+  // 벤치마크: N회 run 묶음을 작업 목록 상단 벤치마크 패널로. 비교·드릴다운은 해제.
   const handleBenchmarkStarted = (runIds: string[]) => {
-    setWorkSelection(runIds[0] != null ? { kind: "run", id: runIds[0] } : null);
+    setBenchmarkRunIds(runIds);
+    setCompareRunIds([]);
+    setWorkSelection(null);
     setTab("work");
   };
 
@@ -88,6 +103,10 @@ export function App() {
             onProjectIdChange={setProjectId}
             selection={workSelection}
             onSelect={setWorkSelection}
+            compareRunIds={compareRunIds}
+            benchmarkRunIds={benchmarkRunIds}
+            onClearCompare={() => setCompareRunIds([])}
+            onClearBenchmark={() => setBenchmarkRunIds([])}
           />
         </TabsContent>
       </Tabs>

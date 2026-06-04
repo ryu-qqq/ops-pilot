@@ -1,6 +1,8 @@
+import { GitCompare, Repeat, X } from "lucide-react";
 import { Badge } from "../../../components/ui/badge";
-import { Card } from "../../../components/ui/card";
-import { EmptyState, Loading } from "../../../lib/ui";
+import { Button } from "../../../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { EmptyState, InfoMark, Loading } from "../../../lib/ui";
 import { cn } from "../../../lib/utils";
 import { ProjectBar } from "../../project/components/project-bar";
 import { useProjects } from "../../project/use-project";
@@ -11,6 +13,8 @@ import {
 } from "../../feedback/use-feedback";
 import { PipelineFlowBand } from "../../feedback/components/pipeline-flow-band";
 import { useRuns } from "../../run/use-run";
+import { BenchmarkSummary } from "../../run/components/benchmark-summary";
+import { ComparisonView } from "../../run/components/comparison-view";
 import { mergeWorkItems } from "../lib/merge-work-items";
 import type { WorkItem, WorkSelection } from "../types";
 import { WorkDetailIngest, WorkDetailRun } from "./work-detail-view";
@@ -20,13 +24,28 @@ interface Props {
   onProjectIdChange: (id: string | null) => void;
   selection: WorkSelection;
   onSelect: (sel: WorkSelection) => void;
+  /** 비교 대상 run 묶음(2개 이상이면 목록 상단에 비교 패널). app 일시 상태. */
+  compareRunIds: string[];
+  /** 벤치마크 N회 run 묶음(1개 이상이면 목록 상단에 벤치마크 패널). app 일시 상태. */
+  benchmarkRunIds: string[];
+  onClearCompare: () => void;
+  onClearBenchmark: () => void;
 }
 
 /**
  * 작업 통합 목록 — Cursor 작업(ingest) + 수동 실행(run) 을 한 화면에. selection 이 있으면
  * 같은 자리에 드릴다운 상세(WorkDetailIngest/WorkDetailRun)를 렌더(전체폭 토글).
  */
-export function WorkListView({ projectId, onProjectIdChange, selection, onSelect }: Props) {
+export function WorkListView({
+  projectId,
+  onProjectIdChange,
+  selection,
+  onSelect,
+  compareRunIds,
+  benchmarkRunIds,
+  onClearCompare,
+  onClearBenchmark,
+}: Props) {
   const { data: projects } = useProjects();
   const { data: ingests, isPending: ingestsPending } = useIngests(projectId);
   const { data: runs } = useRuns(projectId);
@@ -71,9 +90,63 @@ export function WorkListView({ projectId, onProjectIdChange, selection, onSelect
   const groups = mergeWorkItems(ingests ?? [], runs ?? [], proposals ?? []);
   const empty = groups.cursor.length === 0 && groups.manual.length === 0;
 
+  // ★결정1 보조 진입점 — 목록 화면일 때만(드릴다운 중엔 숨김). 컬럼/run 클릭으로 드릴다운 진입.
+  const compareActive = compareRunIds.length >= 2;
+  const benchmarkActive = benchmarkRunIds.length >= 1;
+
   return (
     <div className="space-y-4">
       <ProjectBar selectedProjectId={projectId} onSelect={onProjectIdChange} />
+      {benchmarkActive && (
+        <Card className="border-purple/40">
+          <CardHeader className="flex flex-row items-baseline justify-between border-b pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Repeat className="h-4 w-4 text-purple" />
+              {benchmarkRunIds.length === 1
+                ? "단일 실행 (벤치마크 N=1)"
+                : `벤치마크 (${String(benchmarkRunIds.length)}회 run)`}
+              <InfoMark
+                label="벤치마크 N회"
+                help="같은 (자산버전 × 시나리오) 를 N회 돌린 결과. N=1은 단일 실행과 동일 (분산 측정 안 됨, σ=0). 개별 run 클릭하면 그 작업 상세로 이동."
+              />
+            </CardTitle>
+            <Button variant="ghost" size="sm" onClick={onClearBenchmark}>
+              <X className="h-3.5 w-3.5" />
+              닫기
+            </Button>
+          </CardHeader>
+          <CardContent className="pt-3">
+            <BenchmarkSummary
+              runIds={benchmarkRunIds}
+              onSelectRun={(id) => onSelect({ kind: "run", id })}
+            />
+          </CardContent>
+        </Card>
+      )}
+      {compareActive && (
+        <Card className="border-primary/40">
+          <CardHeader className="flex flex-row items-baseline justify-between border-b pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <GitCompare className="h-4 w-4" />
+              버전 비교 ({compareRunIds.length}개 run)
+              <InfoMark
+                label="버전 비교"
+                help="같은 시나리오로 N개 버전을 한 번에 돌린 결과. 컬럼 헤더 클릭하면 그 run 의 작업 상세로 이동."
+              />
+            </CardTitle>
+            <Button variant="ghost" size="sm" onClick={onClearCompare}>
+              <X className="h-3.5 w-3.5" />
+              닫기
+            </Button>
+          </CardHeader>
+          <CardContent className="pt-3">
+            <ComparisonView
+              runIds={compareRunIds}
+              onSelectRun={(id) => onSelect({ kind: "run", id })}
+            />
+          </CardContent>
+        </Card>
+      )}
       <PipelineFlowBand
         statuses={ingestStatuses}
         autoIngestConfig={autoIngestConfig}
