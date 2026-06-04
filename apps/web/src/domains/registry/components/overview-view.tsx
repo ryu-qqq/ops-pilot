@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../../components/ui/select";
+import { Loading } from "../../../lib/ui";
 import { useProjects } from "../../project/use-project";
 import { ActivitySection } from "./overview/activity-section";
 import { HealthSummaryCards } from "./overview/health-summary-cards";
@@ -38,7 +39,7 @@ export function OverviewView({
   onProjectIdChange,
   onOpenProjectTab,
 }: Props) {
-  const { data: projects } = useProjects();
+  const { data: projects, isPending: projectsPending } = useProjects();
 
   return (
     <div className="space-y-4">
@@ -62,15 +63,20 @@ export function OverviewView({
               <Select
                 value={projectId ?? ""}
                 onValueChange={(id) => onProjectIdChange(id)}
+                disabled={projectsPending}
               >
                 <SelectTrigger>
-                  <SelectValue
-                    placeholder={
-                      projects && projects.length > 0
-                        ? "프로젝트 선택"
-                        : "등록된 프로젝트 없음"
-                    }
-                  />
+                  {projectsPending ? (
+                    <Loading label="프로젝트 불러오는 중…" />
+                  ) : (
+                    <SelectValue
+                      placeholder={
+                        projects && projects.length > 0
+                          ? "프로젝트 선택"
+                          : "등록된 프로젝트 없음"
+                      }
+                    />
+                  )}
                 </SelectTrigger>
                 <SelectContent>
                   {(projects ?? []).map((p) => (

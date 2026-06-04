@@ -346,11 +346,23 @@ function AutoIngestStatusChip({ config }: { config: AutoIngestConfig }) {
 function PipelineFlowBand({
   statuses,
   autoIngestConfig,
+  isPending,
 }: {
   statuses: string[];
   autoIngestConfig: AutoIngestConfig | undefined;
+  isPending: boolean;
 }) {
   const failedCount = statuses.filter((s) => s === "failed").length;
+  // 초기 로딩 중 0/0/0/0 으로 보이면 "진짜 빈 파이프라인"과 구분이 안 됨 → 로딩 표시.
+  if (isPending) {
+    return (
+      <Card className="border-border/80">
+        <CardContent className="py-3">
+          <Loading label="파이프라인 흐름 불러오는 중…" />
+        </CardContent>
+      </Card>
+    );
+  }
   return (
     <Card className="border-border/80">
       <CardContent className="flex flex-wrap items-center gap-2 py-3">
@@ -535,7 +547,7 @@ export function FeedbackView({ projectId, onProjectIdChange, onOpenEvalRun }: Fe
   );
   const [drilldownIngestId, setDrilldownIngestId] = useState<string | null>(null);
   const { data: projects } = useProjects();
-  const { data: ingests } = useIngests(projectId);
+  const { data: ingests, isPending: ingestsPending } = useIngests(projectId);
   const { data: autoIngestConfig } = useAutoIngestConfig();
   const selectedProject = (projects ?? []).find((p) => p.id === projectId);
 
@@ -586,7 +598,11 @@ export function FeedbackView({ projectId, onProjectIdChange, onOpenEvalRun }: Fe
           )}
 
           {/* 상단: 파이프라인 흐름 띠 + 자동 ingest 상태 칩 */}
-          <PipelineFlowBand statuses={ingestStatuses} autoIngestConfig={autoIngestConfig} />
+          <PipelineFlowBand
+            statuses={ingestStatuses}
+            autoIngestConfig={autoIngestConfig}
+            isPending={ingestsPending}
+          />
 
           {/* 메인: 결정 큐 (좌 필터 + 우 카드 목록) */}
           <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
