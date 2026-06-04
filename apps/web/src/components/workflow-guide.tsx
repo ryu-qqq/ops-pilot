@@ -77,6 +77,6 @@ export const GUIDES: Record<GuideTab, GuideContent> = {
         detail: "버전 비교·벤치마크로 가린 버전을 「이 버전 채택」 — git 앞으로 감기.",
       },
     ],
-    footnote: "일상 Cursor 코딩 루프는 피드백 탭이 중심, harness 실험은 이 탭.",
+    footnote: "일상 Cursor 코딩 루프는 작업 탭이 중심, harness 실험은 이 탭.",
   },
 };
