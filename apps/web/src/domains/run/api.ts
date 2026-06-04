@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   benchmarkAggregateSchema,
+  machineGateStatusSchema,
   runDiffFileSchema,
   runSchema,
   scenarioAbPairResponseSchema,
@@ -223,6 +224,23 @@ export type RunGradeResult = z.infer<typeof runGradeResultSchema>;
 
 export async function gradeRun(runId: string) {
   return apiPost(`/api/runs/${runId}/grade`, {}, runGradeResultSchema);
+}
+
+// 머신 스코어러 — 기준 게이트 + LLM 채점. 사용자가 원하는 run 만 수동 트리거(토큰 통제).
+// 응답은 백엔드 POST /runs/:id/machine-score 와 동형. score(machine) 도 저장됨.
+// successCriteria 비면 no_criteria 로 채점 불가 — 보강 제안만 돌아온다.
+export const machineScoreResultSchema = z.object({
+  runId: z.string(),
+  gateStatus: machineGateStatusSchema,
+  passed: z.boolean(),
+  score: z.number().nullable(),
+  criteriaCritique: z.string(),
+  suggestedCriteria: z.array(z.string()),
+});
+export type MachineScoreResult = z.infer<typeof machineScoreResultSchema>;
+
+export async function machineScoreRun(runId: string) {
+  return apiPost(`/api/runs/${runId}/machine-score`, {}, machineScoreResultSchema);
 }
 
 // OPSP-37 (3): 한 run trace AI 분석. OPSP-39: 비동기 작업화 + DB 캐시.

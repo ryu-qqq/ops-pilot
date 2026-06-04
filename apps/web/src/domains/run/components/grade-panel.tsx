@@ -3,7 +3,7 @@ import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { InlineError, Loading } from "../../../lib/ui";
-import { useGradeRun, useRun, useScores } from "../use-run";
+import { useGradeRun, useMachineScoreRun, useRun, useScores } from "../use-run";
 import { machineGateMeta } from "./verdict-strip";
 
 // T4-e: LLM grader 패널 — substring 자동채점을 보강. 표면준수(단어만 언급)는 FAIL.
@@ -12,6 +12,7 @@ export function GradePanel({ runId }: { runId: string | null }) {
   const { data: run } = useRun(runId);
   const { data: scores } = useScores(runId);
   const grade = useGradeRun(runId ?? "");
+  const machineScore = useMachineScoreRun(runId ?? "");
 
   if (runId === null) return null;
 
@@ -111,18 +112,43 @@ export function GradePanel({ runId }: { runId: string | null }) {
           </div>
         )}
 
-        {/* 머신 스코어러 — 기준 게이트 + 보강 제안(읽기 전용). 시나리오 반영은 수동(후속 §8). */}
-        {lastMachine && gate !== undefined && (
-          <div className="space-y-2 border-t pt-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground">머신 스코어러</span>
-              <Badge variant={machineGateMeta[gate].variant} className="text-[10px]">
-                {machineGateMeta[gate].emoji} {machineGateMeta[gate].label}
-              </Badge>
-              {gate !== "no_criteria" && lastMachine.score !== null && (
-                <span className="font-mono text-sm">{lastMachine.score.toFixed(2)}</span>
+        {/* 머신 스코어러 — 수동 트리거(토큰 통제) + 기준 게이트 + 보강 제안. 시나리오 반영은 수동(후속 §8). */}
+        <div className="space-y-2 border-t pt-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">머신 스코어러</span>
+            <Button
+              size="sm"
+              disabled={machineScore.isPending || isRunning}
+              onClick={() => machineScore.mutate()}
+              title="기준 게이트 + LLM 채점 — successCriteria 비면 채점 불가(no_criteria)로 보강 제안만"
+            >
+              {machineScore.isPending ? (
+                <Loading label="채점 중…" />
+              ) : lastMachine ? (
+                "다시 채점"
+              ) : (
+                "머신 채점"
               )}
-            </div>
+            </Button>
+            {isRunning && (
+              <span className="text-xs text-muted-foreground">실행이 끝나야 채점할 수 있어요</span>
+            )}
+            {lastMachine && gate !== undefined && (
+              <>
+                <Badge variant={machineGateMeta[gate].variant} className="text-[10px]">
+                  {machineGateMeta[gate].emoji} {machineGateMeta[gate].label}
+                </Badge>
+                {gate !== "no_criteria" && lastMachine.score !== null && (
+                  <span className="font-mono text-sm">{lastMachine.score.toFixed(2)}</span>
+                )}
+              </>
+            )}
+          </div>
+
+          {machineScore.isError && <InlineError error={machineScore.error} />}
+
+          {lastMachine && gate !== undefined && (
+            <>
             {lastMachine.detail?.criteriaCritique && (
               <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
                 <span className="font-medium text-foreground">기준 비평 · </span>
@@ -150,8 +176,9 @@ export function GradePanel({ runId }: { runId: string | null }) {
                   </ul>
                 </div>
               )}
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
