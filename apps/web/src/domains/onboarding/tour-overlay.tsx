@@ -82,7 +82,7 @@ export function TourOverlay({ active, step, stepIndex, total, onNext, onPrev, on
             boxShadow: "0 0 0 9999px rgba(0,0,0,0.55)",
           }}
         >
-          <span className="absolute inset-0 animate-ping rounded-lg ring-2 ring-primary" />
+          <span className="absolute inset-0 animate-pulse rounded-lg ring-2 ring-primary/70" />
         </div>
       ) : (
         // 타겟이 없으면(엣지) 전체 딤 + 중앙 말풍선.

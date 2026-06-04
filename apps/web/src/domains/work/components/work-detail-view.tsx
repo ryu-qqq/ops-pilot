@@ -185,6 +185,9 @@ export function WorkDetailIngest({
         </div>
       )}
 
+      {/* 핵심(항상 펼침): 처리 단계 — 진행(대기→평가중→리뷰중→검토됨)은 한눈에 봐야 의미. */}
+      <IngestPipelineSteps data={data} />
+
       {/* 핵심(항상 펼침): 개선안 결정 큐 — "뭘 고치나"의 답 */}
       <section className="space-y-3" data-tour="proposals">
         <h3 className="text-sm font-semibold text-muted-foreground">
@@ -236,29 +239,23 @@ export function WorkDetailIngest({
         </Disclosure>
       )}
 
-      {/* 심화(접힘): 검토 — reviewSummary + 검토 과정 버튼 */}
+      {/* 심화(접힘): 검토 — reviewSummary + review 트레이스 인라인(별도 화면 점프 제거) */}
       {reviewRunId !== null && (
         <Disclosure title="검토">
           {data.contextJson.reviewSummary !== undefined && (
             <p className="text-xs text-muted-foreground">{data.contextJson.reviewSummary}</p>
           )}
-          <Button size="sm" variant="outline" onClick={() => onOpenRun(reviewRunId)}>
-            <Share2 className="h-3.5 w-3.5" /> 검토 과정
-          </Button>
+          <TraceSection runId={reviewRunId} onOpenRun={onOpenRun} />
         </Disclosure>
       )}
 
-      {/* 심화(접힘): 처리 단계 — 파이프라인 단계 + 액션(eval/review 재처리·강제종료) */}
-      <Disclosure title="처리 단계">
-        <IngestPipelineSteps data={data} />
-
-        {/* 파이프라인 액션 — eval/review 재처리·강제종료 (기존 IngestDrilldownContent 보존) */}
-        {(showPipelineActions ||
-          data.contextJson.evalError !== undefined ||
-          data.contextJson.reviewError !== undefined ||
-          showSkipReviewReason) && (
+      {/* 심화(접힘): 파이프라인 액션 — eval/review 재처리·강제종료 (있을 때만 노출) */}
+      {(showPipelineActions ||
+        data.contextJson.evalError !== undefined ||
+        data.contextJson.reviewError !== undefined ||
+        showSkipReviewReason) && (
+        <Disclosure title="파이프라인 액션">
           <section className="space-y-3">
-            <h4 className="text-sm font-semibold text-muted-foreground">파이프라인 액션</h4>
             {data.contextJson.evalError !== undefined && (
               <p className="text-destructive text-xs">{data.contextJson.evalError}</p>
             )}
@@ -332,8 +329,8 @@ export function WorkDetailIngest({
               <ErrorNotice error={reprocess.error ?? review.error ?? reprocessReview.error} />
             )}
           </section>
-        )}
-      </Disclosure>
+        </Disclosure>
+      )}
 
       {/* 심화(접힘): 변경 diff */}
       {evalRunId !== null && (
