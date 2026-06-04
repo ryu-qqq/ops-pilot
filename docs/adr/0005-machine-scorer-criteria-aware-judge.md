@@ -46,5 +46,3 @@ OpsPilot 평가축은 셋이다 — **시나리오 성공조건 / 사람 점수(
 2. **프로젝트별 토글** — `project.yaml eval.autoMachineScore`로 프로젝트마다 on/off(경량 yaml 파서 확장). 1차는 env 전역.
 3. **사람↔머신 점수 자동 환류** — 머신이 자기 점수로 추천을 닫는 자가편향(§6.4) 위험. 졸업 후.
 4. **표면화 SSOT nit** — comparison-view help prose의 게이트 라벨 중복(통합 리뷰 Minor).
-
-근거 문서: 설계 `docs/superpowers/specs/2026-06-04-machine-scorer-design.md`, 플랜 `docs/superpowers/plans/2026-06-04-machine-scorer.md`.
