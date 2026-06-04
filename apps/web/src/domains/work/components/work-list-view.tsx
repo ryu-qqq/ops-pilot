@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { GitCompare, Repeat, X } from "lucide-react";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
@@ -11,11 +12,19 @@ import {
   useIngests,
   useProjectProposals,
 } from "../../feedback/use-feedback";
-import { PipelineFlowBand } from "../../feedback/components/pipeline-flow-band";
+import {
+  PipelineFlowBand,
+  matchStageKey,
+} from "../../feedback/components/pipeline-flow-band";
 import { useRuns } from "../../run/use-run";
 import { BenchmarkSummary } from "../../run/components/benchmark-summary";
 import { ComparisonView } from "../../run/components/comparison-view";
 import { mergeWorkItems } from "../lib/merge-work-items";
+import {
+  ingestStatusVariant,
+  runStatusVariant,
+  triggerVariant,
+} from "../lib/badge-variant";
 import type { WorkItem, WorkSelection } from "../types";
 import { WorkDetailIngest, WorkDetailRun } from "./work-detail-view";
 
@@ -54,6 +63,10 @@ export function WorkListView({
   const { data: autoIngestConfig } = useAutoIngestConfig();
   const project = (projects ?? []).find((p) => p.id === projectId);
 
+  // 파이프라인 단계 클릭 필터 — null 이면 전체. PipelineFlowBand stage.key 값(pending/
+  // evaluating/reviewing/reviewed)을 담는다.
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+
   // 드릴다운 상세 (목록을 대체해 전체폭으로)
   if (selection !== null && projectId !== null && project) {
     if (selection.kind === "ingest")
@@ -88,7 +101,18 @@ export function WorkListView({
 
   const ingestStatuses = (ingests ?? []).map((i) => i.status);
   const groups = mergeWorkItems(ingests ?? [], runs ?? [], proposals ?? []);
-  const empty = groups.cursor.length === 0 && groups.manual.length === 0;
+  // 단계 필터 활성 시 cursor(코드 작업)만 해당 status 로 좁히고, manual 그룹은 숨긴다(단순화).
+  const filteredCursor =
+    statusFilter === null
+      ? groups.cursor
+      : groups.cursor.filter(
+          (item) => item.kind === "ingest" && matchStageKey(statusFilter, item.ingest.status),
+        );
+  const showManual = statusFilter === null && groups.manual.length > 0;
+  const empty =
+    statusFilter === null
+      ? groups.cursor.length === 0 && groups.manual.length === 0
+      : filteredCursor.length === 0;
 
   // ★결정1 보조 진입점 — 목록 화면일 때만(드릴다운 중엔 숨김). 컬럼/run 클릭으로 드릴다운 진입.
   const compareActive = compareRunIds.length >= 2;
@@ -151,28 +175,36 @@ export function WorkListView({
         statuses={ingestStatuses}
         autoIngestConfig={autoIngestConfig}
         isPending={ingestsPending}
+        activeStatus={statusFilter}
+        onToggleStatus={(s) => setStatusFilter((prev) => (prev === s ? null : s))}
       />
       {ingestsPending && (
         <Card className="p-6">
           <Loading label="작업 불러오는 중…" />
         </Card>
       )}
-      {!ingestsPending && empty && (
+      {!ingestsPending && empty && statusFilter !== null && (
+        <EmptyState
+          title="해당 단계의 작업이 없어요"
+          hint="위 파이프라인 단계를 다시 누르면 필터가 해제됩니다."
+        />
+      )}
+      {!ingestsPending && empty && statusFilter === null && (
         <EmptyState
           title="아직 작업이 없어요"
           hint={
             autoIngestConfig?.enabled === true
-              ? "Cursor 작업을 커밋하면 주기 스캔이 자동 평가합니다."
-              : "자동 ingest 가 꺼져 있습니다 — 서버 env OPS_AUTO_INGEST=1 로 켜면 커밋이 자동 평가됩니다."
+              ? "코드 작업을 커밋하면 주기 스캔이 자동 평가합니다."
+              : "자동 평가가 꺼져 있습니다 — 서버 OPS_AUTO_INGEST 를 켜면 커밋이 자동 평가됩니다."
           }
         />
       )}
       {!empty && (
         <div className="space-y-4">
-          {groups.cursor.length > 0 && (
-            <WorkSection title="Cursor 작업" items={groups.cursor} onSelect={onSelect} />
+          {filteredCursor.length > 0 && (
+            <WorkSection title="코드 작업" items={filteredCursor} onSelect={onSelect} />
           )}
-          {groups.manual.length > 0 && (
+          {showManual && (
             <WorkSection title="수동 실행" items={groups.manual} onSelect={onSelect} />
           )}
         </div>
@@ -207,7 +239,10 @@ function WorkSection({
               {item.kind === "ingest" ? (
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-sm">
-                    <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                    <Badge
+                      variant={ingestStatusVariant(item.ingest.status)}
+                      className="px-1.5 py-0 text-[10px]"
+                    >
                       {item.ingest.status}
                     </Badge>
                     <span className="min-w-0 truncate">
@@ -215,7 +250,10 @@ function WorkSection({
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                    <Badge
+                      variant={triggerVariant(item.ingest.trigger)}
+                      className="px-1.5 py-0 text-[10px]"
+                    >
                       {item.ingest.trigger}
                     </Badge>
                     {item.proposalCount > 0 && <span>개선안 {item.proposalCount}</span>}
@@ -224,7 +262,10 @@ function WorkSection({
               ) : (
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-sm">
-                    <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                    <Badge
+                      variant={runStatusVariant(item.run.status)}
+                      className="px-1.5 py-0 text-[10px]"
+                    >
                       {item.run.status}
                     </Badge>
                     <span className="font-mono text-xs text-muted-foreground">

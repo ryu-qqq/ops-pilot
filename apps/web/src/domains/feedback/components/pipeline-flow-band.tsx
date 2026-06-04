@@ -2,6 +2,7 @@ import { Bot } from "lucide-react";
 import type { AutoIngestConfig } from "@opspilot/shared-types";
 import { Badge } from "../../../components/ui/badge";
 import { Card, CardContent } from "../../../components/ui/card";
+import { cn } from "../../../lib/utils";
 import { InfoMark, Loading } from "../../../lib/ui";
 
 // 파이프라인 흐름 띠 — IngestBundleStatus → 단계. pending=대기, evaluating=평가 중,
@@ -13,6 +14,14 @@ const flowStages: { key: string; label: string; match: (s: string) => boolean }[
   { key: "reviewed", label: "검토됨", match: (s) => s === "done" || s === "reviewed" },
 ];
 
+/**
+ * stage.key(pending/evaluating/reviewing/reviewed)가 ingest status 에 매칭되는지.
+ * 목록 필터(work-list-view)와 흐름 띠 카운트가 같은 기준을 쓰도록 단계 match 를 재사용한다.
+ */
+export function matchStageKey(stageKey: string, status: string): boolean {
+  return flowStages.find((s) => s.key === stageKey)?.match(status) ?? false;
+}
+
 function fmtInterval(intervalMs: number): string {
   if (intervalMs === 0) return "부팅 1회";
   const min = Math.round(intervalMs / 60000);
@@ -20,8 +29,9 @@ function fmtInterval(intervalMs: number): string {
 }
 
 /**
- * 자동 ingest 상태 칩(ADR 0004, 읽기 전용). enabled=ON 이면 주기·batch 를 success 톤으로,
- * OFF 면 muted + 켜는 법 안내. env(OPS_AUTO_INGEST) 제어라 토글 버튼은 두지 않는다 — 상태만.
+ * 자동 ingest 상태 칩(ADR 0004, 읽기 전용). 본문은 "자동 평가 켜짐/꺼짐"으로 평이하게,
+ * 주기·건수 등 상세는 ⓘ 툴팁으로 숨긴다(전문용어 표면 노출 제거).
+ * env(OPS_AUTO_INGEST) 제어라 토글 버튼은 두지 않는다 — 상태만.
  */
 function AutoIngestStatusChip({ config }: { config: AutoIngestConfig }) {
   if (!config.enabled) {
@@ -31,10 +41,10 @@ function AutoIngestStatusChip({ config }: { config: AutoIngestConfig }) {
         className="ml-auto gap-1.5 px-2 py-1 font-medium text-muted-foreground"
       >
         <Bot className="h-3.5 w-3.5 shrink-0" aria-hidden />
-        자동 ingest OFF
+        자동 평가 꺼짐
         <InfoMark
-          label="자동 ingest"
-          help="OPS_AUTO_INGEST=1 로 켜집니다(서버 env). 켜면 주기 스캔이 새 커밋을 자동 ingest 합니다."
+          label="자동 평가"
+          help="새 커밋을 자동으로 평가하는 기능이 꺼져 있습니다. 켜려면 서버 OPS_AUTO_INGEST 를 켭니다."
         />
       </Badge>
     );
@@ -42,7 +52,11 @@ function AutoIngestStatusChip({ config }: { config: AutoIngestConfig }) {
   return (
     <Badge variant="success" className="ml-auto gap-1.5 px-2 py-1 font-medium">
       <Bot className="h-3.5 w-3.5 shrink-0" aria-hidden />
-      자동 ingest ON · {fmtInterval(config.intervalMs)} · batch {config.batch}
+      자동 평가 켜짐
+      <InfoMark
+        label="자동 평가"
+        help={`새 커밋을 ${fmtInterval(config.intervalMs)}마다 최대 ${String(config.batch)}건씩 자동 평가합니다. 끄려면 서버 OPS_AUTO_INGEST 를 끕니다.`}
+      />
     </Badge>
   );
 }
@@ -52,10 +66,16 @@ export function PipelineFlowBand({
   statuses,
   autoIngestConfig,
   isPending,
+  activeStatus,
+  onToggleStatus,
 }: {
   statuses: string[];
   autoIngestConfig: AutoIngestConfig | undefined;
   isPending: boolean;
+  /** 선택된 단계 stage.key(목록 필터). null/undefined 면 필터 없음. */
+  activeStatus?: string | null;
+  /** 단계 클릭 시 호출 — 같은 키 재클릭은 호출부에서 해제로 처리. */
+  onToggleStatus?: (stageKey: string) => void;
 }) {
   const failedCount = statuses.filter((s) => s === "failed").length;
   // 초기 로딩 중 0/0/0/0 으로 보이면 "진짜 빈 파이프라인"과 구분이 안 됨 → 로딩 표시.
@@ -73,12 +93,35 @@ export function PipelineFlowBand({
       <CardContent className="flex flex-wrap items-center gap-2 py-3">
         {flowStages.map((stage, i) => {
           const count = statuses.filter((s) => stage.match(s)).length;
+          const active = activeStatus === stage.key;
+          const interactive = onToggleStatus !== undefined;
           return (
             <div key={stage.key} className="flex items-center gap-2">
-              <div className="flex items-center gap-2 rounded-md border border-border/70 bg-muted/30 px-3 py-1.5">
-                <span className="text-xs font-medium text-muted-foreground">{stage.label}</span>
+              <button
+                type="button"
+                disabled={!interactive}
+                onClick={interactive ? () => onToggleStatus(stage.key) : undefined}
+                aria-pressed={active}
+                className={cn(
+                  "flex items-center gap-2 rounded-md border px-3 py-1.5 transition-colors",
+                  active
+                    ? "border-primary bg-accent"
+                    : "border-border/70 bg-muted/30",
+                  interactive && "cursor-pointer hover:border-border hover:bg-accent/50",
+                  !interactive && "cursor-default",
+                )}
+                title={interactive ? `${stage.label} 작업만 보기 (재클릭 해제)` : undefined}
+              >
+                <span
+                  className={cn(
+                    "text-xs font-medium",
+                    active ? "text-foreground" : "text-muted-foreground",
+                  )}
+                >
+                  {stage.label}
+                </span>
                 <span className="text-sm font-semibold tabular-nums">{count}</span>
-              </div>
+              </button>
               {i < flowStages.length - 1 && (
                 <span className="text-muted-foreground/50" aria-hidden>
                   →

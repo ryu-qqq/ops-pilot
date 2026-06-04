@@ -1,16 +1,18 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Ban, FileDiff, ListTree, RefreshCw, Share2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Ban,
+  ChevronDown,
+  ChevronRight,
+  ListTree,
+  RefreshCw,
+  Share2,
+} from "lucide-react";
 import type { Project } from "@opspilot/shared-types";
+import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent } from "../../../components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "../../../components/ui/dialog";
 import { ErrorNotice, Loading } from "../../../lib/ui";
 import { ProposalCard } from "../../feedback/components/proposal-card";
 import { IngestPipelineSteps } from "../../feedback/components/ingest-pipeline-steps";
@@ -29,6 +31,41 @@ import { HumanScore } from "../../run/components/human-score";
 import { RunRetro } from "../../run/components/run-retro";
 import { TraceView } from "../../run/components/trace-view";
 import { VerdictStrip } from "../../run/components/verdict-strip";
+import { ingestStatusVariant, runStatusVariant, triggerVariant } from "../lib/badge-variant";
+
+/**
+ * 점진적 노출용 disclosure 섹션 — 기본 닫힘, 제목 클릭으로 토글. 의존성 추가 없이
+ * useState + ▸/▾ 아이콘으로 구현(접근성 위해 button + aria-expanded). shadcn Card 톤 유지.
+ */
+function Disclosure({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <Card>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-1.5 px-4 py-3 text-left text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+      >
+        {open ? (
+          <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
+        ) : (
+          <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
+        )}
+        {title}
+      </button>
+      {open && <div className="space-y-3 px-4 pb-4">{children}</div>}
+    </Card>
+  );
+}
 
 /**
  * 트레이스 리스트 ⇄ 흐름 그래프 인라인 펼침 토글. WorkDetailIngest·WorkDetailRun 이 공유
@@ -137,131 +174,25 @@ export function WorkDetailIngest({
         <ArrowLeft className="h-3.5 w-3.5" /> 목록
       </Button>
 
-      {/* 커밋 헤더 */}
-      <div className="space-y-1">
+      {/* 커밋 헤더 + 상태·trigger 배지(의미별 컬러) */}
+      <div className="space-y-1.5">
         <h2 className="text-lg font-semibold">{title}</h2>
-        <p className="font-mono text-xs text-muted-foreground">
-          {data.gitRef.slice(0, 12)} · {data.trigger}
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={ingestStatusVariant(data.status)}>{data.status}</Badge>
+          <Badge variant={triggerVariant(data.trigger)}>{data.trigger}</Badge>
+          <span className="font-mono text-xs text-muted-foreground">
+            {data.gitRef.slice(0, 12)}
+          </span>
+        </div>
       </div>
 
-      {/* 판정 한 줄 + 파이프라인 단계 */}
+      {/* 핵심(항상 펼침): 판정 한 줄 */}
       {evalRunId !== null && <VerdictStrip runId={evalRunId} />}
-      <IngestPipelineSteps data={data} />
 
-      {/* ① 평가 */}
-      {evalRunId !== null && (
-        <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-muted-foreground">① 평가</h3>
-          <Card>
-            <CardContent className="space-y-3 pt-4">
-              <GradePanel runId={evalRunId} />
-              <HumanScore runId={evalRunId} />
-              <RunRetro runId={evalRunId} />
-            </CardContent>
-          </Card>
-          {/* 트레이스 리스트 ⇄ 흐름 그래프 인라인 펼침 */}
-          <TraceSection runId={evalRunId} onOpenRun={onOpenRun} />
-        </section>
-      )}
-
-      {/* ② 검토 */}
-      {reviewRunId !== null && (
-        <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-muted-foreground">② 검토</h3>
-          {data.contextJson.reviewSummary !== undefined && (
-            <p className="text-xs text-muted-foreground">{data.contextJson.reviewSummary}</p>
-          )}
-          <Button size="sm" variant="outline" onClick={() => onOpenRun(reviewRunId)}>
-            <Share2 className="h-3.5 w-3.5" /> review 트레이스
-          </Button>
-        </section>
-      )}
-
-      {/* 파이프라인 액션 — eval/review 재처리·강제종료 (기존 IngestDrilldownContent 보존) */}
-      {(showPipelineActions ||
-        data.contextJson.evalError !== undefined ||
-        data.contextJson.reviewError !== undefined ||
-        showSkipReviewReason) && (
-        <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-muted-foreground">파이프라인 액션</h3>
-          {data.contextJson.evalError !== undefined && (
-            <p className="text-destructive text-xs">{data.contextJson.evalError}</p>
-          )}
-          {data.contextJson.reviewError !== undefined && (
-            <p className="text-destructive text-xs">{data.contextJson.reviewError}</p>
-          )}
-          {showSkipReviewReason && (
-            <p className="text-xs text-warning">{data.contextJson.skipReviewReason}</p>
-          )}
-          {showPipelineActions && (
-            <div className="flex flex-wrap gap-2">
-              {showCancelEval && evalRunId !== null && (
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  disabled={cancelEval.isPending}
-                  onClick={() =>
-                    cancelEval.mutate(evalRunId, {
-                      onSuccess: () => {
-                        void qc.invalidateQueries({ queryKey: feedbackKeys.detail(ingestId) });
-                        void qc.invalidateQueries({ queryKey: feedbackKeys.list(projectId) });
-                      },
-                    })
-                  }
-                  title="멈춘 eval run을 failed로 마킹 — 이후 eval 재처리 또는 ingest 재생성"
-                >
-                  <Ban className={`h-3.5 w-3.5 ${cancelEval.isPending ? "animate-pulse" : ""}`} />
-                  eval 강제 종료
-                </Button>
-              )}
-              {showReprocess && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={reprocess.isPending}
-                  onClick={() => reprocess.mutate()}
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 ${reprocess.isPending ? "animate-spin" : ""}`} />
-                  eval 재처리
-                </Button>
-              )}
-              {showManualReview && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={review.isPending}
-                  onClick={() => review.mutate()}
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 ${review.isPending ? "animate-spin" : ""}`} />
-                  review 시작
-                </Button>
-              )}
-              {showReviewRetry && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={reprocessReview.isPending}
-                  onClick={() => reprocessReview.mutate()}
-                >
-                  <RefreshCw
-                    className={`h-3.5 w-3.5 ${reprocessReview.isPending ? "animate-spin" : ""}`}
-                  />
-                  review 재처리
-                </Button>
-              )}
-            </div>
-          )}
-          {(reprocess.isError || review.isError || reprocessReview.isError) && (
-            <ErrorNotice error={reprocess.error ?? review.error ?? reprocessReview.error} />
-          )}
-        </section>
-      )}
-
-      {/* ③ 개선안 결정 */}
+      {/* 핵심(항상 펼침): 개선안 결정 큐 — "뭘 고치나"의 답 */}
       <section className="space-y-3">
         <h3 className="text-sm font-semibold text-muted-foreground">
-          ③ 개선안 ({data.proposals.length})
+          개선안 ({data.proposals.length})
         </h3>
         {data.proposals.length === 0 && (
           <p className="text-sm text-muted-foreground">개선안이 없습니다.</p>
@@ -289,24 +220,124 @@ export function WorkDetailIngest({
         ))}
       </section>
 
-      {/* ④ 변경 diff */}
+      {/* 심화(접힘): 처리 단계 · 평가 · 검토 — 파고들 때만 */}
+      <Disclosure title="처리 단계 · 평가 · 검토 상세">
+        <IngestPipelineSteps data={data} />
+
+        {evalRunId !== null && (
+          <section className="space-y-3">
+            <h4 className="text-sm font-semibold text-muted-foreground">① 평가</h4>
+            <Card>
+              <CardContent className="space-y-3 pt-4">
+                <GradePanel runId={evalRunId} />
+                <HumanScore runId={evalRunId} />
+                <RunRetro runId={evalRunId} />
+              </CardContent>
+            </Card>
+            <TraceSection runId={evalRunId} onOpenRun={onOpenRun} />
+          </section>
+        )}
+
+        {reviewRunId !== null && (
+          <section className="space-y-2">
+            <h4 className="text-sm font-semibold text-muted-foreground">② 검토</h4>
+            {data.contextJson.reviewSummary !== undefined && (
+              <p className="text-xs text-muted-foreground">{data.contextJson.reviewSummary}</p>
+            )}
+            <Button size="sm" variant="outline" onClick={() => onOpenRun(reviewRunId)}>
+              <Share2 className="h-3.5 w-3.5" /> review 트레이스
+            </Button>
+          </section>
+        )}
+
+        {/* 파이프라인 액션 — eval/review 재처리·강제종료 (기존 IngestDrilldownContent 보존) */}
+        {(showPipelineActions ||
+          data.contextJson.evalError !== undefined ||
+          data.contextJson.reviewError !== undefined ||
+          showSkipReviewReason) && (
+          <section className="space-y-3">
+            <h4 className="text-sm font-semibold text-muted-foreground">파이프라인 액션</h4>
+            {data.contextJson.evalError !== undefined && (
+              <p className="text-destructive text-xs">{data.contextJson.evalError}</p>
+            )}
+            {data.contextJson.reviewError !== undefined && (
+              <p className="text-destructive text-xs">{data.contextJson.reviewError}</p>
+            )}
+            {showSkipReviewReason && (
+              <p className="text-xs text-warning">{data.contextJson.skipReviewReason}</p>
+            )}
+            {showPipelineActions && (
+              <div className="flex flex-wrap gap-2">
+                {showCancelEval && evalRunId !== null && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={cancelEval.isPending}
+                    onClick={() =>
+                      cancelEval.mutate(evalRunId, {
+                        onSuccess: () => {
+                          void qc.invalidateQueries({ queryKey: feedbackKeys.detail(ingestId) });
+                          void qc.invalidateQueries({ queryKey: feedbackKeys.list(projectId) });
+                        },
+                      })
+                    }
+                    title="멈춘 eval run을 failed로 마킹 — 이후 eval 재처리 또는 ingest 재생성"
+                  >
+                    <Ban className={`h-3.5 w-3.5 ${cancelEval.isPending ? "animate-pulse" : ""}`} />
+                    eval 강제 종료
+                  </Button>
+                )}
+                {showReprocess && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={reprocess.isPending}
+                    onClick={() => reprocess.mutate()}
+                  >
+                    <RefreshCw
+                      className={`h-3.5 w-3.5 ${reprocess.isPending ? "animate-spin" : ""}`}
+                    />
+                    eval 재처리
+                  </Button>
+                )}
+                {showManualReview && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={review.isPending}
+                    onClick={() => review.mutate()}
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${review.isPending ? "animate-spin" : ""}`} />
+                    review 시작
+                  </Button>
+                )}
+                {showReviewRetry && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={reprocessReview.isPending}
+                    onClick={() => reprocessReview.mutate()}
+                  >
+                    <RefreshCw
+                      className={`h-3.5 w-3.5 ${reprocessReview.isPending ? "animate-spin" : ""}`}
+                    />
+                    review 재처리
+                  </Button>
+                )}
+              </div>
+            )}
+            {(reprocess.isError || review.isError || reprocessReview.isError) && (
+              <ErrorNotice error={reprocess.error ?? review.error ?? reprocessReview.error} />
+            )}
+          </section>
+        )}
+      </Disclosure>
+
+      {/* 심화(접힘): 변경 diff */}
       {evalRunId !== null && (
-        <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-muted-foreground">④ 변경 diff</h3>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <FileDiff className="h-3.5 w-3.5" /> 변경 보기
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-5xl">
-              <DialogHeader>
-                <DialogTitle>변경 (파일 diff)</DialogTitle>
-              </DialogHeader>
-              <DiffView runId={evalRunId} />
-            </DialogContent>
-          </Dialog>
-        </section>
+        <Disclosure title="변경 diff">
+          <DiffView runId={evalRunId} />
+        </Disclosure>
       )}
     </div>
   );
@@ -332,27 +363,29 @@ export function WorkDetailRun({ runId, onBack, onOpenRun }: RunProps) {
         <ArrowLeft className="h-3.5 w-3.5" /> 목록
       </Button>
 
-      {/* 실행 헤더 */}
-      <div className="space-y-1">
+      {/* 실행 헤더 + 상태 배지(컬러) */}
+      <div className="space-y-1.5">
         <h2 className="text-lg font-semibold">수동 실행</h2>
-        <p className="font-mono text-xs text-muted-foreground">
-          {run != null ? (
-            <>
-              {run.runner}
-              {run.model != null && ` · ${run.model}`}
-              {` · ${run.status}`}
-            </>
-          ) : (
-            runId.slice(0, 8)
-          )}
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          {run != null && <Badge variant={runStatusVariant(run.status)}>{run.status}</Badge>}
+          <span className="font-mono text-xs text-muted-foreground">
+            {run != null ? (
+              <>
+                {run.runner}
+                {run.model != null && ` · ${run.model}`}
+              </>
+            ) : (
+              runId.slice(0, 8)
+            )}
+          </span>
+        </div>
       </div>
 
+      {/* 핵심(항상 펼침): 판정 */}
       <VerdictStrip runId={runId} />
 
-      {/* ① 평가 */}
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-muted-foreground">① 평가</h3>
+      {/* 심화(접힘): 평가 상세 */}
+      <Disclosure title="평가 상세">
         <Card>
           <CardContent className="space-y-3 pt-4">
             <GradePanel runId={runId} />
@@ -360,27 +393,13 @@ export function WorkDetailRun({ runId, onBack, onOpenRun }: RunProps) {
             <RunRetro runId={runId} />
           </CardContent>
         </Card>
-        {/* 트레이스 리스트 ⇄ 흐름 그래프 인라인 펼침 */}
         <TraceSection runId={runId} onOpenRun={onOpenRun} />
-      </section>
+      </Disclosure>
 
-      {/* ④ 변경 diff */}
-      <section className="space-y-2">
-        <h3 className="text-sm font-semibold text-muted-foreground">④ 변경 diff</h3>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm">
-              <FileDiff className="h-3.5 w-3.5" /> 변경 보기
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-5xl">
-            <DialogHeader>
-              <DialogTitle>변경 (파일 diff)</DialogTitle>
-            </DialogHeader>
-            <DiffView runId={runId} />
-          </DialogContent>
-        </Dialog>
-      </section>
+      {/* 심화(접힘): 변경 diff */}
+      <Disclosure title="변경 diff">
+        <DiffView runId={runId} />
+      </Disclosure>
     </div>
   );
 }
