@@ -1,4 +1,4 @@
-import { Ban, FileDiff, GitCompare, ListTree, Repeat, RotateCw, Share2, X } from "lucide-react";
+import { Ban, FileDiff, GitCompare, Inbox, ListTree, Repeat, RotateCw, Share2, X } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import {
@@ -36,7 +36,7 @@ export type RunViewMode = "list" | "graph";
 
 interface Props {
   selectedRunId: string | null;
-  onSelectRun: (id: string) => void;
+  onSelectRun: (id: string | null) => void;
   compareRunIds: string[];
   onClearCompare: () => void;
   benchmarkRunIds: string[];
@@ -236,6 +236,21 @@ export function RunsView({
               </Card>
             </TabsContent>
           </Tabs>
+        )}
+
+        {/* 빈 상태: run 미선택(주로 run 0개 프로젝트) + 비교·벤치마크 비활성일 때 우측 안내.
+            선택 동기화 덕에 "run 있는데 미선택"은 거의 없으므로 주 역할은 0개 케이스 —
+            좌측 RunList EmptyState 와 문구 일관. */}
+        {selectedRunId === null && !compareActive && !benchmarkActive && (
+          <Card className="flex flex-col items-center justify-center gap-3 border-dashed py-16 text-center">
+            <Inbox className="h-10 w-10 text-muted-foreground/60" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">이 프로젝트엔 아직 실행이 없어요</p>
+              <p className="text-sm text-muted-foreground">
+                레지스트리 탭에서 자산·버전을 고르고 시나리오를 실행하면 여기에 트레이스가 쌓입니다.
+              </p>
+            </div>
+          </Card>
         )}
       </div>
     </div>
