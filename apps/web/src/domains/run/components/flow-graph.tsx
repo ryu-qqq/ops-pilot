@@ -258,7 +258,7 @@ export function FlowGraph({ selectedRunId, onSelectRun, showRunSelect = true }: 
           <CardContent className="p-4">
             <EmptyState
               title="run 을 선택하세요"
-              hint="왼쪽 run 목록에서 고르거나, 피드백 탭에서 evaluating ingest 를 클릭하면 eval trace 흐름이 그래프로 열립니다."
+              hint="왼쪽 run 목록에서 고르거나, 작업 탭에서 evaluating 작업을 클릭하면 eval trace 흐름이 그래프로 열립니다."
             />
           </CardContent>
         </Card>
@@ -378,7 +378,7 @@ export function FlowGraph({ selectedRunId, onSelectRun, showRunSelect = true }: 
               이 run 은 ingest →{" "}
               {feedbackPhase === "review" ? "proposal-reviewer" : "work-evaluator"} 파이프라인입니다.
               proposal/review 결과는 마지막 JSON block 으로 자동 파싱되며, 「분석 실행」은 별도 Claude
-              호출만 추가합니다 (proposal-reviewer 를 다시 돌리지 않음). Feedback 탭에서 ingest·proposal 을
+              호출만 추가합니다 (proposal-reviewer 를 다시 돌리지 않음). 작업 탭에서 작업·개선안 을
               확인하세요.
             </CardContent>
           </Card>

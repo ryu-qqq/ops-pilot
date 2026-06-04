@@ -10,7 +10,7 @@ import {
 } from "./ui/dialog";
 import { GUIDES } from "./workflow-guide";
 
-// 4개 탭 모두 본문 배너를 없애고 헤더 ⓘ Dialog 로 통일한다(화면 점유 제거).
+// 모든 탭이 본문 배너를 없애고 헤더 ⓘ Dialog 로 통일한다(화면 점유 제거).
 // 타입을 GUIDES 키 전체로 두어 메타가 GUIDES 와 따로 노는 드리프트를 코드로 방지.
 type InfoTab = keyof typeof GUIDES;
 
@@ -25,13 +25,9 @@ const DIALOG_META: Record<InfoTab, { description: string; label: string }> = {
     description: "Harness 자산 — 등록 · 저작 · 실행 · 채택 흐름.",
     label: "프로젝트 사용법",
   },
-  feedback: {
-    description: "Cursor 작업 → eval → 개선안 검토 (HITL) 흐름.",
-    label: "피드백 사용법",
-  },
-  runs: {
-    description: "모든 run의 트레이스·점수·diff 관측실.",
-    label: "실행/트레이스 사용법",
+  work: {
+    description: "Cursor 작업을 골라 평가·개선안·트레이스를 한 화면에서.",
+    label: "작업 사용법",
   },
 };
 

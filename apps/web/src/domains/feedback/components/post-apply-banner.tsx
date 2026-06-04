@@ -48,19 +48,24 @@ export function PostApplyBanner({ project, projectId, appliedCommit }: Props) {
           </p>
           {scanDone && scan.data !== undefined ? (
             <p className="text-xs text-success">
-              레지스트리 스캔 완료 — 자산 {String(scan.data.scannedAssets)} · 신규버전{" "}
+              자산 목록 새로고침 완료 — 자산 {String(scan.data.scannedAssets)} · 신규버전{" "}
               {String(scan.data.saved.versions)}
             </p>
           ) : (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={scanBusy || scanDone}
-              onClick={() => scan.mutate(projectId)}
-            >
-              {scanBusy ? <Loading label="스캔 중…" /> : "레지스트리 스캔 (권장)"}
-            </Button>
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={scanBusy || scanDone}
+                onClick={() => scan.mutate(projectId)}
+              >
+                {scanBusy ? <Loading label="새로고침 중…" /> : "자산 목록 새로고침"}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                방금 반영한 변경을 자산·버전 목록에 반영합니다.
+              </p>
+            </>
           )}
           {scan.isError && (
             <p className="text-xs text-destructive">
