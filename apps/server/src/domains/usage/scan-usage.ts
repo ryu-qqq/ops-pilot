@@ -79,7 +79,30 @@ function emptyStat(): UsageStat {
   return { count: 0, firstUsed: null, lastUsed: null, byCwd: {}, byDay: {} };
 }
 
+// TTL 인메모리 캐시 — /usage/assets 요청마다 ~/.claude/projects 전체 transcript를
+// 파싱하던 비용(수 초)을 제거한다. transcript는 초단위로 바뀌지 않고 usage는 "참고 신호"라
+// 짧은 staleness를 허용한다(주기 work-metric 스캔도 이미 staleness 전제).
+// 키 = opts 전체 직렬화 → sinceIso·includeWorktrees가 다르면 캐시 분리(리더보드 vs 자산 탭 안전).
+// 런타임 서버 코드이므로 Date.now() 사용 가능(스크립트 결정성 제약은 워크플로 한정).
+const usageCache = new Map<string, { at: number; result: UsageScanResult }>();
+
+function usageCacheTtlMs(): number {
+  const raw = Number(process.env.OPS_USAGE_CACHE_TTL_MS);
+  return Number.isFinite(raw) && raw >= 0 ? raw : 30_000;
+}
+
 export function scanTranscriptUsage(opts: ScanOptions = {}): UsageScanResult {
+  const cacheKey = JSON.stringify(opts);
+  const ttl = usageCacheTtlMs();
+  const cached = usageCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < ttl) return cached.result;
+
+  const result = scanTranscriptUsageUncached(opts);
+  usageCache.set(cacheKey, { at: Date.now(), result });
+  return result;
+}
+
+function scanTranscriptUsageUncached(opts: ScanOptions = {}): UsageScanResult {
   const files = listJsonl(transcriptsRoot());
   const agents: Record<string, UsageStat> = {};
   const skills: Record<string, UsageStat> = {};

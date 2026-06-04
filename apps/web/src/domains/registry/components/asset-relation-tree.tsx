@@ -17,6 +17,7 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
     metaFor,
     relationFor,
     passesFilter,
+    filterActive,
     graphMap,
     assetByKey,
     onRowHover,
@@ -130,13 +131,18 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
       {visibleSkills.map((skill) => {
         const key = refKey(skill.kind, skill.name);
         const meta = metaFor(skill);
-        const isOpen = expanded.has(key);
-        const children = tree.childrenOf(skill);
+        const selfMatch = passesFilter(skill);
+        // 필터 활성 시 보이는 스킬은 자동 펼침 — 매치된 자식이 즉시 보여 "필터 안 먹는다"
+        // 는 오해(매치 안 하는 부모가 접힌 채 노출)를 없앤다.
+        const isOpen = filterActive || expanded.has(key);
+        // 부모(skill)가 필터를 통과해도 자식은 항상 필터를 적용한다.
+        // (예: "미사용" 필터에서 미사용 스킬의 사용 중 자식이 새는 버그 방지.)
+        // 필터 없음(all/all/all)이면 passesFilter 가 전부 true → 기존처럼 모두 표시.
         const visibleChildren = isOpen
-          ? passesFilter(skill)
-            ? children
-            : children.filter(passesFilter)
+          ? tree.childrenOf(skill).filter(passesFilter)
           : [];
+        // 필터 중인데 부모 스킬 자신은 매치 안 함 = 매치된 자식 때문에 "맥락"으로만 보이는 행 → 디밍.
+        const contextOnly = filterActive && !selfMatch;
         return (
           <div key={skill.id}>
             <div
@@ -144,6 +150,7 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
                 PARENT_GRID,
                 "h-10 cursor-pointer border-t px-3 transition-colors hover:bg-accent/50",
                 isOpen && "bg-muted/40",
+                contextOnly && "opacity-45",
                 skill.id === selectedId && "bg-primary/10",
                 hlClass(key),
               )}
