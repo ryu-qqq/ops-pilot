@@ -40,12 +40,15 @@ type ToolkitView = "list" | "tree";
 
 // 두 뷰가 공유하는 파생 헬퍼·맵 묶음. 데이터 소유는 여기(부모), 뷰는 표현만.
 export interface ToolkitContext {
+  projectId: string | null;
   assets: Asset[];
   selectedId: string | null;
   select: (id: string) => void;
   metaFor: (asset: Asset) => RowMeta;
   relationFor: (asset: Asset) => RelationDescriptor;
   passesFilter: (asset: Asset) => boolean;
+  // 상태/종류/출처 중 하나라도 'all' 이 아니면 true — 관계 뷰가 매치 강조·자동 펼침 판단에 사용.
+  filterActive: boolean;
   graphMap: Map<string, GraphItem>;
   assetByKey: Map<string, Asset>;
   referencingSkillCount: (asset: Asset) => number;
@@ -260,12 +263,14 @@ export function AssetToolkit({
   const onRowHover = (key: string | null) => setHighlightKey(key);
 
   const ctx: ToolkitContext = {
+    projectId,
     assets,
     selectedId,
     select,
     metaFor,
     relationFor,
     passesFilter,
+    filterActive: status !== "all" || source !== "all" || kind !== "all",
     graphMap,
     assetByKey,
     referencingSkillCount,
