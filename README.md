@@ -15,51 +15,29 @@ Claude Code로 만든 에이전트·스킬·커맨드가 진짜 잘 작동하는
 - 같은 자산의 여러 버전을 나란히 비교해서 제일 나은 걸 고른다.
 - Cursor나 Claude로 한 작업을 자동으로 평가받고, 개선안을 받아 자산에 반영한다.
 
-## 어떻게 동작하나
+## 내 하네스 건강도 챙기기
 
-만들고 → 버전 매기고 → 격리 실행하고 → 평가하고 → 채택하는 한 바퀴를 닫는다.
+써보고 싶은 프로젝트를 등록하면, 그 안 `.claude` 의 자산이 알아서 잡힌다. 여기서부터 OpsPilot이 하는 일은 이 자산들이 건강한지를 계속 살피는 거다.
 
-자산은 폼으로 작성한다(컨셉 한 줄을 주면 AI가 트리거·도구·본문 초안을 채운다). 저장하면 구조화 커밋이 강제되는데, 여기서 git 커밋 하나가 곧 버전 하나다 — 별도 버전 DB는 없고 git 히스토리가 버전 히스토리다. 실행은 그 커밋으로 만든 일회용 worktree에서 일어나고 끝나면 버려지므로 원본 레포는 오염되지 않는다. 실행 요청은 즉시 반환되고 백그라운드로 도니까 수십 분 걸려도 화면을 막지 않는다. 러너는 로컬 `claude` CLI를 그대로 띄운다 — 별도 키도 과금도 없다.
+![프로젝트 — 등록하면 자산이 잡힌다](docs/screenshots/project.png)
 
-## 세 화면
+**얼마나 쓰는지 본다.** 자산마다 최근 7일·30일 사용량을 센다. 자주 쓰는 자산일수록 잘 다듬어 둘 값어치가 크고, 아예 안 쓰는 자산은 삭제 후보다. 뭘 손보고 뭘 정리할지를 감이 아니라 숫자로 정한다.
 
-**개요** — 언제 얼마나 돌렸는지(활동 잔디), 요즘 자주 쓴 자산, 프로젝트 자산 헬스를 한눈에.
+![개요 — 사용량과 자산 헬스](docs/screenshots/overview.png)
 
-![개요](docs/screenshots/overview.png)
+**제대로 작동하는지 본다.** 자산을 평가하는 길은 하나가 아니다. 상황 따라 골라 쓴다.
 
-**프로젝트** — 등록한 프로젝트의 자산을 목록과 상태(문제·미사용)로 보고, 각 자산의 git 버전 타임라인을 다룬다. 자산을 새로 쓰고, 버전과 시나리오를 골라 실행하고, 여러 버전을 나란히 비교해 하나를 채택하는 일이 여기서 일어난다.
+- 직접 시나리오를 골라 돌려보고 점수를 매긴다.
+- 자동으로 굴려놓고, 나중에 "이거 제대로 된 건가" 싶을 때 트레이스와 점수로 되짚는다.
+- 작업하다 "이건 이렇게 해줘" 하고 고쳐가며 만든 결과물을, 그 자리에서 바로 평가한다.
 
-![프로젝트](docs/screenshots/project.png)
+어느 쪽이든 결과는 한 자리에 쌓인다. 작업 하나를 열면 잘했는지(판정)와 뭘 고칠지(개선안)가 먼저 보이고, 트레이스·검토·변경 diff는 필요할 때 펼친다.
 
-**작업** — 일상의 중심. Cursor나 Claude로 한 작업이 자동 평가돼 쌓인다. 하나를 열면 잘했는지(판정)와 뭘 고칠지(개선안)가 먼저 보이고, 처리 단계·평가·실행 트레이스·검토·변경 diff는 필요할 때 펼쳐 본다. 원래 결정(피드백)과 증거(트레이스)로 화면이 갈라져 있던 걸 한 흐름으로 합친 것이다.
+![작업 — 판정과 개선안이 먼저](docs/screenshots/work-detail.png)
 
-![작업 상세](docs/screenshots/work-detail.png)
+채점은 정답이 있으면 시나리오 성공조건으로 자동으로 하고, 정답이 없으면 기준을 인식하는 머신 스코어러나 사람 점수·회고로 본다. 같은 버전을 여러 번 돌려 일관성을 보거나, 버전을 나란히 비교해 제일 나은 걸 고르는 것도 여기서 한다.
 
-## 평가
-
-정답이 있는 작업은 시나리오 성공조건으로 통과/실패를 자동 채점한다. 정답이 없는 작업은 머신 스코어러(성공조건을 인식하는 judge)와 LLM 비평으로 기준 기반 채점하고, 사람이 점수와 회고 메모를 남길 수도 있다. 숫자만으로 부족한 "왜"가 메모로 쌓인다.
-
-여기에 같은 버전·시나리오를 여러 번 돌려 일관성(통과율·편차)을 보는 벤치마크, 버전을 나란히 두는 A·B 비교, 단계별 트레이스와 흐름 그래프, worktree에서 실제 바뀐 파일의 diff가 더해진다.
-
-## 온보딩 투어
-
-처음 쓰는 사람은 헤더의 나침반 버튼을 켜면 된다. 프로젝트 선택부터 개선안 결정까지 핵심 경로 여섯 단계를 스포트라이트로 짚어준다. 단계에 맞춰 화면이 알아서 넘어간다.
-
-![온보딩 투어](docs/screenshots/tour.png)
-
-## 일상 루프
-
-Cursor나 Claude로 한 작업을 그대로 평가 대상으로 삼는다 — 일을 두 번 하지 않는다.
-
-작업을 커밋하면 ingest되고(수동 또는 자동), work-evaluator가 평가하고 proposal-reviewer가 검토해 개선안을 만든다. 개선안은 사람이 승인하거나 거절하고, 승인한 것만 자산에 반영된다. 반영된 `.claude`가 다음 세션의 기준이 된다.
-
-내 프로젝트에 공통 하네스를 입히는 방법(agent-crew 연동, 등록 두 모드, MCP 툴)은 [온보딩 가이드](docs/consumer-onboarding.md)에 정리해뒀다.
-
-## 스택
-
-pnpm 모노레포다. `apps/web`은 Vite·React·TypeScript(TanStack Query, shadcn/ui, React Flow), `apps/server`는 Fastify·TypeScript·better-sqlite3, `packages/*`는 공유 설정과 Zod 스키마. Node 20 이상, `corepack pnpm`을 쓴다.
-
-코드 규칙은 [CONVENTIONS.md](./CONVENTIONS.md), 데이터 모델은 [docs/DATA_MODEL.md](./docs/DATA_MODEL.md)에 있다.
+그리고 이 모든 게 git 위에서 돈다. 자산을 고치면 커밋 하나가 버전 하나가 되고, 실행은 그 버전으로 뜬 일회용 worktree에서 격리돼 원본을 건드리지 않는다. 러너는 로컬 `claude` 를 그대로 띄우니 따로 키도 과금도 없다.
 
 ## 시작하기
 
@@ -67,7 +45,7 @@ pnpm 모노레포다. `apps/web`은 Vite·React·TypeScript(TanStack Query, shad
 ./scripts/bootstrap.sh
 ```
 
-전제조건을 점검하고 의존성 설치·DB 마이그레이션·서버(:3001)·프론트(:5173)를 멱등하게 띄운다. 브라우저로 `http://localhost:5173`을 연 뒤 헤더의 나침반(투어)을 켜고 따라가면 된다.
+전제조건을 점검하고 의존성 설치·DB 마이그레이션·서버(:3001)·프론트(:5173)를 멱등하게 띄운다. 브라우저로 `http://localhost:5173` 을 연 뒤 헤더의 나침반(가이드 투어)을 켜면, 프로젝트 등록부터 개선안 결정까지 여섯 단계를 짚어준다 — 처음이면 이걸 따라가면 된다.
 
 손으로 띄우려면:
 
@@ -77,11 +55,21 @@ cd apps/server && corepack pnpm db:migrate && corepack pnpm dev   # :3001
 cd apps/web && corepack pnpm dev                                  # :5173
 ```
 
-Claude Code 세션에서 OpsPilot 툴을 쓰려면 MCP를 등록한다. 툴 목록과 소비 프로젝트 적용은 [온보딩 가이드](docs/consumer-onboarding.md) 참고.
+Claude Code 세션에서 OpsPilot 툴을 쓰려면 MCP를 등록한다.
 
 ```bash
 claude mcp add --transport http opspilot http://localhost:3001/mcp
 ```
+
+## 더 자세히
+
+내 프로젝트에 공통 하네스를 입히는 법, 등록 두 모드(로컬 연결·관리 클론), MCP 툴 목록은 [온보딩 가이드](docs/consumer-onboarding.md)에 정리해뒀다.
+
+## 스택
+
+pnpm 모노레포다. `apps/web` 은 Vite·React·TypeScript(TanStack Query, shadcn/ui, React Flow), `apps/server` 는 Fastify·TypeScript·better-sqlite3, `packages/*` 는 공유 설정과 Zod 스키마. Node 20 이상, `corepack pnpm` 을 쓴다.
+
+코드 규칙은 [CONVENTIONS.md](./CONVENTIONS.md), 데이터 모델은 [docs/DATA_MODEL.md](./docs/DATA_MODEL.md)에 있다.
 
 ## 아직 안 된 것
 
