@@ -781,6 +781,8 @@ export type LintIssue = z.infer<typeof lintIssueSchema>;
 export const assetLintResultSchema = z.object({
   ok: z.boolean(), // error 0 건
   issues: z.array(lintIssueSchema),
+  // 자산이 "뭘 하는지" — frontmatter description 한 줄(없거나 형식 깨지면 null).
+  description: z.string().nullable().optional(),
 });
 export type AssetLintResult = z.infer<typeof assetLintResultSchema>;
 

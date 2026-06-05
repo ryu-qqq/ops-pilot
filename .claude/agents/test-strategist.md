@@ -1,7 +1,7 @@
 ---
 name: test-strategist
 description: 기능·스펙을 받아 테스트 시나리오를 도출하고 테스트 피라미드(단위·슬라이스·통합·e2e)에 매핑한 테스트 계획을 만든다. 스택 특화 테스트 메커니즘은 references 팩에서 런타임 로드. 테스트 코드를 작성하거나 실행하지는 않는다 — 계획·전략 전담. test-plan 스킬·오케스트레이터·사용자가 호출.
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep

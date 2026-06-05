@@ -6,7 +6,10 @@ import {
   assetVersionSchema,
   scenarioSchema,
 } from "@opspilot/shared-types";
-import { validateFrontmatter } from "../../domains/asset-lint/validate.js";
+import {
+  parseFrontmatterDescription,
+  validateFrontmatter,
+} from "../../domains/asset-lint/validate.js";
 import {
   getAsset,
   assetExists,
@@ -64,7 +67,10 @@ const registry: FastifyPluginAsyncZod = async (fastify) => {
           .status(404)
           .send({ error: "NotFound", detail: "asset not found" });
       const content = latestContent(req.params.id) ?? "";
-      return validateFrontmatter(asset.kind, content);
+      return {
+        ...validateFrontmatter(asset.kind, content),
+        description: parseFrontmatterDescription(content),
+      };
     },
   );
 

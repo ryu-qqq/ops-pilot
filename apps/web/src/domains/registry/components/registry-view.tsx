@@ -14,6 +14,9 @@ import { AssetToolkit } from "./asset-toolkit";
 interface Props {
   projectId: string | null;
   onProjectIdChange: (projectId: string) => void;
+  // 자산 선택은 app 이 소유(프로젝트 탭 투어가 자동 선택할 수 있도록).
+  selectedAssetId: string | null;
+  onSelectAsset: (assetId: string | null) => void;
   onRunCreated: (runIds: string[]) => void;
   onBenchmarkStarted: (runIds: string[]) => void;
 }
@@ -25,13 +28,11 @@ interface Props {
 export function RegistryView({
   projectId,
   onProjectIdChange,
+  selectedAssetId: assetId,
+  onSelectAsset,
   onRunCreated,
   onBenchmarkStarted,
 }: Props) {
-  const [assetId, setAssetId] = usePersistedState<string | null>(
-    "opspilot.registry.assetId",
-    null,
-  );
   const [versionId, setVersionId] = usePersistedState<string | null>(
     "opspilot.registry.versionId",
     null,
@@ -42,12 +43,12 @@ export function RegistryView({
 
   const handleSelectProject = (id: string) => {
     onProjectIdChange(id);
-    setAssetId(null);
+    onSelectAsset(null);
     setVersionId(null);
   };
 
   const handleSelectAsset = (id: string | null) => {
-    setAssetId(id);
+    onSelectAsset(id);
     setVersionId(null);
   };
 

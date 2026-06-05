@@ -38,6 +38,17 @@ const ALLOWED_KEYS: Partial<Record<AssetKind, string[]>> = {
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const MODELS = ["inherit", "sonnet", "opus", "haiku"];
 
+/** frontmatter 의 description 한 줄만 뽑는다(없거나 파싱 실패 시 null). 자산이 "뭘 하는지" 표시용. */
+export function parseFrontmatterDescription(content: string): string | null {
+  try {
+    const data = matter(content).data as Record<string, unknown>;
+    const desc = data.description;
+    return typeof desc === "string" && desc.trim() !== "" ? desc.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 export function validateFrontmatter(
   kind: AssetKind,
   content: string,

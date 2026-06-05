@@ -1,7 +1,7 @@
 ---
 name: harness-author
 description: 의도와 선례를 받아 Claude Code 하네스 자산(skill·agent)의 본문 초안을 agent-crew 컨벤션대로 작성한다. 종류별 구조 적용·프로젝트 비종속 강제. description 설계는 harness-trigger-designer, 평가는 ops-pilot 몫 — 본문 저작 전담. harness-creator 스킬·오케스트레이터가 호출.
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep

@@ -102,7 +102,11 @@ export function AssetFlatList({ ctx }: { ctx: ToolkitContext }) {
           >
             <NameCell meta={meta} />
             {showRelation && <RelationCell relation={relationFor(asset)} />}
-            <StatusCell tone={meta.status.tone} label={meta.status.label} />
+            <StatusCell
+              tone={meta.status.tone}
+              label={meta.status.label}
+              reason={meta.status.reason}
+            />
             <span className="text-right text-sm">
               <UsageCell usage={meta.usage} />
             </span>

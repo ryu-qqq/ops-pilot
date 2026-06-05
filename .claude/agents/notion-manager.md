@@ -1,7 +1,7 @@
 ---
 name: notion-manager
 description: Notion 연동 전담. 작업·일정 데이터베이스 운영 — 레코드 생성·status 전이·일정(date) 속성·담당자·라벨·뷰. Jira 대신 Notion으로 작업을 추적하는 프로젝트에서 jira-manager 자리를 대신한다. 오케스트레이터가 작업 단계마다 호출하거나 사용자가 직접 호출. 과정 기록은 journal-recorder(지식 vault), 문서 저작은 notion-doc-writer와 분업 — Notion 작업 DB엔 진행 요약만.
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep

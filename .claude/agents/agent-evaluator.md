@@ -1,7 +1,7 @@
 ---
 name: agent-evaluator
 description: agent-crew 자산(agents·skills·references·hooks·cursor rules)을 8차원 rubric으로 채점. 자산 유형 분류 → 호출자/피호출자 구분 → 차원별 측정 → JSON 결과. work-evaluator가 작업의 4축을 본다면, agent-evaluator는 자산 구조의 8차원을 본다 — 두 평가는 직교. asset-quality-rubric.md 와 ryu-qqq-wiki/research/agent-engineering/99-evaluation-framework.md 가 근거.
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep

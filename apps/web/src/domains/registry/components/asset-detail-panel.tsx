@@ -81,6 +81,8 @@ export function AssetDetailPanel({
 }: Props) {
   const { data: assets } = useAssets(projectId);
   const asset = (assets ?? []).find((a) => a.id === assetId) ?? null;
+  // 자산이 "뭘 하는지" — frontmatter description. 형식이 깨지면 null 로 와서 안내로 대체.
+  const { data: lint } = useAssetLint(assetId);
 
   // 실행 버전 게이트 대체: 선택 버전이 없으면 최신 버전으로 fallback.
   // getVersions 는 committed_at DESC 정렬(repository.ts) → versions[0] = 최신.
@@ -104,10 +106,29 @@ export function AssetDetailPanel({
         <h2 className="text-sm font-semibold">{asset?.name ?? "…"}</h2>
       </div>
 
+      {/* 이 자산이 뭘 하는지 — frontmatter description 한 줄. 목록엔 안 보이니 상세에서 노출. */}
+      {asset != null && lint != null && (
+        <p
+          className="text-xs leading-relaxed text-muted-foreground"
+          data-tour="asset-description">
+          {lint.description != null && lint.description !== "" ? (
+            lint.description
+          ) : lint.ok ? (
+            <span className="italic">frontmatter 에 description 이 없습니다.</span>
+          ) : (
+            <span className="italic text-amber-600 dark:text-amber-400">
+              형식 오류로 설명을 못 읽습니다 — 트리거 탭에서 확인하세요.
+            </span>
+          )}
+        </p>
+      )}
+
       <Tabs value={tab} onValueChange={(v) => setTab(v as DetailTab)} className="space-y-3">
         <TabsList className="flex w-full flex-wrap justify-start gap-1">
           <TabsTrigger value="version">버전</TabsTrigger>
-          <TabsTrigger value="trigger">트리거</TabsTrigger>
+          <TabsTrigger value="trigger" data-tour="asset-trigger-tab">
+            트리거
+          </TabsTrigger>
           <TabsTrigger value="scenario">시나리오 · 실행</TabsTrigger>
         </TabsList>
 
@@ -127,11 +148,13 @@ export function AssetDetailPanel({
             />
           </Card>
           {/* 파괴적 액션은 버전 탭 하단, 다른 액션과 시각적으로 분리. */}
-          <AssetPruneSection
-            projectId={projectId}
-            assetId={assetId}
-            onDeleted={onDeleted}
-          />
+          <div data-tour="asset-prune">
+            <AssetPruneSection
+              projectId={projectId}
+              assetId={assetId}
+              onDeleted={onDeleted}
+            />
+          </div>
         </TabsContent>
 
         {/* ② 트리거 — 형식 lint 상세 + 트리거 정확도(둘 다 description 품질 맥락). */}

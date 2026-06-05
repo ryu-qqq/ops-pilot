@@ -1,7 +1,7 @@
 ---
 name: jira-manager
 description: Jira 연동 전담. 이슈·태스크 생성·status 전이·진행 코멘트·라벨·Sprint 할당. 오케스트레이터가 작업 단계마다 호출하거나 사용자가 직접 호출. 과정 기록은 journal-recorder(지식 vault)와 분업 — Jira엔 진행상황 요약만.
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep

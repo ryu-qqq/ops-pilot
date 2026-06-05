@@ -1,7 +1,7 @@
 ---
 name: proposal-applier
 description: proposal-reviewer가 approve한 improvement proposal을 OpsPilot MCP apply_proposal로 프로젝트 clone에 반영한다. workflow_patch 등 고위험은 confirm 후에만. scan_project로 자산 DB 갱신까지 안내.
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep

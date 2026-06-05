@@ -1,7 +1,7 @@
 ---
 name: scenario-designer
 description: OpsPilot 평가 대상 자산 본문을 받아 그 자산을 의미있게 검증할 시나리오 한 건의 input과 성공조건을 한 쌍으로 통합 생성한다. 산출은 JSON 한 객체 {name, purpose, input, expectedBehavior, successCriteria[]}. 테스트 피라미드·전략 수립은 test-strategist 몫이고, 평가 실행·채점은 agent-evaluator/work-evaluator 몫이다 — 여기선 평가 시나리오·성공조건 생성 전담. "이 자산 평가할 시나리오 만들어줘", "성공조건 뽑아줘", "이 에이전트 어떻게 검증하지", "테스트 시나리오 설계해줘" 같은 요청에 트리거. OpsPilot이 헤드리스로 자산 본문을 주입해 호출하거나, 평가 입력을 짜야 할 때 적극 제안한다.
-allowed-tools:
+tools:
   - Read
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: wiki-lookup
 description: 작업 전에 호출하는 지식 vault wiki 조회 도구. 주제·영역·키워드를 받아 관련 wiki 페이지를 찾아 요약하고 백링크로 이어진 관련 페이지를 함께 반환한다. read-only — wiki 수정·코드 작성·다른 에이전트 호출은 하지 않는다. 가볍고 빈번하게 호출된다.
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep

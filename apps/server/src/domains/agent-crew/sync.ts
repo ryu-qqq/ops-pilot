@@ -196,6 +196,60 @@ function resolveCrewRepoPath(): string {
   return path;
 }
 
+/**
+ * agent-crew 로컬 repo 에서 가장 높은 semver tag 를 best-effort 로 읽는다.
+ * repo·tag 가 없거나 git 이 실패하면 null (등록을 막지 않기 위함).
+ */
+export function latestCrewTag(): string | null {
+  const path = process.env.OPS_AGENT_CREW_PATH ?? DEFAULT_CREW_PATH;
+  if (!existsSync(join(path, ".git"))) return null;
+  try {
+    git(path, ["fetch", "--tags", "origin"]);
+  } catch {
+    // offline — 로컬 tag 로 진행
+  }
+  try {
+    const tags = git(path, ["tag", "--list", "--sort=-v:refname"])
+      .split("\n")
+      .map((t) => t.trim())
+      .filter((t) => /^v\d+\.\d+\.\d+$/.test(t));
+    return tags[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 소비 프로젝트에 `.claude/project.yaml` 이 없으면 기본값으로 만들어준다(있으면 건드리지 않음).
+ * 등록 직후 호출 — 손으로 yaml 을 쓰지 않아도 바로 sync 가능하게 하는 온보딩 마찰 제거.
+ * version 은 agent-crew 최신 tag(없으면 주석 힌트). 등록을 막으면 안 되므로 호출부에서 best-effort.
+ */
+export function scaffoldProjectYaml(clonePath: string): {
+  created: boolean;
+  path: string;
+  version: string | null;
+} {
+  const yamlPath = join(clonePath, ".claude/project.yaml");
+  if (existsSync(yamlPath)) return { created: false, path: yamlPath, version: null };
+
+  const version = latestCrewTag();
+  const today = new Date().toISOString().slice(0, 10);
+  const versionLine = version
+    ? `  version: ${version}\n  syncedAt: "${today}"\n`
+    : "  # version: vX.Y.Z   # 가져올 agent-crew tag — sync 전 채워주세요\n";
+  const body = `# OpsPilot 프로젝트 설정 — 등록 시 자동 생성(기본값). 필요하면 손으로 바꾸세요.
+project:
+  ide: claude-code        # claude-code | cursor | both
+agentCrew:
+${versionLine}  source: ${DEFAULT_SOURCE}
+  mustReference:
+    - ${PRINCIPLES_KEY}
+`;
+  mkdirSync(join(clonePath, ".claude"), { recursive: true });
+  writeFileSync(yamlPath, body, "utf8");
+  return { created: true, path: yamlPath, version };
+}
+
 function checkoutTag(crewRepoPath: string, tag: string): string {
   try {
     git(crewRepoPath, ["fetch", "--tags", "origin"]);

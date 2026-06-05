@@ -11,6 +11,14 @@ export function projectsBaseDir(): string {
 export class ProjectCloneError extends Error {}
 export class ProjectLinkError extends Error {}
 
+// 등록 폼에 `~/foo` 를 넣어도 깨지지 않게 홈 디렉터리를 먼저 확장한다.
+// Node 의 path.resolve 는 `~` 를 확장하지 않아 `.../apps/server/~/foo` 로 붙어버린다.
+export function expandHome(p: string): string {
+  if (p === "~") return homedir();
+  if (p.startsWith("~/")) return join(homedir(), p.slice(2));
+  return p;
+}
+
 // git URL → 디렉터리 슬러그 (owner__repo).
 export function slugFromUrl(gitUrl: string): string {
   const cleaned = gitUrl
@@ -79,7 +87,7 @@ export interface LinkLocalResult {
 
 // REG-02: 기존 로컬 checkout 연결 — clone 없음.
 export function linkLocalProject(input: LinkLocalInput): LinkLocalResult {
-  const clonePath = resolve(input.localPath);
+  const clonePath = resolve(expandHome(input.localPath));
   if (!existsSync(clonePath)) {
     throw new ProjectLinkError(`경로 없음: ${clonePath}`);
   }
@@ -127,7 +135,7 @@ export function linkLocalProject(input: LinkLocalInput): LinkLocalResult {
 }
 
 export function defaultNameFromPath(localPath: string): string {
-  return basename(resolve(localPath));
+  return basename(resolve(expandHome(localPath)));
 }
 
 // 스캔 전 최신화 (best-effort — 실패해도 기존 클론으로 진행).

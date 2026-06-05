@@ -1,7 +1,7 @@
 ---
 name: work-evaluator
 description: 완료된 작업을 "작업 원칙 4줄"(가정금지·최소·범위·검증)로 채점한다. 파이프라인 마지막 단계 또는 사용자 요청 시 호출. 축별 채점 + 근거 + 개선 포인트를 내고, vault raw/에 evaluation 시드로 기록. 작업을 수정하지 않는다 — 평가 전담.
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep

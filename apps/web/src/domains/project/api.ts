@@ -49,3 +49,22 @@ const installHooksResponse = z.object({
 export async function installHooks(projectId: string) {
   return apiPost(`/api/projects/${projectId}/install-hooks`, {}, installHooksResponse);
 }
+
+// 화면에 보여줄 부분만 발췌(서버 응답은 더 큼 — 나머지 키는 zod 가 무시).
+const syncAgentCrewResponse = z.object({
+  sync: z.object({
+    tag: z.string(),
+    tagSource: z.enum(["override", "project-yaml-newer", "lock"]),
+    copiedDirs: z.array(z.string()),
+    mustReference: z.object({ applied: z.boolean(), items: z.array(z.string()) }),
+  }),
+});
+export type SyncAgentCrewResult = z.infer<typeof syncAgentCrewResponse>;
+
+export async function syncAgentCrew(projectId: string) {
+  return apiPost(
+    `/api/projects/${projectId}/sync-agent-crew`,
+    { scan: true },
+    syncAgentCrewResponse,
+  );
+}

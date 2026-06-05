@@ -1,7 +1,7 @@
 ---
 name: notion-doc-writer
 description: Notion 페이지 저작 전담. 스펙·PRD·설계 문서·회의록 등 능동 산출 문서를 Notion 페이지로 작성·갱신한다. 장르는 본문 안에서 템플릿으로 분기 — 장르별 에이전트를 따로 두지 않는다. 오케스트레이터가 문서가 필요한 시점에 호출하거나 사용자가 직접 호출. raw 시드 합성·영구 지식베이스 승격은 wiki-curator 몫 — 이 에이전트는 "지금 만들어야 할 문서"를 쓴다.
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep
