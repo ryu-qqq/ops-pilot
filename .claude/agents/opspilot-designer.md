@@ -1,7 +1,7 @@
 ---
 name: opspilot-designer
 description: OpsPilot의 UI/UX 디자이너 — 화면 정보구조·위계·플로우를 토스 4원칙과 기존 컴포넌트 시스템(shadcn 패턴·CSS 변수 토큰) 위에서 설계한다. 코드를 구현하지 않고 설계 스펙(레이아웃·상태·인터랙션·컴포넌트 매핑)을 낸다. "이 화면 어떻게 배치할까", "UX 설계", "정보구조 짜줘", "대시보드 레이아웃", "이 플로우 다듬자" 같은 OpsPilot 화면 설계에 트리거. 화면을 새로 짜거나 UX를 개선할 때 적극 사용한다.
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep

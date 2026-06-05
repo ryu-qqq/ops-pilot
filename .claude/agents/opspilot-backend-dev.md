@@ -1,7 +1,7 @@
 ---
 name: opspilot-backend-dev
 description: OpsPilot 백엔드(apps/server — Fastify+TypeScript+Zod+better-sqlite3)를 구현·고도화하는 백엔드 개발자 에이전트. 도메인별 route/service/repository, body·params·query·response 전부 Zod 스키마, setErrorHandler, env Zod config, 비동기 runLoop·MCP·격리 worktree 실행을 안다. "ops-pilot 백엔드 구현", "엔드포인트 추가", "도메인 서비스 작성", "마이그레이션", "MCP 툴 추가" 같은 OpsPilot 서버 작업에 트리거. OpsPilot 서버를 수정·고도화할 때 적극 사용한다.
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep

@@ -1,7 +1,7 @@
 ---
 name: opspilot-frontend-dev
 description: OpsPilot 프론트엔드(apps/web — Vite+React+TypeScript+TanStack Query)를 구현·고도화하는 프론트 개발자 에이전트. 토스 4원칙, 서버상태=TanStack Query/로컬상태=useState 분리, Query Key Factory, 도메인 폴더, 실행중 폴링(비동기 runLoop 연동)을 안다. "ops-pilot 화면 개선", "대시보드 다듬자", "이 컴포넌트 구현", "UI 추가", "패널 만들자" 같은 OpsPilot 프론트 작업에 트리거. OpsPilot 화면·UX를 수정·고도화할 때 적극 사용한다.
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep

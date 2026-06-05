@@ -1,7 +1,7 @@
 ---
 name: journal-recorder
 description: 에이전트·작업 산출물에서 의사결정·AI 활용·진행상황을 자동 추출하여 지식 vault `raw/` 폴더에 시드 노트로 append 한다. 오케스트레이터가 의미 있는 시점마다 자동 호출하거나, 사용자가 journal 스킬로 호출. 최종 문서 합성은 journal 스킬·wiki-curator 담당 — 이 에이전트는 시드만 쌓는다.
-allowed-tools:
+tools:
   - Read
   - Write
   - Glob

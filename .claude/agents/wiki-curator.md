@@ -1,7 +1,7 @@
 ---
 name: wiki-curator
 description: 지식 vault wiki 운영(write). raw 시드가 누적되면 wiki 페이지로 합성·승격하고, 결정사항을 반영하며 백링크 정합·신선도를 점검한다. 지식이 복리로 쌓이게 하는 핵심 에이전트. 오케스트레이터가 작업 완료 시 호출하거나 사용자가 "vault 정리해줘"로 호출. wiki-lookup(read)과 분리된 write 전담.
-allowed-tools:
+tools:
   - Read
   - Write
   - Edit

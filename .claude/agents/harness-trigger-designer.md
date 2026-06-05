@@ -1,7 +1,7 @@
 ---
 name: harness-trigger-designer
 description: 하네스 자산(skill·agent)의 description과 트리거 키워드를 설계한다. under-trigger 방지, should-trigger/should-not-trigger 경계 의식, near-miss 구분. 트리거/비트리거 예시 쿼리도 산출 — 이후 ops-pilot trigger-eval 입력. 트리거 정확도 측정은 하지 않는다(ops-pilot 몫) — 설계 전담. harness-creator 스킬·오케스트레이터가 호출.
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep

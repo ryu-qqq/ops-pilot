@@ -1,7 +1,7 @@
 ---
 name: adr-author
 description: 리서치 브리프를 받아 ADR(Architecture Decision Record)을 in-repo docs/adr/ 에 작성·확정한다. 초안은 결정 TBD·status Proposed로, 사람이 결정하면 Accepted로 확정. ADR 형식·번호·상태 관리 전담. /adr 스킬·오케스트레이터가 호출.
-allowed-tools:
+tools:
   - Read
   - Write
   - Edit

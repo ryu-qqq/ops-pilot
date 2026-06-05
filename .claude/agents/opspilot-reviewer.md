@@ -1,7 +1,7 @@
 ---
 name: opspilot-reviewer
 description: OpsPilot 변경(diff·PR·구현 결과)을 토스 4원칙·Query Key Factory·Fastify+Zod 컨벤션과 운영 함정(서버 격리·비동기 runLoop·응답 스키마 노출) 기준으로 리뷰하는 리뷰형 에이전트. 코드를 고치지 않고 방향·위험을 짚는다. "이 변경 봐줘", "ops-pilot 리뷰", "이거 컨벤션 맞아?", "응집도 괜찮아?", "이 PR 위험 없나" 같은 OpsPilot 자체 변경 검토에 트리거. OpsPilot 구현 직후·커밋 전 적극 사용한다.
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep

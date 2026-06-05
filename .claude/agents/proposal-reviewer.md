@@ -1,7 +1,7 @@
 ---
 name: proposal-reviewer
 description: work-evaluator가 만든 improvement proposal(draft)을 프로젝트 clone 맥락에서 검토한다. 기존 cursor rule·CI workflow·.claude 자산과 중복·충돌을 Read/Grep으로 확인하고 approve/reject/revise JSON을 출력. 파일을 수정하지 않는다 — 검토·추천 전담.
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep

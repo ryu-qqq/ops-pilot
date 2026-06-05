@@ -1,7 +1,7 @@
 ---
 name: decision-researcher
 description: 기능·기술 문제를 받아 의사결정용 리서치 브리프를 만든다. 코드베이스 조사 + 받은 vault 선례 반영 + 후보 옵션·트레이드오프 정리. ADR 작성의 입력. 결정하거나 ADR을 쓰지 않는다 — 조사 전담. /adr 스킬·오케스트레이터·사용자가 호출.
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep
