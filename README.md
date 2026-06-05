@@ -45,21 +45,7 @@ Claude Code로 만든 에이전트·스킬·커맨드가 진짜 잘 작동하는
 ./scripts/bootstrap.sh
 ```
 
-전제조건을 점검하고 의존성 설치·DB 마이그레이션·서버(:3001)·프론트(:5173)를 멱등하게 띄운다. 브라우저로 `http://localhost:5173` 을 연 뒤 헤더의 나침반(가이드 투어)을 켜면, 프로젝트 등록부터 개선안 결정까지 여섯 단계를 짚어준다 — 처음이면 이걸 따라가면 된다.
-
-손으로 띄우려면:
-
-```bash
-corepack pnpm install
-cd apps/server && corepack pnpm db:migrate && corepack pnpm dev   # :3001
-cd apps/web && corepack pnpm dev                                  # :5173
-```
-
-Claude Code 세션에서 OpsPilot 툴을 쓰려면 MCP를 등록한다.
-
-```bash
-claude mcp add --transport http opspilot http://localhost:3001/mcp
-```
+이 한 줄이 전제조건 점검·의존성 설치·DB 준비·서버(:3001)·웹(:5173) 기동·MCP 등록까지 한 번에 해준다. 브라우저로 `http://localhost:5173` 을 열고 헤더의 나침반(가이드 투어)을 켜면 된다 — 프로젝트 등록부터 개선안 결정까지 따라가며 짚어준다.
 
 ## 더 자세히
 
@@ -67,13 +53,19 @@ claude mcp add --transport http opspilot http://localhost:3001/mcp
 
 ## 스택
 
-pnpm 모노레포다. `apps/web` 은 Vite·React·TypeScript(TanStack Query, shadcn/ui, React Flow), `apps/server` 는 Fastify·TypeScript·better-sqlite3, `packages/*` 는 공유 설정과 Zod 스키마. Node 20 이상, `corepack pnpm` 을 쓴다.
+pnpm 모노레포다. Node 20 이상, `corepack pnpm` 을 쓴다.
+
+| 워크스페이스 | 기술 |
+| --- | --- |
+| `apps/web` | Vite · React · TypeScript · TanStack Query · shadcn/ui · Tailwind · React Flow |
+| `apps/server` | Fastify · TypeScript · better-sqlite3 |
+| `packages/*` | 공유 ESLint/TS 설정 · Zod 스키마 |
 
 코드 규칙은 [CONVENTIONS.md](./CONVENTIONS.md), 데이터 모델은 [docs/DATA_MODEL.md](./docs/DATA_MODEL.md)에 있다.
 
-## 아직 안 된 것
+## Todo
 
-- 검증한 버전을 다른 프로젝트로 옮기는 건 아직 안 된다. 지금은 같은 자산 안에서 버전을 올리는 데까지만 된다.
-- 사람이 매긴 점수랑 회고를 모아서 "이렇게 고쳐봐" 추천으로 이어주는 건 아직이다. 지금은 일단 쌓기만 한다 — 그걸 나중에 추천 만드는 재료로 쓸 생각이다.
-- 깨끗한 컴퓨터에서 npm 한 줄로 까는 건 아직 못 만들었다. 지금은 레포를 클론해서 직접 띄워야 한다.
-- 로컬 Claude Code 환경만 본다. Agent SDK나 클라우드 실행은 나중 일이다.
+- [ ] 검증한 버전을 다른 프로젝트로 이식 — 지금은 같은 자산 안에서 버전 올리기까지.
+- [ ] 사람 점수·회고를 "이렇게 고쳐봐" 추천으로 되먹이기 — 지금은 쌓기만 한다.
+- [ ] npm 한 줄 설치 — 지금은 레포 클론해서 직접 띄운다.
+- [ ] Agent SDK·클라우드 실행 — 지금은 로컬 Claude Code 환경만.
