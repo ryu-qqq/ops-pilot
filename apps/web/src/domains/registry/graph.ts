@@ -18,6 +18,7 @@ export type StatusTone = "green" | "amber" | "red" | "none";
 export interface AssetStatus {
   tone: StatusTone;
   label: string; // 정상 / 주의 / 문제 / —
+  reason: string; // 왜 이 상태인지 한 줄 — 미사용/형식 경고/형식 오류 구분 (UI 툴팁용)
 }
 
 // (kind:name) 정규 키 — usage·graph·중복 dedup 의 단일 키 형식.
@@ -39,13 +40,23 @@ export function computeAssetStatus(
   const errorCount = lint?.errorCount ?? 0;
   const warningCount = lint?.warningCount ?? 0;
 
-  if (errorCount > 0) return { tone: "red", label: "문제" };
+  if (errorCount > 0)
+    return {
+      tone: "red",
+      label: "문제",
+      reason: `형식 오류 ${String(errorCount)}건 — frontmatter 가 깨져 트리거가 안 됩니다`,
+    };
 
   // usage 미추적 종류(command/cursor): 형식만 본다. 형식 OK → '—'.
   const tracked = usage?.supported ?? false;
   if (!tracked) {
-    if (warningCount > 0) return { tone: "amber", label: "주의" };
-    return { tone: "none", label: "—" };
+    if (warningCount > 0)
+      return {
+        tone: "amber",
+        label: "주의",
+        reason: `형식 경고 ${String(warningCount)}건 (사용량은 추적 안 하는 종류)`,
+      };
+    return { tone: "none", label: "—", reason: "형식 OK · 사용량은 추적하지 않는 종류" };
   }
 
   const neverUsed = usage?.neverUsed ?? false;
@@ -54,12 +65,26 @@ export function computeAssetStatus(
 
   // dead: 고아 에이전트인데 미사용 → 진짜 죽은 자산(prune 후보).
   if (asset.kind === "agent" && orphan && neverUsed)
-    return { tone: "red", label: "문제" };
+    return {
+      tone: "red",
+      label: "문제",
+      reason: "아무 스킬·커맨드도 호출 안 하고 한 번도 안 쓰임 — 죽은 자산(prune 후보)",
+    };
 
-  if (warningCount > 0) return { tone: "amber", label: "주의" };
-  if (neverUsed) return { tone: "amber", label: "주의" };
+  if (warningCount > 0)
+    return {
+      tone: "amber",
+      label: "주의",
+      reason: `형식 경고 ${String(warningCount)}건 — 동작은 하지만 frontmatter 손볼 곳 있음`,
+    };
+  if (neverUsed)
+    return {
+      tone: "amber",
+      label: "주의",
+      reason: "형식은 OK인데 아직 한 번도 안 쓰임 — 미사용(prune 후보일 수 있음)",
+    };
 
-  return { tone: "green", label: "정상" };
+  return { tone: "green", label: "정상", reason: "형식 OK · 쓰이거나 다른 자산에 엮여 있음" };
 }
 
 // 고아 에이전트 판정 (독립 그룹 멤버십). referencedBy 가 비어야 독립.

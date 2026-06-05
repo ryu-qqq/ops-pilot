@@ -91,10 +91,25 @@ export function Dot({ className }: { className: string }) {
   );
 }
 
-// 상태 셀 — 무상 구조 신호 롤업(품질 아님). 점 + 라벨.
-export function StatusCell({ tone, label }: { tone: StatusTone; label: string }) {
+// 상태 셀 — 무상 구조 신호 롤업(품질 아님). 점 + 라벨 + 사유 툴팁.
+// reason 을 title 로 달아 "왜 이 색인지"(미사용/형식 경고/형식 오류)를 hover 로 구분하게 한다.
+export function StatusCell({
+  tone,
+  label,
+  reason,
+}: {
+  tone: StatusTone;
+  label: string;
+  reason?: string;
+}) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs">
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 text-xs",
+        reason != null && "cursor-help",
+      )}
+      title={reason}
+    >
       <Dot className={STATUS_DOT[tone]} />
       <span
         className={cn(
@@ -165,7 +180,7 @@ export function RelationCell({ relation }: { relation: RelationInfo }) {
 export interface RowMeta {
   asset: Asset;
   usage?: AssetUsage;
-  status: { tone: StatusTone; label: string };
+  status: { tone: StatusTone; label: string; reason?: string };
   errorMessage?: string; // 형식 에러일 때만 인라인 메시지
 }
 

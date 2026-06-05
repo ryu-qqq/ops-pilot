@@ -181,7 +181,11 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
               </button>
               <NameCell meta={meta} />
               {showRelation && <RelationCell relation={relationFor(skill)} />}
-              <StatusCell tone={meta.status.tone} label={meta.status.label} />
+              <StatusCell
+              tone={meta.status.tone}
+              label={meta.status.label}
+              reason={meta.status.reason}
+            />
               <span className="text-right text-sm">
                 <UsageCell usage={meta.usage} />
               </span>
@@ -213,6 +217,7 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
                   <StatusCell
                     tone={cmeta.status.tone}
                     label={cmeta.status.label}
+                    reason={cmeta.status.reason}
                   />
                   <span className="text-right text-sm">
                     <UsageCell usage={cmeta.usage} />
@@ -250,7 +255,11 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
           >
             <NameCell meta={meta} />
             {showRelation && <RelationCell relation={relationFor(agent)} />}
-            <StatusCell tone={meta.status.tone} label={meta.status.label} />
+            <StatusCell
+              tone={meta.status.tone}
+              label={meta.status.label}
+              reason={meta.status.reason}
+            />
             <span className="text-right text-sm">
               <UsageCell usage={meta.usage} />
             </span>
@@ -282,7 +291,11 @@ export function AssetRelationTree({ ctx }: { ctx: ToolkitContext }) {
           >
             <NameCell meta={meta} />
             {showRelation && <RelationCell relation={relationFor(cmd)} />}
-            <StatusCell tone={meta.status.tone} label={meta.status.label} />
+            <StatusCell
+              tone={meta.status.tone}
+              label={meta.status.label}
+              reason={meta.status.reason}
+            />
             <span className="text-right text-sm">
               <UsageCell usage={meta.usage} />
             </span>
