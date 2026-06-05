@@ -32,6 +32,7 @@ import { RunRetro } from "../../run/components/run-retro";
 import { TraceView } from "../../run/components/trace-view";
 import { VerdictStrip } from "../../run/components/verdict-strip";
 import { ingestStatusVariant, runStatusVariant, triggerVariant } from "../lib/badge-variant";
+import { CommitDiffView } from "./commit-diff-view";
 
 /**
  * 점진적 노출용 disclosure 섹션 — 기본 닫힘, 제목 클릭으로 토글. 의존성 추가 없이
@@ -331,12 +332,14 @@ export function WorkDetailIngest({
         </Disclosure>
       )}
 
-      {/* 심화(접힘): 변경 diff */}
-      {evalRunId !== null && (
-        <Disclosure title="변경 diff">
-          <DiffView runId={evalRunId} />
-        </Disclosure>
-      )}
+      {/* 심화(접힘): 변경 diff — 이 커밋(gitRef)이 실제로 바꾼 내용(diffSummary).
+          평가 run의 worktree diff(DiffView)가 아니다 — work-evaluator는 채점만 해 항상 0건이었다. */}
+      <Disclosure title="변경 diff">
+        <CommitDiffView
+          diffSummary={data.diffSummary}
+          truncated={data.contextJson.diffTruncated ?? false}
+        />
+      </Disclosure>
     </div>
   );
 }
