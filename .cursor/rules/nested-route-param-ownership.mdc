@@ -1,0 +1,30 @@
+---
+description: 중첩 REST 라우트의 부모 path 파라미터는 검증·사용하거나 명시적으로 제거한다
+globs: apps/server/src/routes/**/*.ts
+alwaysApply: false
+---
+# 중첩 라우트 파라미터 소유 검증
+
+`/parents/:id/children/:childId/...` 형태의 중첩 라우트에서 부모 `:id` 를 schema.params 로
+받아 검증(uuid 등)해 놓고 핸들러 본문에서 전혀 쓰지 않으면 안 된다.
+
+## 규칙
+- 부모 path 파라미터(`:id`)는 핸들러에서 **반드시 사용**한다 — 최소한 부모 존재 확인,
+  가능하면 자식이 그 부모에 **속하는지** 검증한다.
+  - 예: `/registry/assets/:id/versions/:versionId/content` 는 `versionContent(versionId)` 만
+    조회하지 말고, 해당 version 이 `assetId === id` 인지 확인한 뒤 본문을 돌려준다.
+- 형제 라우트에 이미 부모 검증 패턴이 있으면(예: `/assets/:id/lint` 의 `getAsset(req.params.id)`),
+  같은 부모 prefix 의 새 라우트도 **동일하게** 부모를 검증한다 — 검증 수준이 라우트마다 갈리지 않게.
+- 부모 파라미터가 정말 불필요하면 path 에서 빼서 평평한 라우트(`/versions/:versionId/...`)로 만든다.
+  받아만 두고 안 쓰는 'uuid 검증 장식'은 금지.
+
+## 왜
+schema.params 의 uuid 검증은 형식만 본다. 소유관계(version 이 그 asset 의 것인지)는 검증하지 않으므로,
+무관한 부모 id 와 자식 id 를 조합해도 자식 리소스가 그대로 노출된다.
+내부 도구라 보안 위협은 낮지만, 같은 도메인에서 라우트마다 검증 수준이 다르면 IDOR 류 회귀가
+빌드·타입체크를 통과한 채 숨는다.
+
+## 검토 체크
+- 핸들러 본문에서 `req.params` 의 모든 키가 실제로 참조되는가? (선언만 하고 미사용인 파라미터 grep)
+- 같은 부모 prefix 의 형제 라우트들이 부모 존재/소유를 일관되게 검증하는가?
+- 평가축: 부모 검증 누락 시 가정금지 ✗, 형제와 검증 수준 불일치 시 범위·일관성 ✗
