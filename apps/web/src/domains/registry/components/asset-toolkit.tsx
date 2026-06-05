@@ -90,12 +90,14 @@ function Chip({
 function Facet({
   label,
   children,
+  dataTour,
 }: {
   label: string;
   children: React.ReactNode;
+  dataTour?: string;
 }) {
   return (
-    <div className="flex shrink-0 items-center gap-1.5">
+    <div className="flex shrink-0 items-center gap-1.5" data-tour={dataTour}>
       <span className="text-[10px] text-muted-foreground">{label}</span>
       <div className="inline-flex gap-0.5 rounded-md border p-0.5">
         {children}
@@ -303,7 +305,7 @@ export function AssetToolkit({
 
       {/* 필터 1줄 — facet(상태/종류/출처)마다 한 덩어리, 공간 부족 시 facet 통째로 줄바꿈. */}
       <div className="flex flex-wrap gap-x-4 gap-y-2">
-        <Facet label="상태">
+        <Facet label="상태" dataTour="asset-status">
           <Chip active={status === "all"} onClick={() => setStatus("all")}>
             전체 {statusCounts.total}
           </Chip>
@@ -351,11 +353,13 @@ export function AssetToolkit({
         )}
       </div>
 
-      {view === "list" ? (
-        <AssetFlatList ctx={ctx} />
-      ) : (
-        <AssetRelationTree ctx={ctx} />
-      )}
+      <div data-tour="asset-list">
+        {view === "list" ? (
+          <AssetFlatList ctx={ctx} />
+        ) : (
+          <AssetRelationTree ctx={ctx} />
+        )}
+      </div>
     </div>
   );
 }

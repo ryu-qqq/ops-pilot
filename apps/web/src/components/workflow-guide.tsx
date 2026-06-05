@@ -58,25 +58,34 @@ export const GUIDES: Record<GuideTab, GuideContent> = {
     footnote: "거절 패턴이 다음 eval에 자동 반영되지는 않습니다 (플라이휠 미구현).",
   },
   registry: {
-    headline: "Harness 자산 — 등록 · 저작 · 실행 · 채택",
+    headline: "Harness 자산 — 등록 · 스캔 · 상태 읽기 · 평가 · 정리",
     steps: [
       {
         label: "준비",
-        detail: "git URL로 프로젝트 등록 → 스캔 → (권장) 버전 강제 훅 설치. agent-crew는 sync로 `.claude`에 반영.",
+        detail:
+          "프로젝트 등록 → 스캔 → (권장) 버전 강제 훅 설치. agent-crew 같은 공용 자산은 「agent-crew 동기화」로 `.claude`에 받아옵니다. 스캔하면 자산이 목록에 잡힙니다.",
       },
       {
-        label: "저작",
-        detail: "자산 폼으로 에이전트/스킬/커맨드 작성. 저장 시 구조화 커밋 = 버전 하나.",
+        label: "상태 읽기",
+        detail:
+          "자산마다 점 색으로 상태를 봅니다. 빨강(문제)=형식 오류로 트리거가 안 됨, 노랑(주의)=형식 경고가 있거나 한 번도 안 쓰임, 초록(정상)=형식 OK에 쓰이거나 다른 자산에 엮여 있음. 점에 마우스를 올리면 왜 그 색인지 한 줄로 나옵니다. 행을 누르면 그 자산이 뭘 하는지(description)도 상세에 보입니다.",
       },
       {
-        label: "실행",
-        detail: "버전 × 시나리오로 격리 worktree 실행. fixture(0토큰) 또는 local-claude.",
+        label: "트리거 평가",
+        detail:
+          "트리거 탭에서 이 자산의 description이 제대로 발화하는지 잽니다. 「쿼리 자동생성」으로 켜질·안 켜질 예시 쿼리를 만들고(직접 입력도 됨), 「트리거 평가 실행」이 그 쿼리에서 실제로 트리거되는지 측정합니다(작업을 끝까지 수행하진 않고 첫 호출만 봅니다). 「description 자동개선」은 틀린 케이스로 더 나은 description을 제안합니다 — 자동 반영은 안 하니 복사해 넣으세요.",
       },
       {
-        label: "채택",
-        detail: "버전 비교·벤치마크로 가린 버전을 「이 버전 채택」 — git 앞으로 감기.",
+        label: "실행 · 채택",
+        detail:
+          "시나리오 · 실행 탭에서 버전 × 시나리오로 격리 worktree 실행(fixture는 0토큰, local-claude는 실토큰). 버전 비교·벤치마크로 더 나은 버전을 「이 버전 채택」하면 git이 앞으로 감깁니다.",
+      },
+      {
+        label: "정리 (prune)",
+        detail:
+          "안 쓰는 전용 자산은 버전 탭 아래 「삭제(prune)」로 지웁니다. 파일을 빼고 구조화 커밋을 남긴 뒤 등록·평가 이력까지 영구 삭제합니다(파일은 git에서 복구되지만 평가 이력은 못 살림). 여러 곳이 쓰는 공용 crew 자산은 실수 방지로 막혀 있습니다.",
       },
     ],
-    footnote: "일상 Cursor 코딩 루프는 작업 탭이 중심, harness 실험은 이 탭.",
+    footnote: "일상 Cursor 코딩 루프는 작업 탭이 중심, harness 실험·정리는 이 탭.",
   },
 };

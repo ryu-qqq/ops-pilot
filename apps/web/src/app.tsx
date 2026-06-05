@@ -14,6 +14,7 @@ import { InfoDialog } from "./components/overview-info-dialog";
 import { ServerHealthIndicator } from "./components/server-health-indicator";
 import { type Tab, VALID_TABS } from "./app-tabs";
 import { useIngests } from "./domains/feedback/use-feedback";
+import { useAssets } from "./domains/registry/use-registry";
 import { useTour } from "./domains/onboarding/use-tour";
 import { TourOverlay } from "./domains/onboarding/tour-overlay";
 
@@ -23,6 +24,12 @@ export function App() {
   const [projectId, setProjectId] = usePersistedState<string | null>("opspilot.projectId", null);
   const [workSelection, setWorkSelection] = usePersistedState<WorkSelection>(
     "opspilot.work.selection",
+    null,
+  );
+  // 자산 선택을 app 으로 끌어올림 — 프로젝트 탭 투어가 첫 자산을 자동 선택해 상세까지 짚기 위함.
+  // (RegistryView 가 쓰던 키와 동일 — 단일 소유로 이전.)
+  const [registryAssetId, setRegistryAssetId] = usePersistedState<string | null>(
+    "opspilot.registry.assetId",
     null,
   );
   // 비교·벤치마크 다중 run 진입점(★결정1: 유지 + 작업 목록 상단 보조 진입점).
@@ -35,11 +42,17 @@ export function App() {
   // useIngests 는 진행 중 ingest 가 있을 때만 폴링하고 work 탭과 같은 쿼리 키라 중복 요청은 dedupe 된다.
   const { data: tourIngests } = useIngests(projectId);
   const firstWorkId = tourIngests?.[0]?.id ?? null;
-  const tour = useTour({
+  // 프로젝트 탭 투어용 — 첫 자산을 상세 단계에서 자동 선택.
+  const { data: tourAssets } = useAssets(projectId);
+  const firstAssetId = tourAssets?.[0]?.id ?? null;
+  const tour = useTour(tab, {
     onTab: (t) => setTab(t),
-    onSelection: (needs) => {
-      if (needs && firstWorkId != null) setWorkSelection({ kind: "ingest", id: firstWorkId });
-      else setWorkSelection(null);
+    onSelection: (needs, t) => {
+      if (t === "work") {
+        setWorkSelection(needs && firstWorkId != null ? { kind: "ingest", id: firstWorkId } : null);
+      } else if (t === "registry") {
+        setRegistryAssetId(needs && firstAssetId != null ? firstAssetId : null);
+      }
     },
   });
 
@@ -79,7 +92,8 @@ export function App() {
             variant={tour.active ? "default" : "ghost"}
             size="icon"
             onClick={tour.toggle}
-            title="가이드 투어"
+            disabled={tour.total === 0}
+            title={tour.total === 0 ? "이 탭은 가이드 투어가 없어요" : "가이드 투어"}
             aria-label="가이드 투어"
           >
             <Compass className="h-4 w-4" />
@@ -113,6 +127,8 @@ export function App() {
           <RegistryView
             projectId={projectId}
             onProjectIdChange={setProjectId}
+            selectedAssetId={registryAssetId}
+            onSelectAsset={setRegistryAssetId}
             onRunCreated={handleRunCreated}
             onBenchmarkStarted={handleBenchmarkStarted}
           />

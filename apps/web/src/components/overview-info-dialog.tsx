@@ -22,7 +22,7 @@ const DIALOG_META: Record<InfoTab, { description: string; label: string }> = {
     label: "개요 사용법",
   },
   registry: {
-    description: "Harness 자산 — 등록 · 저작 · 실행 · 채택 흐름.",
+    description: "자산을 등록·스캔하고, 상태를 읽고, 트리거를 평가하고, 안 쓰는 건 정리하는 곳.",
     label: "프로젝트 사용법",
   },
   work: {
