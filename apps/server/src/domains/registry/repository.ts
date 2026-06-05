@@ -141,6 +141,14 @@ export function latestContent(assetId: string): string | undefined {
   return row?.content;
 }
 
+// 특정 버전의 본문(상세 본문 뷰용).
+export function versionContent(versionId: string): string | undefined {
+  const row = getDb()
+    .prepare("SELECT content FROM asset_version WHERE id = ?")
+    .get(versionId) as { content: string } | undefined;
+  return row?.content;
+}
+
 export function assetVersionExists(id: string): boolean {
   return (
     getDb().prepare("SELECT 1 FROM asset_version WHERE id = ?").get(id) !==

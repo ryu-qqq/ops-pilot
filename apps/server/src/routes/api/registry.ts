@@ -3,11 +3,13 @@ import { z } from "zod";
 import {
   assetGraphSchema,
   assetLintResultSchema,
+  assetVersionContentSchema,
   assetVersionSchema,
   scenarioSchema,
 } from "@opspilot/shared-types";
 import {
   parseFrontmatterDescription,
+  stripFrontmatter,
   validateFrontmatter,
 } from "../../domains/asset-lint/validate.js";
 import {
@@ -15,6 +17,7 @@ import {
   assetExists,
   latestContent,
   listVersions,
+  versionContent,
 } from "../../domains/registry/repository.js";
 import { buildAssetGraph } from "../../domains/registry/graph.js";
 import { getProject } from "../../domains/project/repository.js";
@@ -48,6 +51,28 @@ const registry: FastifyPluginAsyncZod = async (fastify) => {
           .send({ error: "NotFound", detail: "asset not found" });
       }
       return { versions: listVersions(req.params.id) };
+    },
+  );
+
+  // 특정 버전의 마크다운 본문(상세 본문 뷰용) — frontmatter 제외.
+  fastify.get(
+    "/registry/assets/:id/versions/:versionId/content",
+    {
+      schema: {
+        params: z.object({
+          id: z.string().uuid(),
+          versionId: z.string().uuid(),
+        }),
+        response: { 200: assetVersionContentSchema, 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      const raw = versionContent(req.params.versionId);
+      if (raw === undefined)
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "version not found" });
+      return { content: stripFrontmatter(raw) };
     },
   );
 
