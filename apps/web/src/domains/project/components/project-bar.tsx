@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CheckCircle2, Plus, RotateCw } from "lucide-react";
+import { CheckCircle2, DownloadCloud, Plus, RotateCw } from "lucide-react";
 import type { Project, ProjectWorkspaceMode } from "@opspilot/shared-types";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
@@ -14,7 +14,12 @@ import {
 import { ErrorNotice, InfoMark, InlineError, Loading } from "../../../lib/ui";
 import { cn } from "../../../lib/utils";
 import { useScanWorkMetrics } from "../../registry/use-registry";
-import { useInstallHooks, useProjects, useScanProject } from "../use-project";
+import {
+  useInstallHooks,
+  useProjects,
+  useScanProject,
+  useSyncAgentCrew,
+} from "../use-project";
 import { ProjectRegisterDialog } from "./project-register-dialog";
 
 interface Props {
@@ -43,6 +48,7 @@ function ProjectModeBadge({ mode }: { mode: ProjectWorkspaceMode }) {
 export function ProjectBar({ selectedProjectId, onSelect }: Props) {
   const { data: projects, isPending: projectsPending } = useProjects();
   const scan = useScanProject(selectedProjectId);
+  const sync = useSyncAgentCrew(selectedProjectId);
   const hooks = useInstallHooks();
   const scanWork = useScanWorkMetrics();
 
@@ -112,6 +118,28 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
         <Button
           type="button"
           variant="outline"
+          disabled={selectedProjectId === null || sync.isPending}
+          onClick={() => {
+            if (selectedProjectId !== null) sync.mutate(selectedProjectId);
+          }}
+        >
+          {sync.isPending ? (
+            <Loading label="동기화 중…" />
+          ) : (
+            <>
+              <DownloadCloud className="h-3.5 w-3.5" />
+              agent-crew 동기화
+              <InfoMark
+                label="agent-crew 동기화"
+                help="project.yaml 의 agentCrew.version(tag) 기준으로 공용 자산(agents·skills·references)을 .claude 에 복사하고, mustReference 를 CLAUDE.md/Cursor 룰에 주입한 뒤 스캔까지 합니다. project.yaml 이 있어야 동작합니다."
+              />
+            </>
+          )}
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
           disabled={selectedProjectId === null || scanWork.isPending}
           onClick={() => {
             if (selectedProjectId !== null) scanWork.mutate({ projectId: selectedProjectId });
@@ -153,12 +181,19 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
       </div>
 
       {/* 액션 결과 줄 */}
-      {(scan.isSuccess || hooks.isSuccess || scanWork.isSuccess) && (
+      {(scan.isSuccess || sync.isSuccess || hooks.isSuccess || scanWork.isSuccess) && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
           {scan.isSuccess && (
             <span className="inline-flex items-center gap-1 text-success">
               <CheckCircle2 className="h-3.5 w-3.5" />
               자산 {scan.data.scannedAssets} · 신규버전 {scan.data.saved.versions}
+            </span>
+          )}
+          {sync.isSuccess && (
+            <span className="inline-flex items-center gap-1 text-success">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              동기화 {sync.data.sync.tag} · {sync.data.sync.copiedDirs.join("·")}
+              {sync.data.sync.mustReference.applied ? " · MUST 주입됨" : ""}
             </span>
           )}
           {scanWork.isSuccess && (
@@ -179,6 +214,7 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
 
       {hooks.isError && <InlineError error={hooks.error} />}
       {scanWork.isError && <InlineError error={scanWork.error} />}
+      {sync.isError && <ErrorNotice error={sync.error} />}
       {scan.isError && <ErrorNotice error={scan.error} />}
 
       {selectedProject && <ProjectPathHint project={selectedProject} />}

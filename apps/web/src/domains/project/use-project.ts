@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { registryKeys } from "../registry/api";
-import { createProject, getProjects, installHooks, projectKeys, scanProject } from "./api";
+import {
+  createProject,
+  getProjects,
+  installHooks,
+  projectKeys,
+  scanProject,
+  syncAgentCrew,
+} from "./api";
 
 export function useProjects() {
   return useQuery({ queryKey: projectKeys.list(), queryFn: getProjects });
@@ -29,4 +36,20 @@ export function useScanProject(projectId?: string | null) {
 
 export function useInstallHooks() {
   return useMutation({ mutationFn: installHooks });
+}
+
+/** agent-crew 동기화(자산 복사 + project.yaml/lock 버전 갱신 + 스캔). */
+export function useSyncAgentCrew(projectId?: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationKey:
+      projectId != null
+        ? ([...projectKeys.all, "sync-agent-crew", projectId] as const)
+        : undefined,
+    mutationFn: syncAgentCrew,
+    onSuccess: (_data, id) => {
+      void qc.invalidateQueries({ queryKey: registryKeys.assets(id) });
+      void qc.invalidateQueries({ queryKey: projectKeys.all });
+    },
+  });
 }

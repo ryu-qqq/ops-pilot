@@ -1,4 +1,5 @@
 import type { Project } from "@opspilot/shared-types";
+import { scaffoldProjectYaml } from "../agent-crew/sync.js";
 import {
   createProject,
   getProjectByClonePath,
@@ -44,6 +45,16 @@ function isRegisteredGitUrl(gitUrl: string): boolean {
   return listProjects().some((p) => normalizeGitUrl(p.gitUrl) === norm);
 }
 
+// 등록 직후 project.yaml 을 기본값으로 만들어 sync 진입을 매끄럽게 한다.
+// best-effort — yaml 생성 실패가 등록 자체를 깨면 안 된다.
+function ensureProjectYaml(clonePath: string): void {
+  try {
+    scaffoldProjectYaml(clonePath);
+  } catch {
+    /* 등록은 성공시키고 yaml 은 나중에 sync/수동으로 보강 */
+  }
+}
+
 // REG-02/05: REST · MCP 공통 프로젝트 등록.
 export function registerProject(input: RegisterProjectInput): Project {
   if (input.mode === "linked") {
@@ -62,7 +73,7 @@ export function registerProject(input: RegisterProjectInput): Project {
     if (isRegisteredGitUrl(linked.gitUrl)) {
       throw new ProjectRegisterError("Duplicate", "이미 등록된 git URL");
     }
-    return createProject({
+    const project = createProject({
       name: input.name ?? defaultNameFromPath(linked.clonePath),
       gitUrl: linked.gitUrl,
       clonePath: linked.clonePath,
@@ -70,6 +81,8 @@ export function registerProject(input: RegisterProjectInput): Project {
       workspaceMode: "linked",
       remoteVerified: linked.remoteVerified,
     });
+    ensureProjectYaml(project.clonePath);
+    return project;
   }
 
   if (isRegisteredGitUrl(input.gitUrl)) {
@@ -77,13 +90,15 @@ export function registerProject(input: RegisterProjectInput): Project {
   }
   try {
     const { clonePath, defaultBranch } = cloneProject(input.gitUrl);
-    return createProject({
+    const project = createProject({
       name: input.name ?? slugFromUrl(input.gitUrl),
       gitUrl: input.gitUrl,
       clonePath,
       defaultBranch,
       workspaceMode: "managed",
     });
+    ensureProjectYaml(project.clonePath);
+    return project;
   } catch (e) {
     if (e instanceof ProjectCloneError) {
       throw new ProjectRegisterError("CloneError", e.message);
