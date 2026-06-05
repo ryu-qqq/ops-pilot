@@ -79,6 +79,11 @@ function git(cwd: string, args: string[]): string {
   return execFileSync("git", args, { cwd, encoding: "utf8", maxBuffer: 8 * 1024 * 1024 }).trim();
 }
 
+/** 값 뒤 인라인 주석(` # ...`)을 떼고 trim 한다. project.yaml 의 인라인 주석을 허용하기 위함. */
+function stripInlineComment(value: string): string {
+  return value.replace(/\s+#.*$/, "").trim();
+}
+
 /** 블록 스타일 YAML 리스트(`key:` 다음 줄들의 `  - item`)를 읽는다. 없으면 undefined. */
 function parseYamlList(text: string, key: string): string[] | undefined {
   const lines = text.split("\n");
@@ -90,7 +95,7 @@ function parseYamlList(text: string, key: string): string[] | undefined {
     if (/^\s*#/.test(line)) continue;
     const match = line.match(/^\s+-\s+(.+?)\s*$/);
     if (match?.[1]) {
-      items.push(match[1]);
+      items.push(stripInlineComment(match[1]));
       continue;
     }
     break; // 빈 줄 또는 다음 키 = 리스트 끝
@@ -99,7 +104,10 @@ function parseYamlList(text: string, key: string): string[] | undefined {
 }
 
 function parseLockYaml(text: string): Partial<AgentCrewLockFile> {
-  const pick = (key: string) => text.match(new RegExp(`^${key}:\\s*(.+)$`, "m"))?.[1]?.trim();
+  const pick = (key: string) => {
+    const raw = text.match(new RegExp(`^${key}:\\s*(.+)$`, "m"))?.[1];
+    return raw === undefined ? undefined : stripInlineComment(raw);
+  };
   return {
     version: pick("version"),
     tag: pick("tag"),
