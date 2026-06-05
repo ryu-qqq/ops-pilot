@@ -12,6 +12,7 @@ import {
   getProjectWorkMetrics,
   getUsageGlobal,
   getProjectAssets,
+  getVersionContent,
   getVersions,
   improveTriggerDescription,
   pruneAsset,
@@ -136,6 +137,19 @@ export function useAssetLint(assetId: string | null) {
     queryKey: registryKeys.lint(assetId ?? "none"),
     queryFn: () => getAssetLint(assetId ?? ""),
     enabled: assetId !== null,
+  });
+}
+
+// 선택 버전의 마크다운 본문(상세 본문 뷰). 본문은 잘 안 바뀌니 길게 캐시.
+export function useVersionContent(
+  assetId: string | null,
+  versionId: string | null,
+) {
+  return useQuery({
+    queryKey: registryKeys.versionContent(versionId ?? "none"),
+    queryFn: () => getVersionContent(assetId ?? "", versionId ?? ""),
+    enabled: assetId !== null && versionId !== null,
+    staleTime: 5 * 60 * 1000,
   });
 }
 

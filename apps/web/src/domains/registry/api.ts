@@ -3,6 +3,7 @@ import {
   assetGraphSchema,
   assetLintResultSchema,
   assetSchema,
+  assetVersionContentSchema,
   assetVersionSchema,
   improveResultSchema,
   projectAssetLintSchema,
@@ -41,6 +42,8 @@ export const registryKeys = {
     [...registryKeys.all, "asset-graph", projectId] as const,
   versions: (assetId: string) =>
     [...registryKeys.all, "versions", assetId] as const,
+  versionContent: (versionId: string) =>
+    [...registryKeys.all, "version-content", versionId] as const,
   scenarios: (assetId: string) =>
     [...registryKeys.all, "scenarios", assetId] as const,
 };
@@ -151,6 +154,16 @@ export async function getVersions(assetId: string) {
   return (
     await apiGet(`/api/registry/assets/${assetId}/versions`, versionsResponse)
   ).versions;
+}
+
+// 특정 버전의 마크다운 본문(frontmatter 제외) — 상세 본문 뷰용.
+export async function getVersionContent(assetId: string, versionId: string) {
+  return (
+    await apiGet(
+      `/api/registry/assets/${assetId}/versions/${versionId}/content`,
+      assetVersionContentSchema,
+    )
+  ).content;
 }
 
 // OPSP-9: 자산별 시나리오 목록(회귀 셋 모드용).

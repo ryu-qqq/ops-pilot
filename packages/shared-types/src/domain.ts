@@ -786,6 +786,12 @@ export const assetLintResultSchema = z.object({
 });
 export type AssetLintResult = z.infer<typeof assetLintResultSchema>;
 
+// 자산 버전 본문(상세 본문 뷰용) — frontmatter 를 뗀 마크다운 본문.
+export const assetVersionContentSchema = z.object({
+  content: z.string(),
+});
+export type AssetVersionContent = z.infer<typeof assetVersionContentSchema>;
+
 // 프로젝트 전 자산 배치 lint (자산 헬스 대시보드용 — claude 없이 동기).
 export const projectAssetLintSchema = z.object({
   items: z.array(

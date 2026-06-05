@@ -49,6 +49,15 @@ export function parseFrontmatterDescription(content: string): string | null {
   }
 }
 
+/** frontmatter(--- ---) 를 떼고 마크다운 본문만 돌려준다(본문 뷰용). 파싱 실패 시 원문 그대로. */
+export function stripFrontmatter(content: string): string {
+  try {
+    return matter(content).content.trim();
+  } catch {
+    return content.trim();
+  }
+}
+
 export function validateFrontmatter(
   kind: AssetKind,
   content: string,

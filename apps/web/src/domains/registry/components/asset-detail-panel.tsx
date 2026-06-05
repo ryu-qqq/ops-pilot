@@ -2,12 +2,18 @@ import { useEffect, useState } from "react";
 import { Badge } from "../../../components/ui/badge";
 import { Card } from "../../../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
-import { EmptyState } from "../../../lib/ui";
+import { EmptyState, Loading } from "../../../lib/ui";
 import { BenchmarkLauncher } from "../../run/components/benchmark-launcher";
 import { RegressionLauncher } from "../../run/components/regression-launcher";
 import { RunLauncher } from "../../run/components/run-launcher";
 import { ScenarioManager } from "../../run/components/scenario-manager";
-import { useAssetLint, useAssets, useAssetVersions } from "../use-registry";
+import { Markdown } from "../../../lib/markdown";
+import {
+  useAssetLint,
+  useAssets,
+  useAssetVersions,
+  useVersionContent,
+} from "../use-registry";
 import { AssetLint } from "./asset-lint";
 import { AssetPruneSection } from "./asset-prune-section";
 import { TriggerEvalPanel } from "./trigger-eval-panel";
@@ -64,6 +70,33 @@ function FormatSummaryBadge({ assetId }: { assetId: string }) {
         </Badge>
       )}
     </>
+  );
+}
+
+// 선택 버전의 마크다운 본문 — 길 수 있어 높이 제한 + 스크롤. 본문 없으면 안내.
+function AssetBody({
+  assetId,
+  versionId,
+}: {
+  assetId: string;
+  versionId: string | null;
+}) {
+  const { data, isPending } = useVersionContent(assetId, versionId);
+  if (versionId === null) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        버전이 없습니다 — 본문을 표시할 수 없어요.
+      </p>
+    );
+  }
+  if (isPending) return <Loading label="본문 불러오는 중…" />;
+  if (data == null || data.trim() === "") {
+    return <p className="text-xs text-muted-foreground">본문이 비어 있습니다.</p>;
+  }
+  return (
+    <div className="max-h-[520px] overflow-auto rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+      <Markdown>{data}</Markdown>
+    </div>
   );
 }
 
@@ -147,6 +180,14 @@ export function AssetDetailPanel({
               onSelectVersion={onSelectVersion}
             />
           </Card>
+          {/* 선택 버전의 본문(마크다운). frontmatter 는 위 description 으로 이미 보여줌. */}
+          <Card className="p-4" data-tour="asset-body">
+            <h3 className="mb-2 text-xs font-semibold text-muted-foreground">
+              본문
+            </h3>
+            <AssetBody assetId={assetId} versionId={effectiveVersionId} />
+          </Card>
+
           {/* 파괴적 액션은 버전 탭 하단, 다른 액션과 시각적으로 분리. */}
           <div data-tour="asset-prune">
             <AssetPruneSection
