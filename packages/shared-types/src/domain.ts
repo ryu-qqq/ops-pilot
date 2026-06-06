@@ -826,3 +826,46 @@ export const assetGraphSchema = z.object({
   ),
 });
 export type AssetGraph = z.infer<typeof assetGraphSchema>;
+
+// ── 하네스 복리 증명 — 프로젝트 단위 정정비율 추세 (의제 002 고리 #3) ──
+// ⚠️ reference signal. 추세는 인과가 아니라 신호다 — 작업 난도·사용자 숙련도가 혼란변수.
+// 정정비율 = Σ correction_roundtrips ÷ Σ invocation_count (낮을수록 하네스가 덜 보챈다).
+
+// 주(week) 버킷 한 칸.
+export const compoundingTrendPointSchema = z.object({
+  // 버킷 시작일(월요일, UTC) YYYY-MM-DD.
+  periodStart: z.string(),
+  // 이 버킷에서 자산이 발화된 세션 수(표본). 적을수록 흔들린다.
+  sessions: z.number().int().nonnegative(),
+  invocations: z.number().int().nonnegative(),
+  corrections: z.number().int().nonnegative(),
+  // corrections ÷ invocations. 발화 0이면 null.
+  correctionRate: z.number().nullable(),
+});
+export type CompoundingTrendPoint = z.infer<typeof compoundingTrendPointSchema>;
+
+// 하네스를 손본 시점(개선안 적용). 추세 위 세로 마커.
+export const compoundingApplyEventSchema = z.object({
+  // ⚠️ 개선안 생성 시각(created_at) 기준 근사. applied 시각 컬럼이 없어 주 버킷
+  //    입도에서 허용 가능한 근사로 둔다(설계 문서의 열린 질문).
+  at: z.string(),
+  targetKind: z.string(),
+  targetPath: z.string(),
+});
+export type CompoundingApplyEvent = z.infer<typeof compoundingApplyEventSchema>;
+
+export const compoundingTrendSchema = z.object({
+  signalType: z.literal("reference"),
+  signalNote: z.string(),
+  projectId: id,
+  projectName: z.string(),
+  clonePath: z.string(),
+  bucket: z.literal("week"),
+  // periodStart 오름차순(과거→현재).
+  points: z.array(compoundingTrendPointSchema),
+  // at 오름차순.
+  applyEvents: z.array(compoundingApplyEventSchema),
+  totalSessions: z.number().int().nonnegative(),
+  totalInvocations: z.number().int().nonnegative(),
+});
+export type CompoundingTrend = z.infer<typeof compoundingTrendSchema>;

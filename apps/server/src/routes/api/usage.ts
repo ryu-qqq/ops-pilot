@@ -1,4 +1,5 @@
 import {
+  compoundingTrendSchema,
   projectUsageReportSchema,
   projectWorkMetricReportSchema,
   usageGlobalSchema,
@@ -15,6 +16,7 @@ import {
   runWorkMetricScan,
   workMetricsForProject,
 } from "../../domains/usage/work-metric-service.js";
+import { compoundingTrendForProject } from "../../domains/usage/compounding-trend-service.js";
 
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
 
@@ -161,6 +163,28 @@ const usage: FastifyPluginAsyncZod = async (fastify) => {
           .status(404)
           .send({ error: "NotFound", detail: "project not found" });
       return workMetricsForProject(project);
+    },
+  );
+
+  // 의제 002 고리 #3: 프로젝트 단위 정정비율 추세 + 개선안 적용 마커. 저장 지표만 읽는다.
+  fastify.get(
+    "/usage/compounding-trend",
+    {
+      schema: {
+        querystring: z.object({ projectId: z.string().uuid() }),
+        response: {
+          200: compoundingTrendSchema,
+          404: errorSchema,
+        },
+      },
+    },
+    async (req, reply) => {
+      const project = getProject(req.query.projectId);
+      if (!project)
+        return reply
+          .status(404)
+          .send({ error: "NotFound", detail: "project not found" });
+      return compoundingTrendForProject(project);
     },
   );
 
