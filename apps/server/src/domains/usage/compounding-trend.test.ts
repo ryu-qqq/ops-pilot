@@ -57,6 +57,15 @@ describe("aggregateTrendPoints", () => {
     ]);
     expect(points[0]?.correctionRate).toBeNull();
   });
+
+  it("같은 세션이 자산 여러 개를 발화해도 세션은 1로 센다(행 수 아님)", () => {
+    const points = aggregateTrendPoints([
+      row({ sessionId: "dup", name: "a", invocationCount: 3, correctionRoundtrips: 1, firstSeen: "2024-01-03T10:00:00Z" }),
+      row({ sessionId: "dup", name: "b", invocationCount: 2, correctionRoundtrips: 0, firstSeen: "2024-01-04T10:00:00Z" }),
+    ]);
+    expect(points).toHaveLength(1);
+    expect(points[0]).toMatchObject({ sessions: 1, invocations: 5, corrections: 1 });
+  });
 });
 
 describe("aggregateApplyEvents", () => {

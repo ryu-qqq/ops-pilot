@@ -8,18 +8,20 @@ import { cn } from "../../../../lib/utils";
 interface Props {
   points: CompoundingTrendPoint[];
   applyEvents: CompoundingApplyEvent[];
-  // 이 세션 수 미만 버킷은 "표본 적음"으로 흐리게.
+  // 이 distinct 세션 수 미만 버킷은 "표본 적음"으로 흐리게.
   lowSampleBelow?: number;
   width?: number;
   height?: number;
 }
 
 const WEEK_MS = 7 * 86_400_000;
+// 이 distinct 세션 수 미만 버킷은 표본이 얕아 추세 해석이 흔들린다 — 흐리게 표시.
+const LOW_SAMPLE_SESSIONS = 2;
 
 export function CompoundingTrendChart({
   points,
   applyEvents,
-  lowSampleBelow = 2,
+  lowSampleBelow = LOW_SAMPLE_SESSIONS,
   width = 720,
   height = 200,
 }: Props) {
@@ -56,6 +58,13 @@ export function CompoundingTrendChart({
 
   const gridRates = [0, 0.5, 1];
 
+  // 추세 범위 밖 마커는 x 클램프로 왼쪽 끝에 들러붙어 "그 주에 적용된 것처럼" 오해를
+  // 부른다 — 보이는 창([tMin, tMax]) 안의 적용만 그린다.
+  const inRangeEvents = applyEvents.filter((e) => {
+    const t = Date.parse(e.at);
+    return !Number.isNaN(t) && t >= tMin && t <= tMax;
+  });
+
   return (
     <svg
       width={width}
@@ -66,6 +75,20 @@ export function CompoundingTrendChart({
       className="max-w-full"
     >
       <title id={id}>프로젝트 정정비율 추세 (낮을수록 좋음)</title>
+
+      {/* 모든 버킷의 비율이 null(발화 0) — 그릴 선이 없을 때 안내 */}
+      {drawn.length === 0 && (
+        <text
+          x={width / 2}
+          y={height / 2}
+          textAnchor="middle"
+          fontSize={11}
+          fill="currentColor"
+          className="text-muted-foreground"
+        >
+          유효한 정정비율 데이터가 없어요
+        </text>
+      )}
 
       {/* y 그리드 + 라벨 */}
       {gridRates.map((r) => (
@@ -92,8 +115,8 @@ export function CompoundingTrendChart({
         </g>
       ))}
 
-      {/* apply 마커(세로선) */}
-      {applyEvents.map((e, i) => (
+      {/* apply 마커(세로선) — 보이는 창 안의 적용만 */}
+      {inRangeEvents.map((e, i) => (
         <line
           key={`${e.at}-${String(i)}`}
           x1={x(e.at)}
@@ -106,7 +129,7 @@ export function CompoundingTrendChart({
           className="text-info"
           opacity={0.7}
         >
-          <title>{`개선 적용 · ${e.targetKind} ${e.targetPath} (${e.at.slice(0, 10)})`}</title>
+          <title>{`개선 적용(제안 시점 근사) · ${e.targetKind} ${e.targetPath} (${e.at.slice(0, 10)})`}</title>
         </line>
       ))}
 

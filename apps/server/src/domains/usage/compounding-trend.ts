@@ -16,7 +16,9 @@ export function isoWeekStart(iso: string): string {
 }
 
 interface Acc {
-  sessions: number;
+  // distinct 세션 — asset_work_metric 은 (session_id, asset_key) UNIQUE 라
+  // 한 세션이 자산 N개를 발화하면 N행이다. 표본은 행 수가 아니라 세션 수여야 한다.
+  sessions: Set<string>;
   invocations: number;
   corrections: number;
 }
@@ -29,8 +31,10 @@ export function aggregateTrendPoints(
   for (const r of rows) {
     if (!r.firstSeen) continue; // 시점 없는 행은 추세에 못 올린다
     const week = isoWeekStart(r.firstSeen);
-    const acc = byWeek.get(week) ?? { sessions: 0, invocations: 0, corrections: 0 };
-    acc.sessions += 1;
+    const acc =
+      byWeek.get(week) ??
+      ({ sessions: new Set<string>(), invocations: 0, corrections: 0 } as Acc);
+    acc.sessions.add(r.sessionId);
     acc.invocations += r.invocationCount;
     acc.corrections += r.correctionRoundtrips;
     byWeek.set(week, acc);
@@ -39,7 +43,7 @@ export function aggregateTrendPoints(
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([periodStart, a]) => ({
       periodStart,
-      sessions: a.sessions,
+      sessions: a.sessions.size,
       invocations: a.invocations,
       corrections: a.corrections,
       correctionRate: a.invocations > 0 ? a.corrections / a.invocations : null,
