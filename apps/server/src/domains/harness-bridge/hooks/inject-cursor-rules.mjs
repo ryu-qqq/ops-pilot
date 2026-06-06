@@ -1,6 +1,7 @@
 // opspilot:generated — OpsPilot 역방향 하네스 브릿지 훅. 수동 편집 금지(sync로 갱신).
 // hook_event_name 으로 분기: PostToolUse(편집 파일 글롭 매칭 룰 주입) / SessionStart(상시 룰+색인).
 // 자기완결 — node 표준만. .cursor/rules/*.mdc 를 런타임에 읽는다.
+/* global process */
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { isAbsolute, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";

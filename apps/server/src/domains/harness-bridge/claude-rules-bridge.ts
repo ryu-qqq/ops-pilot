@@ -24,11 +24,11 @@ type MergedSettings = Record<string, unknown> & {
 /** PostToolUse·SessionStart 훅을 기존 설정 보존하며 멱등 병합. */
 export function mergeRuleBridgeHooks(input: Settings): { settings: MergedSettings; changed: boolean } {
   const settings: Settings = structuredClone(input ?? {});
-  settings.hooks ??= {};
+  const hooks: Record<string, HookGroup[]> = (settings.hooks ??= {});
   let changed = false;
 
   const ensure = (event: string, matcher?: string): void => {
-    const groups: HookGroup[] = (settings.hooks![event] ??= []);
+    const groups: HookGroup[] = (hooks[event] ??= []);
     const already = groups.some((g) => g.hooks.some((h) => h.command === HOOK_CMD));
     if (already) return;
     groups.push(
