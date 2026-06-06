@@ -5,6 +5,7 @@ import {
   assetSchema,
   assetVersionContentSchema,
   assetVersionSchema,
+  compoundingTrendSchema,
   improveResultSchema,
   projectAssetLintSchema,
   projectUsageReportSchema,
@@ -38,6 +39,8 @@ export const registryKeys = {
     [...registryKeys.all, "usage-global", days] as const,
   workMetrics: (projectId: string) =>
     [...registryKeys.all, "work-metrics", projectId] as const,
+  compoundingTrend: (projectId: string) =>
+    [...registryKeys.all, "compounding-trend", projectId] as const,
   assetGraph: (projectId: string) =>
     [...registryKeys.all, "asset-graph", projectId] as const,
   versions: (assetId: string) =>
@@ -91,6 +94,14 @@ export async function getProjectWorkMetrics(projectId: string) {
   return apiGet(
     `/api/usage/work-metrics?projectId=${projectId}`,
     projectWorkMetricReportSchema,
+  );
+}
+
+// 의제 002 고리 #3: 프로젝트 단위 정정비율 추세 + apply 마커. ⚠️ reference signal.
+export async function getCompoundingTrend(projectId: string) {
+  return apiGet(
+    `/api/usage/compounding-trend?projectId=${projectId}`,
+    compoundingTrendSchema,
   );
 }
 

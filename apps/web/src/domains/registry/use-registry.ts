@@ -7,6 +7,7 @@ import {
   getAssetGraph,
   getAssetLint,
   getAssetScenarios,
+  getCompoundingTrend,
   getProjectAssetLint,
   getProjectAssetUsage,
   getProjectWorkMetrics,
@@ -45,6 +46,16 @@ export function useProjectWorkMetrics(projectId: string | null) {
   return useQuery({
     queryKey: registryKeys.workMetrics(projectId ?? "none"),
     queryFn: () => getProjectWorkMetrics(projectId ?? ""),
+    enabled: projectId !== null,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+// 의제 002 고리 #3: 복리 추세(정정비율 + apply 마커). 저장 지표만 읽어 가볍다.
+export function useCompoundingTrend(projectId: string | null) {
+  return useQuery({
+    queryKey: registryKeys.compoundingTrend(projectId ?? "none"),
+    queryFn: () => getCompoundingTrend(projectId ?? ""),
     enabled: projectId !== null,
     staleTime: 5 * 60 * 1000,
   });
