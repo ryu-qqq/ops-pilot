@@ -9,7 +9,7 @@ import { applyClaudeRulesBridge } from "../harness-bridge/claude-rules-bridge.js
 import { maybeSyncCursorHarnessAfterApply } from "../harness-bridge/service.js";
 import { getProject } from "../project/repository.js";
 import { FeedbackApplyError, applyProposalToProject } from "./apply.js";
-import { classifyProposalTarget } from "./classify-target.js";
+import { classifyProposalTarget, UpstreamRequiredError } from "./classify-target.js";
 import {
   getImprovementProposal,
   getIngestBundle,
@@ -107,6 +107,7 @@ export function applyProposal(id: string): FeedbackProposalApplyResponse {
   try {
     appliedCommit = applyProposalToProject(project, proposal);
   } catch (e) {
+    if (e instanceof UpstreamRequiredError) throw e; // 상류행 — ApplyError 로 뭉개지 않음
     const msg = e instanceof FeedbackApplyError ? e.message : (e as Error).message;
     throw new FeedbackProposalError("ApplyError", msg);
   }
