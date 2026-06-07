@@ -487,6 +487,8 @@ export const improvementProposalSchema = z.object({
   status: improvementProposalStatusSchema,
   appliedCommit: z.string().nullable(),
   createdAt: ts,
+  // crew 자산 여부(파생). 서버에서 채움. 미채움 경로는 undefined → UI 는 === true 로만 분기.
+  crewBound: z.boolean().optional(),
 });
 export type ImprovementProposal = z.infer<typeof improvementProposalSchema>;
 
