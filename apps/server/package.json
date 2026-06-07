@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && mkdir -p dist/domains/harness-bridge/hooks && cp src/domains/harness-bridge/hooks/*.mjs dist/domains/harness-bridge/hooks/",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "db:migrate": "tsx src/db/migrate.ts",

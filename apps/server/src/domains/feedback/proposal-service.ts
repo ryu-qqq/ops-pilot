@@ -3,6 +3,7 @@ import type {
   ImprovementProposal,
   ImprovementProposalStatus,
 } from "@opspilot/shared-types";
+import { applyClaudeRulesBridge } from "../harness-bridge/claude-rules-bridge.js";
 import { maybeSyncCursorHarnessAfterApply } from "../harness-bridge/service.js";
 import { getProject } from "../project/repository.js";
 import { FeedbackApplyError, applyProposalToProject } from "./apply.js";
@@ -104,6 +105,14 @@ export function applyProposal(id: string): FeedbackProposalApplyResponse {
 
   const updated = markProposalApplied(id, appliedCommit);
   if (!updated) throw new FeedbackProposalError("NotFound", "proposal not found");
+  // 역방향: cursor_rule 이 적용됐으면 Claude 가 그 룰을 읽도록 브릿지 설치 보장(멱등).
+  if (proposal.targetKind === "cursor_rule") {
+    try {
+      applyClaudeRulesBridge(project.clonePath);
+    } catch {
+      // best-effort — 설치 실패가 apply 자체를 깨지 않게 한다.
+    }
+  }
   const bridgeResult =
     project.workspaceMode === "linked" && BRIDGE_AFTER_APPLY_KINDS.has(proposal.targetKind)
       ? maybeSyncCursorHarnessAfterApply(project)

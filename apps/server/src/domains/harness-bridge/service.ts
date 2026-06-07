@@ -8,6 +8,7 @@ import {
   planCursorHarnessSync,
   type HarnessBridgePlanItem,
 } from "./sync.js";
+import { applyClaudeRulesBridge } from "./claude-rules-bridge.js";
 
 export { HarnessBridgeSyncError } from "./sync.js";
 
@@ -91,6 +92,8 @@ export function syncCursorHarnessForProject(
   }
 
   const written = applyCursorHarnessSync(project.clonePath);
+  const claudeBridge = applyClaudeRulesBridge(project.clonePath);
+  written.push(...claudeBridge.written);
   const shouldCommit = opts.commit !== false;
   const commit = shouldCommit ? gitCommitPaths(project, written) : null;
 
