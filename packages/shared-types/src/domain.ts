@@ -487,6 +487,8 @@ export const improvementProposalSchema = z.object({
   status: improvementProposalStatusSchema,
   appliedCommit: z.string().nullable(),
   createdAt: ts,
+  // crew 자산 여부(파생). 서버에서 채움. 미채움 경로는 undefined → UI 는 === true 로만 분기.
+  crewBound: z.boolean().optional(),
 });
 export type ImprovementProposal = z.infer<typeof improvementProposalSchema>;
 
@@ -501,6 +503,7 @@ export const proposalWithSourceSchema = improvementProposalSchema.extend({
   reviewRunId: z.string().nullable(),
   // ADR 0004: 출처 ingest 의 진입 provenance(auto|manual). DB NOT NULL DEFAULT 라 항상 존재.
   trigger: ingestTriggerSchema,
+  // crewBound 는 base improvementProposalSchema 에 있음(중복 선언 금지).
 });
 export type ProposalWithSource = z.infer<typeof proposalWithSourceSchema>;
 

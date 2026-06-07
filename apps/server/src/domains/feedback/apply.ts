@@ -3,6 +3,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, normalize, posix } from "node:path";
 import type { AssetKind, ImprovementProposal, Project } from "@opspilot/shared-types";
 import { AuthoringError, writeAsset } from "../authoring/service.js";
+import { readAgentCrewLock } from "../agent-crew/sync.js";
+import { buildUpstreamInfo, classifyProposalTarget, UpstreamRequiredError } from "./classify-target.js";
 
 export class FeedbackApplyError extends Error {
   constructor(message: string) {
@@ -210,6 +212,14 @@ export function applyProposalToProject(
   project: Project,
   proposal: ImprovementProposal,
 ): string {
+  const lock = readAgentCrewLock(project.clonePath);
+  if (classifyProposalTarget(lock, proposal.targetKind, proposal.targetPath) === "crew") {
+    throw new UpstreamRequiredError({
+      ...buildUpstreamInfo(proposal.targetPath),
+      content: proposal.content,
+    });
+  }
+
   const summary = `feedback proposal ${proposal.id.slice(0, 8)} → ${posix.basename(proposal.targetPath)}`;
 
   if (proposal.targetKind === "cursor_rule") {

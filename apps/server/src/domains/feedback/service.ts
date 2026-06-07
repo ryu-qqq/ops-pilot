@@ -1,7 +1,9 @@
 import type { FeedbackIngestRequest, IngestBundleDetail } from "@opspilot/shared-types";
+import { readAgentCrewLock } from "../agent-crew/sync.js";
 import { getProject } from "../project/repository.js";
 import { collectCommitDiff, DEFAULT_MAX_DIFF_BYTES, resolveCommitSubject } from "./diff.js";
 import { assertCommitSubjectForIngest } from "./commit-format.js";
+import { classifyProposalTarget } from "./classify-target.js";
 import { queueFeedbackEval, reprocessFeedbackEval, type FeedbackEvalSource } from "./eval-queue.js";
 import { queueProposalReview, reprocessProposalReview } from "./review-queue.js";
 import { createIngestBundle, getIngestBundle, listIngestBundlesByProject, listProposalsByIngestId } from "./repository.js";
@@ -84,7 +86,13 @@ export function ingestFeedback(input: FeedbackIngestRequest): IngestBundleDetail
 export function getIngestDetail(id: string): IngestBundleDetail | undefined {
   const bundle = getIngestBundle(id);
   if (!bundle) return undefined;
-  return { ...bundle, proposals: listProposalsByIngestId(id) };
+  const project = getProject(bundle.projectId);
+  const lock = project ? readAgentCrewLock(project.clonePath) : null;
+  const proposals = listProposalsByIngestId(id).map((p) => ({
+    ...p,
+    crewBound: classifyProposalTarget(lock, p.targetKind, p.targetPath) === "crew",
+  }));
+  return { ...bundle, proposals };
 }
 
 export function listIngestsByProject(projectId: string) {

@@ -50,6 +50,7 @@ import {
   applyProposalHitl,
   listProposalsForIngest,
 } from "../domains/feedback/proposal-service.js";
+import { UpstreamRequiredError } from "../domains/feedback/classify-target.js";
 import {
   AgentCrewSyncError,
   checkAgentCrewDrift,
@@ -434,6 +435,9 @@ export function createMcpServer(): McpServer {
         const result = applyProposalHitl(proposalId);
         return jsonResult(result);
       } catch (e) {
+        if (e instanceof UpstreamRequiredError) {
+          return jsonResult({ upstreamRequired: true, ...e.info });
+        }
         if (e instanceof FeedbackProposalError) return errorResult(`${e.code}: ${e.message}`);
         return errorResult(`apply failed: ${(e as Error).message}`);
       }

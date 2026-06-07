@@ -5,7 +5,7 @@ import { dirname, join, relative } from "node:path";
 import type { Project } from "@opspilot/shared-types";
 
 const SYNC_DIRS = ["agents", "skills", "references"] as const;
-const DEFAULT_CREW_PATH = join(homedir(), "Documents/ryu-qqq/agent-crew");
+export const DEFAULT_CREW_PATH = join(homedir(), "Documents/ryu-qqq/agent-crew");
 const DEFAULT_SOURCE = "git@github.com:ryu-qqq/agent-crew.git";
 
 const MUST_REF_BEGIN = "<!-- agent-crew:must-reference:begin (auto-managed by ops-pilot — do not edit by hand) -->";

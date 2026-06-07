@@ -74,11 +74,17 @@ export function ProposalDetailDialog({
               {(reviewMeta.conflicts ?? []).length > 0 && (
                 <p className="text-sm text-warning">conflicts: {(reviewMeta.conflicts ?? []).join(", ")}</p>
               )}
-              {reviewMeta.applyError !== undefined && proposal.status === "approved" && (
-                <p className="text-sm text-warning">
-                  reviewer auto-apply 실패 — 「clone에 반영」으로 수동 적용 가능
-                </p>
-              )}
+              {reviewMeta.applyError !== undefined &&
+                proposal.status === "approved" &&
+                (proposal.crewBound === true ? (
+                  <p className="text-sm text-warning">
+                    공유 crew 자산이라 자동 적용되지 않음 — agent-crew 레포에서 수정하세요
+                  </p>
+                ) : (
+                  <p className="text-sm text-warning">
+                    reviewer auto-apply 실패 — 「clone에 반영」으로 수동 적용 가능
+                  </p>
+                ))}
               {reviewMeta.applyError !== undefined &&
                 proposal.status !== "approved" &&
                 proposal.status !== "applied" && (
@@ -88,7 +94,7 @@ export function ProposalDetailDialog({
           )}
           <section className="space-y-1.5">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              content (apply 시 clone에 쓰임)
+              content {proposal.crewBound === true ? "(agent-crew 레포에서 수정)" : "(apply 시 clone에 쓰임)"}
             </h4>
             <pre className="max-h-[min(50vh,420px)] overflow-auto rounded-lg border border-border/80 bg-muted/40 p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap">
               {proposal.content}
@@ -128,6 +134,11 @@ export function ProposalCard({
           <CardTitle className="flex flex-wrap items-center gap-2 text-sm font-medium">
             <Badge variant={proposalVariant[proposal.status] ?? "secondary"}>{proposal.status}</Badge>
             <span className="font-mono text-xs text-muted-foreground">{proposal.targetKind}</span>
+            {proposal.crewBound === true && (
+              <Badge variant="outline" className="border-amber-500/50 text-amber-600 dark:text-amber-400">
+                공유 crew
+              </Badge>
+            )}
           </CardTitle>
           <p className="truncate font-mono text-xs">{proposal.targetPath}</p>
         </div>
@@ -199,31 +210,55 @@ export function ProposalCard({
           </div>
         )}
         {proposal.status === "approved" && (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button size="sm" disabled={busy}>
-                <FileCode className="h-3.5 w-3.5" />
-                clone에 반영
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>개선안 적용 (HITL)</DialogTitle>
-              </DialogHeader>
-              <p className="text-sm text-muted-foreground">
-                <code className="font-mono text-xs">{proposal.targetPath}</code> 를{" "}
-                {project.workspaceMode === "linked"
-                  ? "등록된 로컬 경로"
-                  : "OpsPilot 관리 클론"}
-                에 쓰고 구조화 커밋합니다. 되돌리려면 git으로 revert하세요.
-              </p>
-              <div className="flex justify-end pt-2">
-                <Button disabled={busy} onClick={() => apply.mutate(proposal.id)}>
-                  {apply.isPending ? <Loading label="적용 중…" /> : "확인 후 적용"}
+          proposal.crewBound === true ? (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline">
+                  <FileCode className="h-3.5 w-3.5" />
+                  agent-crew에서 수정
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>공유 crew 자산 — 상류에서 수정</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground">
+                  이 개선안은 여러 프로젝트가 공유하는 crew 자산(<code className="font-mono text-xs">{proposal.targetPath}</code>)
+                  이라 이 프로젝트 clone 에 적용하지 않습니다. agent-crew 레포에서 고치고 tag 올린 뒤
+                  <code className="font-mono text-xs"> sync_agent_crew </code>로 재동기화하세요.
+                </p>
+                <pre className="max-h-48 overflow-auto rounded-md border bg-muted/30 p-2 font-mono text-xs whitespace-pre-wrap">
+                  {proposal.content}
+                </pre>
+              </DialogContent>
+            </Dialog>
+          ) : (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button size="sm" disabled={busy}>
+                  <FileCode className="h-3.5 w-3.5" />
+                  clone에 반영
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>개선안 적용 (HITL)</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground">
+                  <code className="font-mono text-xs">{proposal.targetPath}</code> 를{" "}
+                  {project.workspaceMode === "linked"
+                    ? "등록된 로컬 경로"
+                    : "OpsPilot 관리 클론"}
+                  에 쓰고 구조화 커밋합니다. 되돌리려면 git으로 revert하세요.
+                </p>
+                <div className="flex justify-end pt-2">
+                  <Button disabled={busy} onClick={() => apply.mutate(proposal.id)}>
+                    {apply.isPending ? <Loading label="적용 중…" /> : "확인 후 적용"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )
         )}
         {(approve.isError || reject.isError || apply.isError) && (
           <ErrorNotice error={approve.error ?? reject.error ?? apply.error} />
