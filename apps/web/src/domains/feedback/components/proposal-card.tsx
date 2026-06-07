@@ -74,11 +74,17 @@ export function ProposalDetailDialog({
               {(reviewMeta.conflicts ?? []).length > 0 && (
                 <p className="text-sm text-warning">conflicts: {(reviewMeta.conflicts ?? []).join(", ")}</p>
               )}
-              {reviewMeta.applyError !== undefined && proposal.status === "approved" && (
-                <p className="text-sm text-warning">
-                  reviewer auto-apply 실패 — 「clone에 반영」으로 수동 적용 가능
-                </p>
-              )}
+              {reviewMeta.applyError !== undefined &&
+                proposal.status === "approved" &&
+                (proposal.crewBound === true ? (
+                  <p className="text-sm text-warning">
+                    공유 crew 자산이라 자동 적용되지 않음 — agent-crew 레포에서 수정하세요
+                  </p>
+                ) : (
+                  <p className="text-sm text-warning">
+                    reviewer auto-apply 실패 — 「clone에 반영」으로 수동 적용 가능
+                  </p>
+                ))}
               {reviewMeta.applyError !== undefined &&
                 proposal.status !== "approved" &&
                 proposal.status !== "applied" && (
@@ -88,7 +94,7 @@ export function ProposalDetailDialog({
           )}
           <section className="space-y-1.5">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              content (apply 시 clone에 쓰임)
+              content {proposal.crewBound === true ? "(agent-crew 레포에서 수정)" : "(apply 시 clone에 쓰임)"}
             </h4>
             <pre className="max-h-[min(50vh,420px)] overflow-auto rounded-lg border border-border/80 bg-muted/40 p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap">
               {proposal.content}
