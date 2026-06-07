@@ -45,11 +45,15 @@ export function globToRegExp(glob) {
     const c = glob[i];
     if (c === "*") {
       if (glob[i + 1] === "*") {
-        re += ".*";
-        i++;
-        if (glob[i + 1] === "/") i++;
+        if (glob[i + 2] === "/") {
+          re += "(?:[^/]+/)*"; // **/ → 디렉터리 0개 이상(표준 globstar)
+          i += 2; // '*' '*' 소비; 다음 for 의 i++ 가 '/' 소비
+        } else {
+          re += ".*"; // ** (끝·중간) → 슬래시 포함 무엇이든
+          i++;
+        }
       } else {
-        re += "[^/]*";
+        re += "[^/]*"; // * → 한 세그먼트
       }
     } else if (c === "{") {
       const end = glob.indexOf("}", i);
@@ -135,6 +139,7 @@ export function main() {
       );
     }
   } else if (event === "SessionStart") {
+    // startup·resume·clear·compact 매 트리거마다 재주입 — 의도적(압축 후에도 룰이 살아남게).
     const ctx = renderSessionStart(rules);
     if (ctx) process.stdout.write(ctx); // SessionStart: stdout 이 컨텍스트에 더해짐
   }

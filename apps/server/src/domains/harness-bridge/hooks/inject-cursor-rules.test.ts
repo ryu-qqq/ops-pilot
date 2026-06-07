@@ -39,6 +39,25 @@ describe("globToRegExp / ruleMatchesPath", () => {
     expect(ruleMatchesPath(["**/*.md"], "docs/x.md")).toBe(true);
     expect(ruleMatchesPath(["**/*.md"], "src/x.ts")).toBe(false);
   });
+
+  it("**/ 는 디렉터리 0개(루트 파일)도 잡는다", () => {
+    expect(globToRegExp("**/*.md").test("README.md")).toBe(true); // 0 dir
+    expect(globToRegExp("**/*.md").test("a/b/c.md")).toBe(true); // 깊은 dir
+    expect(globToRegExp("apps/**/*.ts").test("apps/x.ts")).toBe(true); // 중간 0 dir
+    expect(globToRegExp("apps/**/*.ts").test("apps/a/b.ts")).toBe(true);
+    expect(globToRegExp("apps/**/*.ts").test("other/x.ts")).toBe(false);
+  });
+
+  it("dir/** 는 그 디렉터리 통째를 잡고 형제는 안 잡는다", () => {
+    expect(globToRegExp("src/**").test("src/a/b.ts")).toBe(true);
+    expect(globToRegExp("src/**").test("src/x.ts")).toBe(true);
+    expect(globToRegExp("src/**").test("srcfile.ts")).toBe(false);
+  });
+
+  it("단일 * 는 한 세그먼트만 (하위 디렉터리 안 넘음)", () => {
+    expect(globToRegExp("routes/*.ts").test("routes/x.ts")).toBe(true);
+    expect(globToRegExp("routes/*.ts").test("routes/api/x.ts")).toBe(false);
+  });
 });
 
 describe("renderPostTool", () => {

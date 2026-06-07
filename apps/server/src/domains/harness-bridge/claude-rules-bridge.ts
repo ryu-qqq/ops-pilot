@@ -48,6 +48,10 @@ export interface ClaudeRulesBridgeResult {
   written: string[];
 }
 
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
 /** 소비 프로젝트에 훅 스크립트 + settings 멱등 설치. */
 export function applyClaudeRulesBridge(clonePath: string): ClaudeRulesBridgeResult {
   const written: string[] = [];
@@ -62,16 +66,24 @@ export function applyClaudeRulesBridge(clonePath: string): ClaudeRulesBridgeResu
     written.push(HOOK_REL);
   }
 
-  // 2) settings.json 멱등 병합
+  // 2) settings.json 멱등 병합 — 손상/비객체 settings 는 클로버·throw 없이 건너뛴다.
   const settingsPath = join(clonePath, ".claude/settings.json");
-  const current: Settings = existsSync(settingsPath)
-    ? (JSON.parse(readFileSync(settingsPath, "utf8")) as Settings)
-    : {};
-  const { settings, changed } = mergeRuleBridgeHooks(current);
-  if (changed) {
-    mkdirSync(dirname(settingsPath), { recursive: true });
-    writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n", "utf8");
-    written.push(".claude/settings.json");
+  let current: Settings | null = {};
+  if (existsSync(settingsPath)) {
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(settingsPath, "utf8"));
+      current = isPlainObject(parsed) ? (parsed as Settings) : null;
+    } catch {
+      current = null; // 파싱 불가 — 기존 파일 보존, 병합 건너뜀
+    }
+  }
+  if (current !== null) {
+    const { settings, changed } = mergeRuleBridgeHooks(current);
+    if (changed) {
+      mkdirSync(dirname(settingsPath), { recursive: true });
+      writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n", "utf8");
+      written.push(".claude/settings.json");
+    }
   }
 
   return { written };
