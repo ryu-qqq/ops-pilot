@@ -3,6 +3,7 @@ import { Badge } from "../../../components/ui/badge";
 import { Card } from "../../../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
 import { EmptyState, Loading } from "../../../lib/ui";
+import { WORLD1_SCENARIO_SCORING_ENABLED } from "../../../lib/flags";
 import { BenchmarkLauncher } from "../../run/components/benchmark-launcher";
 import { RegressionLauncher } from "../../run/components/regression-launcher";
 import { RunLauncher } from "../../run/components/run-launcher";
@@ -162,7 +163,9 @@ export function AssetDetailPanel({
           <TabsTrigger value="trigger" data-tour="asset-trigger-tab">
             트리거
           </TabsTrigger>
-          <TabsTrigger value="scenario">시나리오 · 실행</TabsTrigger>
+          {WORLD1_SCENARIO_SCORING_ENABLED && (
+            <TabsTrigger value="scenario">시나리오 · 실행</TabsTrigger>
+          )}
         </TabsList>
 
         {/* ① 버전 — 타임라인 + 형식 요약 배지(상세는 트리거 탭) + prune. */}
@@ -204,35 +207,38 @@ export function AssetDetailPanel({
           <TriggerEvalPanel projectId={projectId} assetId={assetId} />
         </TabsContent>
 
-        {/* ③ 시나리오 · 실행 — 시나리오 관리 + 실행/회귀/벤치마크. */}
-        <TabsContent value="scenario" className="mt-0 space-y-3">
-          <ScenarioManager assetId={assetId} />
-          {effectiveVersionId !== null ? (
-            <>
-              <RunLauncher
-                assetId={assetId}
-                assetVersionId={effectiveVersionId}
-                onLaunched={onRunCreated}
-                onBenchmark={onBenchmarkStarted}
+        {/* ③ 시나리오 · 실행 — 시나리오 관리 + 실행/회귀/벤치마크.
+            ADR 0006(World 1 격하): WORLD1_SCENARIO_SCORING_ENABLED 로 가드. 코드 보존. */}
+        {WORLD1_SCENARIO_SCORING_ENABLED && (
+          <TabsContent value="scenario" className="mt-0 space-y-3">
+            <ScenarioManager assetId={assetId} />
+            {effectiveVersionId !== null ? (
+              <>
+                <RunLauncher
+                  assetId={assetId}
+                  assetVersionId={effectiveVersionId}
+                  onLaunched={onRunCreated}
+                  onBenchmark={onBenchmarkStarted}
+                />
+                <RegressionLauncher
+                  assetId={assetId}
+                  assetVersionId={effectiveVersionId}
+                  onLaunched={onRunCreated}
+                />
+                <BenchmarkLauncher
+                  assetId={assetId}
+                  assetVersionId={effectiveVersionId}
+                  onLaunched={onBenchmarkStarted}
+                />
+              </>
+            ) : (
+              <EmptyState
+                title="버전이 없습니다"
+                hint="이 자산을 수정·저장하면 첫 버전이 생성되고, 실행·회귀·벤치마크를 띄울 수 있습니다."
               />
-              <RegressionLauncher
-                assetId={assetId}
-                assetVersionId={effectiveVersionId}
-                onLaunched={onRunCreated}
-              />
-              <BenchmarkLauncher
-                assetId={assetId}
-                assetVersionId={effectiveVersionId}
-                onLaunched={onBenchmarkStarted}
-              />
-            </>
-          ) : (
-            <EmptyState
-              title="버전이 없습니다"
-              hint="이 자산을 수정·저장하면 첫 버전이 생성되고, 실행·회귀·벤치마크를 띄울 수 있습니다."
-            />
-          )}
-        </TabsContent>
+            )}
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
