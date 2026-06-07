@@ -214,7 +214,10 @@ export function applyProposalToProject(
 ): string {
   const lock = readAgentCrewLock(project.clonePath);
   if (classifyProposalTarget(lock, proposal.targetKind, proposal.targetPath) === "crew") {
-    throw new UpstreamRequiredError(buildUpstreamInfo(proposal.targetPath, proposal.content));
+    throw new UpstreamRequiredError({
+      ...buildUpstreamInfo(proposal.targetPath),
+      content: proposal.content,
+    });
   }
 
   const summary = `feedback proposal ${proposal.id.slice(0, 8)} → ${posix.basename(proposal.targetPath)}`;

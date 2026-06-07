@@ -32,8 +32,11 @@ export interface UpstreamRequiredInfo {
   resyncHint: string;
 }
 
-/** crew 차단 시 안내 페이로드. crewFileExists=false 면 tag drift(manifest엔 crew인데 현 버전 부재). */
-export function buildUpstreamInfo(targetPath: string, content: string): UpstreamRequiredInfo {
+/**
+ * crew 레포 경로·존재 안내를 계산한다(content 무관 — 호출부에서 조립).
+ * crewFileExists=false 면 tag drift(manifest엔 crew인데 현 버전 부재).
+ */
+export function buildUpstreamInfo(targetPath: string): Omit<UpstreamRequiredInfo, "content"> {
   const crewRepoPath = process.env.OPS_AGENT_CREW_PATH ?? DEFAULT_CREW_PATH;
   const crewRelPath = targetPath.replace(/^\.claude\//, "");
   const crewFileExists = existsSync(join(crewRepoPath, crewRelPath));
@@ -44,7 +47,6 @@ export function buildUpstreamInfo(targetPath: string, content: string): Upstream
     crewRepoPath,
     crewRelPath,
     crewFileExists,
-    content,
     resyncHint: `${crewRepoPath} 에서 ${crewRelPath} 를 고치고 tag 올린 뒤 sync_agent_crew 로 재동기화하세요.${driftNote}`,
   };
 }
