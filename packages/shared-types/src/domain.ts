@@ -501,6 +501,9 @@ export const proposalWithSourceSchema = improvementProposalSchema.extend({
   reviewRunId: z.string().nullable(),
   // ADR 0004: 출처 ingest 의 진입 provenance(auto|manual). DB NOT NULL DEFAULT 라 항상 존재.
   trigger: ingestTriggerSchema,
+  // crew 자산 여부(파생). 서버 조회에서 채움. ingest 뷰 등 미채움 경로는 undefined →
+  // UI 는 === true 로만 분기, 진짜 차단은 서버 apply 가 한다.
+  crewBound: z.boolean().optional(),
 });
 export type ProposalWithSource = z.infer<typeof proposalWithSourceSchema>;
 
