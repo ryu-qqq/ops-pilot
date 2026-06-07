@@ -5,6 +5,7 @@ import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { EmptyState, InfoMark, Loading } from "../../../lib/ui";
 import { cn } from "../../../lib/utils";
+import { WORLD1_SCENARIO_SCORING_ENABLED } from "../../../lib/flags";
 import { ProjectBar } from "../../project/components/project-bar";
 import { useProjects } from "../../project/use-project";
 import {
@@ -115,8 +116,10 @@ export function WorkListView({
       : filteredCursor.length === 0;
 
   // ★결정1 보조 진입점 — 목록 화면일 때만(드릴다운 중엔 숨김). 컬럼/run 클릭으로 드릴다운 진입.
-  const compareActive = compareRunIds.length >= 2;
-  const benchmarkActive = benchmarkRunIds.length >= 1;
+  // ADR 0006(World 1 격하): 벤치/compare 패널은 World 1 고유 표면이라 플래그로 가드.
+  // 트리거(registry 런처)도 가드돼 자동 비활성이지만, 여기서 한 번 더 명시해 의도를 드러낸다.
+  const compareActive = WORLD1_SCENARIO_SCORING_ENABLED && compareRunIds.length >= 2;
+  const benchmarkActive = WORLD1_SCENARIO_SCORING_ENABLED && benchmarkRunIds.length >= 1;
 
   return (
     <div className="space-y-4">
