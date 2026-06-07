@@ -11,11 +11,23 @@ const GENERATED_PREFIX = "opspilot-agent-"; // 브릿지 생성물 — 역주입
 export function parseGlobs(val) {
   if (!val) return [];
   let s = val.trim();
-  if (s.startsWith("[")) s = s.slice(1, -1);
-  return s
-    .split(",")
-    .map((g) => g.trim().replace(/^["']|["']$/g, ""))
-    .filter(Boolean);
+  if (s.startsWith("[")) s = s.replace(/^\[|\]$/g, "");
+  // 중괄호 안의 콤마({ts,tsx})는 분리하지 않는다 — depth 0 콤마만 구분자.
+  const parts = [];
+  let cur = "";
+  let depth = 0;
+  for (const ch of s) {
+    if (ch === "{") depth += 1;
+    else if (ch === "}") depth = Math.max(0, depth - 1);
+    if (ch === "," && depth === 0) {
+      parts.push(cur);
+      cur = "";
+      continue;
+    }
+    cur += ch;
+  }
+  parts.push(cur);
+  return parts.map((g) => g.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
 }
 
 export function parseFrontmatter(text) {
@@ -57,6 +69,10 @@ export function globToRegExp(glob) {
       }
     } else if (c === "{") {
       const end = glob.indexOf("}", i);
+      if (end === -1) {
+        re += "\\{"; // 짝 없는 { — 리터럴로(무한 루프 방지)
+        continue;
+      }
       const alts = glob
         .slice(i + 1, end)
         .split(",")

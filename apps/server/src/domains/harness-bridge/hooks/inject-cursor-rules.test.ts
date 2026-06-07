@@ -17,6 +17,25 @@ describe("parseGlobs", () => {
     ]);
     expect(parseGlobs("")).toEqual([]);
   });
+
+  it("중괄호 안 콤마({ts,tsx})는 쪼개지 않는다", () => {
+    expect(parseGlobs("apps/web/src/**/*.{ts,tsx}")).toEqual(["apps/web/src/**/*.{ts,tsx}"]);
+    expect(parseGlobs("a/**/*.{ts,tsx},b/*.md")).toEqual(["a/**/*.{ts,tsx}", "b/*.md"]);
+  });
+});
+
+describe("brace 글롭 무한 루프 회귀(OOM)", () => {
+  it("parseGlobs→globToRegExp 가 .ts·.tsx 를 매칭하고 멈춘다", () => {
+    const globs = parseGlobs("apps/web/src/**/*.{ts,tsx}");
+    expect(ruleMatchesPath(globs, "apps/web/src/a/b.tsx")).toBe(true);
+    expect(ruleMatchesPath(globs, "apps/web/src/c.ts")).toBe(true);
+    expect(ruleMatchesPath(globs, "apps/web/src/d.css")).toBe(false);
+  });
+
+  it("짝 없는 { 는 리터럴로 처리(무한 루프 없음)", () => {
+    expect(() => globToRegExp("apps/**/*.{ts")).not.toThrow();
+    expect(globToRegExp("a{b").test("a{b")).toBe(true);
+  });
 });
 
 describe("parseFrontmatter", () => {
