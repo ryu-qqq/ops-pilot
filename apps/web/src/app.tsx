@@ -81,9 +81,11 @@ export function App() {
     <TooltipProvider delayDuration={200}>
     <main className="container mx-auto max-w-[1200px] px-6 py-8">
       <header className="mb-6 flex items-center justify-between">
-        <div className="flex items-baseline gap-3">
-          <h1 className="text-xl font-semibold tracking-tight">OpsPilot</h1>
-          <span className="text-xs text-muted-foreground">사용량 · eval · HITL</span>
+        <div className="flex flex-col gap-0.5">
+          <h1 className="text-xl font-semibold leading-none tracking-tight">OpsPilot</h1>
+          <span className="text-xs text-muted-foreground">
+            Cursor·Claude로 만든 규칙·에이전트가 사람 손을 덜 타게 — 측정하고 고친다
+          </span>
         </div>
         <div className="flex items-center gap-1">
           <ServerHealthIndicator />
