@@ -27,4 +27,8 @@ describe("classifyProposalTarget", () => {
   it("syncedFiles 가 비면 project (legacy lock, 추측 금지)", () => {
     expect(classifyProposalTarget(lockWith([]), "skill", ".claude/skills/foo/SKILL.md")).toBe("project");
   });
+
+  it("syncedFiles 필드 자체가 없는 legacy lock 도 project", () => {
+    expect(classifyProposalTarget({ version: "v0.12.0" }, "agent", ".claude/agents/foo.md")).toBe("project");
+  });
 });

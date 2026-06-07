@@ -20,7 +20,8 @@ export function classifyProposalTarget(
   if (!CREW_KINDS.has(targetKind)) return "project";
   const manifest = lock?.syncedFiles;
   if (!manifest || manifest.length === 0) return "project";
-  return manifest.includes(targetPath) ? "crew" : "project";
+  // scanner.buildSourceTagger 와 같은 계약(syncedFiles 멤버십) — 같은 Set 조회로 일관.
+  return new Set(manifest).has(targetPath) ? "crew" : "project";
 }
 
 export interface UpstreamRequiredInfo {
