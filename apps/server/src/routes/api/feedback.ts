@@ -29,8 +29,19 @@ import {
   listProposalsForProject,
   rejectProposal,
 } from "../../domains/feedback/proposal-service.js";
+import { UpstreamRequiredError } from "../../domains/feedback/classify-target.js";
 
 const errorSchema = z.object({ error: z.string(), detail: z.string() });
+const upstreamRequiredSchema = z.object({
+  error: z.literal("UpstreamRequired"),
+  upstream: z.object({
+    crewRepoPath: z.string(),
+    crewRelPath: z.string(),
+    crewFileExists: z.boolean(),
+    content: z.string(),
+    resyncHint: z.string(),
+  }),
+});
 
 const feedback: FastifyPluginAsyncZod = async (fastify) => {
   fastify.post(
@@ -267,6 +278,7 @@ const feedback: FastifyPluginAsyncZod = async (fastify) => {
           200: feedbackProposalApplyResponseSchema,
           400: errorSchema,
           404: errorSchema,
+          409: upstreamRequiredSchema,
         },
       },
     },
@@ -274,6 +286,9 @@ const feedback: FastifyPluginAsyncZod = async (fastify) => {
       try {
         return applyProposal(req.params.id);
       } catch (e) {
+        if (e instanceof UpstreamRequiredError) {
+          return reply.status(409).send({ error: "UpstreamRequired", upstream: e.info });
+        }
         if (e instanceof FeedbackProposalError) {
           if (e.code === "NotFound") {
             return reply.status(404).send({ error: "NotFound", detail: e.message });
