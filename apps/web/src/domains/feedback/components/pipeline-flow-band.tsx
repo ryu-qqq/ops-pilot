@@ -19,6 +19,8 @@ const flowStages: { key: string; label: string; match: (s: string) => boolean }[
  * 목록 필터(work-list-view)와 흐름 띠 카운트가 같은 기준을 쓰도록 단계 match 를 재사용한다.
  */
 export function matchStageKey(stageKey: string, status: string): boolean {
+  // failed 는 흐름 단계가 아니라 별도 terminal — flowStages 밖에서 매칭한다.
+  if (stageKey === "failed") return status === "failed";
   return flowStages.find((s) => s.key === stageKey)?.match(status) ?? false;
 }
 
@@ -131,9 +133,25 @@ export function PipelineFlowBand({
           );
         })}
         {failedCount > 0 && (
-          <Badge variant="destructive" className="ml-1">
-            실패 {failedCount}
-          </Badge>
+          <button
+            type="button"
+            disabled={onToggleStatus === undefined}
+            onClick={onToggleStatus ? () => onToggleStatus("failed") : undefined}
+            aria-pressed={activeStatus === "failed"}
+            className={cn(
+              "ml-1 flex items-center gap-2 rounded-md border px-3 py-1.5 transition-colors",
+              activeStatus === "failed"
+                ? "border-destructive bg-destructive/10"
+                : "border-destructive/40 bg-destructive/5",
+              onToggleStatus !== undefined && "cursor-pointer hover:bg-destructive/10",
+            )}
+            title={onToggleStatus ? "실패 작업만 보기 (재클릭 해제)" : undefined}
+          >
+            <span className="text-xs font-medium text-destructive">실패</span>
+            <span className="text-sm font-semibold tabular-nums text-destructive">
+              {failedCount}
+            </span>
+          </button>
         )}
         {autoIngestConfig !== undefined && <AutoIngestStatusChip config={autoIngestConfig} />}
       </CardContent>
