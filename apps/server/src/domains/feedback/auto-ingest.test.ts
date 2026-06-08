@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { closeDb, getDb } from "../../db/index.js";
 import { migrate } from "../../db/migrate.js";
 import { listIngestBundlesByProject } from "./repository.js";
-import { runAutoIngestScan } from "./auto-ingest.js";
+import { pickRecentCandidates, runAutoIngestScan } from "./auto-ingest.js";
 
 // runAutoIngestScan 슬라이스 테스트(ADR 0004 자동 트리거 안전장치).
 // 임시 git clone 픽스처 + DB 시드로 ops()자가커밋·merge 제외 / 차집합 멱등 / BATCH cap 을 검증.
@@ -110,5 +110,53 @@ describe("runAutoIngestScan", () => {
   it("BATCH cap: batch=N 이면 triggered<=N", () => {
     const result = runAutoIngestScan({ batch: 1 });
     expect(result.triggered).toBeLessThanOrEqual(1);
+  });
+});
+
+// 전체 프로젝트 커밋을 committedAt 내림차순으로 합쳐 상위 batch 개만 뽑는 순수 함수.
+// 앞 프로젝트가 옛 커밋만 가지면 뒤 프로젝트(최신 커밋)가 밀리지 않고 들어와야 한다(독점 해소).
+describe("pickRecentCandidates", () => {
+  // projA = 오래된 커밋만, projB = 최신 커밋만. 시각이 섞이게 둔다.
+  const candidates = [
+    { projectId: "projA", sha: "a1", committedAt: "2026-06-01T10:00:00Z" },
+    { projectId: "projA", sha: "a2", committedAt: "2026-06-02T10:00:00Z" },
+    { projectId: "projA", sha: "a3", committedAt: "2026-06-03T10:00:00Z" },
+    { projectId: "projB", sha: "b1", committedAt: "2026-06-07T10:00:00Z" },
+    { projectId: "projB", sha: "b2", committedAt: "2026-06-08T10:00:00Z" },
+  ];
+
+  it("batch < 전체일 때 커밋 시각 최신순 상위 batch 개를 뽑는다", () => {
+    const picked = pickRecentCandidates(candidates, 3);
+    expect(picked.map((c) => c.sha)).toEqual(["b2", "b1", "a3"]);
+  });
+
+  it("앞 프로젝트가 독점하지 않는다 — 뒤 프로젝트의 최신 커밋이 먼저 들어온다", () => {
+    const picked = pickRecentCandidates(candidates, 3);
+    const projects = new Set(picked.map((c) => c.projectId));
+    // projB(최신)가 반드시 포함되고, projA 가 batch 를 독점하지 않는다.
+    expect(projects.has("projB")).toBe(true);
+    expect(picked.filter((c) => c.projectId === "projB").length).toBe(2);
+  });
+
+  it("batch >= 전체면 전부 반환(최신순)", () => {
+    const picked = pickRecentCandidates(candidates, 10);
+    expect(picked.map((c) => c.sha)).toEqual(["b2", "b1", "a3", "a2", "a1"]);
+    expect(picked.length).toBe(candidates.length);
+  });
+
+  it("입력 배열을 변형하지 않는다(순수)", () => {
+    const input = [...candidates];
+    const before = input.map((c) => c.sha);
+    pickRecentCandidates(input, 2);
+    expect(input.map((c) => c.sha)).toEqual(before);
+  });
+
+  it("committedAt 빈 문자열은 정상 ISO 보다 뒤로 밀린다", () => {
+    const withEmpty = [
+      { projectId: "p", sha: "empty", committedAt: "" },
+      { projectId: "p", sha: "dated", committedAt: "2026-06-01T00:00:00Z" },
+    ];
+    const picked = pickRecentCandidates(withEmpty, 1);
+    expect(picked[0]?.sha).toBe("dated");
   });
 });

@@ -1,7 +1,12 @@
 import type { FeedbackIngestRequest, IngestBundleDetail } from "@opspilot/shared-types";
 import { readAgentCrewLock } from "../agent-crew/sync.js";
 import { getProject } from "../project/repository.js";
-import { collectCommitDiff, DEFAULT_MAX_DIFF_BYTES, resolveCommitSubject } from "./diff.js";
+import {
+  collectCommitDiff,
+  DEFAULT_MAX_DIFF_BYTES,
+  resolveCommitMeta,
+  resolveCommitSubject,
+} from "./diff.js";
 import { assertCommitSubjectForIngest } from "./commit-format.js";
 import { classifyProposalTarget } from "./classify-target.js";
 import { queueFeedbackEval, reprocessFeedbackEval, type FeedbackEvalSource } from "./eval-queue.js";
@@ -52,6 +57,10 @@ export function ingestFeedback(input: FeedbackIngestRequest): IngestBundleDetail
     }
     contextJson.commitSubject = commitSubject;
   }
+  // 작업 목록 표시용 커밋 메타(날짜·저자). git 조회 실패는 빈값 → 저장 생략(graceful).
+  const commitMeta = resolveCommitMeta(project.clonePath, input.gitRef);
+  if (commitMeta.committedAt) contextJson.commitDate = commitMeta.committedAt;
+  if (commitMeta.author) contextJson.commitAuthor = commitMeta.author;
 
   if (input.transcriptPath) {
     try {

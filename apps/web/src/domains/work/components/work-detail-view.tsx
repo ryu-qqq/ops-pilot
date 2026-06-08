@@ -32,6 +32,7 @@ import { RunRetro } from "../../run/components/run-retro";
 import { TraceView } from "../../run/components/trace-view";
 import { VerdictStrip } from "../../run/components/verdict-strip";
 import { ingestStatusVariant, runStatusVariant, triggerVariant } from "../lib/badge-variant";
+import { formatCommitMeta } from "../lib/commit-meta";
 import { CommitDiffView } from "./commit-diff-view";
 
 /**
@@ -160,6 +161,11 @@ export function WorkDetailIngest({
       ? data.contextJson.commitSubject
       : null;
   const title = commitSubject ?? `commit ${data.gitRef.slice(0, 8)}`;
+  // 커밋 메타(날짜·저자) — 옛 ingest 는 context 에 없어 null → 줄 생략(graceful).
+  const commitMeta = formatCommitMeta(
+    data.contextJson.commitDate,
+    data.contextJson.commitAuthor,
+  );
 
   return (
     <div className="space-y-4">
@@ -176,6 +182,9 @@ export function WorkDetailIngest({
           <span className="font-mono text-xs text-muted-foreground">
             {data.gitRef.slice(0, 12)}
           </span>
+          {commitMeta !== null && (
+            <span className="text-xs text-muted-foreground">{commitMeta}</span>
+          )}
         </div>
       </div>
 
@@ -205,6 +214,8 @@ export function WorkDetailIngest({
             proposal={{
               ...p,
               commitSubject,
+              commitDate: data.contextJson.commitDate ?? null,
+              commitAuthor: data.contextJson.commitAuthor ?? null,
               gitRef: data.gitRef,
               evalRunId,
               reviewRunId,
