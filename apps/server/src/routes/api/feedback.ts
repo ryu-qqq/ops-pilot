@@ -14,6 +14,7 @@ import {
 import { getAutoIngestConfig } from "../../domains/feedback/auto-ingest.js";
 import {
   FeedbackIngestError,
+  evaluateFeedbackIngest,
   getIngestDetail,
   ingestFeedback,
   listIngestsByProject,
@@ -115,6 +116,31 @@ const feedback: FastifyPluginAsyncZod = async (fastify) => {
     async (req, reply) => {
       try {
         return await reprocessFeedbackIngest(req.params.id);
+      } catch (e) {
+        if (e instanceof FeedbackIngestError) {
+          if (e.code === "NotFound") {
+            return reply.status(404).send({ error: "NotFound", detail: e.message });
+          }
+          return reply.status(400).send({ error: e.code, detail: e.message });
+        }
+        throw e;
+      }
+    },
+  );
+
+  // 수동 평가: pending 작업을 사람이 골라 work-evaluator 평가 큐에 올린다.
+  // 자동 평가(autoEval) off 일 때 사용. 이미 평가 시작된 작업이면 400.
+  fastify.post(
+    "/feedback/ingest/:id/evaluate",
+    {
+      schema: {
+        params: z.object({ id: z.string().uuid() }),
+        response: { 200: ingestBundleDetailSchema, 400: errorSchema, 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      try {
+        return evaluateFeedbackIngest(req.params.id);
       } catch (e) {
         if (e instanceof FeedbackIngestError) {
           if (e.code === "NotFound") {

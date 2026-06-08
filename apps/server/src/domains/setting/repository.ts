@@ -11,6 +11,7 @@ const SETTING_KEYS = {
   jiraEmail: "jira.email",
   jiraApiToken: "jira.apiToken",
   notionToken: "notion.token",
+  autoEval: "feedback.autoEval",
   autoReview: "feedback.autoReview",
 } as const;
 
@@ -40,6 +41,7 @@ export function getSettingsView(): SettingsView {
     notion: {
       tokenSet: getRaw(SETTING_KEYS.notionToken) !== "",
     },
+    autoEval: getRaw(SETTING_KEYS.autoEval) === "1",
     autoReview: getRaw(SETTING_KEYS.autoReview) === "1",
   };
 }
@@ -53,6 +55,9 @@ export function updateSettings(input: SettingsUpdate): SettingsView {
   }
   if (input.notion.token !== undefined && input.notion.token !== "") {
     setRaw(SETTING_KEYS.notionToken, input.notion.token);
+  }
+  if (input.autoEval !== undefined) {
+    setRaw(SETTING_KEYS.autoEval, input.autoEval ? "1" : "0");
   }
   if (input.autoReview !== undefined) {
     setRaw(SETTING_KEYS.autoReview, input.autoReview ? "1" : "0");
@@ -71,6 +76,11 @@ export function getJiraCredentials(): { siteUrl: string; email: string; apiToken
 
 export function getNotionToken(): string {
   return getRaw(SETTING_KEYS.notionToken);
+}
+
+/** ingest 후 work-evaluator 를 자동 실행할지 — 기본 off=수동(설정 토글). */
+export function getAutoEval(): boolean {
+  return getRaw(SETTING_KEYS.autoEval) === "1";
 }
 
 /** eval 완료 후 proposal-reviewer 를 자동 실행할지 — 기본 off=수동(설정 토글). */

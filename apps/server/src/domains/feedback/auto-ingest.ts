@@ -143,9 +143,13 @@ export function runAutoIngestScan(opts: AutoIngestScanOptions = {}): AutoIngestS
   }
   result.candidates = allCandidates.length;
 
-  // 2) 전체를 커밋 시각 내림차순 정렬해 상위 batch 개만 ingest (프로젝트 경계 무시).
-  const picked = pickRecentCandidates(allCandidates, batch);
-  for (const commit of picked) {
+  // 2) 전체를 커밋 시각 내림차순 정렬한 뒤, 위에서부터 ingest 가 "성공"한 게 batch 개가
+  //    될 때까지 채운다(refill). 상위 커밋이 commit-format 검증 등으로 거부돼도 거기서
+  //    멈추지 않고 다음 통과 커밋으로 넘어간다 — 안 그러면 거부되는 상위 몇 개에 막혀
+  //    그 아래 통과 가능한 커밋이 영원히 안 들어온다.
+  const ordered = pickRecentCandidates(allCandidates, allCandidates.length);
+  for (const commit of ordered) {
+    if (result.triggered >= batch) break;
     try {
       ingestFeedback({
         projectId: commit.projectId,
@@ -155,7 +159,7 @@ export function runAutoIngestScan(opts: AutoIngestScanOptions = {}): AutoIngestS
       });
       result.triggered += 1;
     } catch (e) {
-      // 잡 커밋 subject 검증 실패(InvalidCommitSubject) 등은 정상 skip.
+      // 잡 커밋 subject 검증 실패(InvalidCommitSubject) 등은 정상 skip — 다음 후보로 넘어간다.
       result.skipped += 1;
       result.errors.push({
         projectId: commit.projectId,

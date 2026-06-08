@@ -18,6 +18,7 @@ import { ProposalCard } from "../../feedback/components/proposal-card";
 import { IngestPipelineSteps } from "../../feedback/components/ingest-pipeline-steps";
 import { feedbackKeys } from "../../feedback/api";
 import {
+  useEvaluateIngest,
   useIngestDetail,
   useReprocessIngest,
   useReprocessReviewIngest,
@@ -125,6 +126,7 @@ export function WorkDetailIngest({
   onOpenRun,
 }: IngestProps) {
   const { data, isPending, isError, error } = useIngestDetail(ingestId);
+  const evaluate = useEvaluateIngest(ingestId, projectId);
   const reprocess = useReprocessIngest(ingestId, projectId);
   const review = useReviewIngest(ingestId, projectId);
   const reprocessReview = useReprocessReviewIngest(ingestId, projectId);
@@ -140,6 +142,8 @@ export function WorkDetailIngest({
   const reviewRunId = data.contextJson.reviewRunId ?? null;
 
   // 파이프라인 액션 표시 조건(기존 IngestDrilldownContent 그대로 보존).
+  // pending = 가져오기만 됐고 아직 평가 전(자동 평가 OFF) → 수동 "평가"로 큐에 올린다.
+  const showEvaluate = data.status === "pending";
   const showReprocess =
     data.status === "evaluating" ||
     (data.status === "failed" &&
@@ -155,7 +159,7 @@ export function WorkDetailIngest({
     data.status !== "reviewing" &&
     data.status !== "reviewed";
   const showPipelineActions =
-    showReprocess || showReviewRetry || showManualReview || showCancelEval;
+    showEvaluate || showReprocess || showReviewRetry || showManualReview || showCancelEval;
   const commitSubject =
     data.contextJson.commitSubject != null && data.contextJson.commitSubject.trim() !== ""
       ? data.contextJson.commitSubject
@@ -265,8 +269,13 @@ export function WorkDetailIngest({
         data.contextJson.evalError !== undefined ||
         data.contextJson.reviewError !== undefined ||
         showSkipReviewReason) && (
-        <Disclosure title="파이프라인 액션">
+        <Disclosure title="파이프라인 액션" defaultOpen={showEvaluate}>
           <section className="space-y-3">
+            {showEvaluate && (
+              <p className="text-xs text-muted-foreground">
+                커밋만 가져온 상태예요. 평가를 누르면 work-evaluator 가 이 커밋을 평가합니다.
+              </p>
+            )}
             {data.contextJson.evalError !== undefined && (
               <p className="text-destructive text-xs">{data.contextJson.evalError}</p>
             )}
@@ -278,6 +287,18 @@ export function WorkDetailIngest({
             )}
             {showPipelineActions && (
               <div className="flex flex-wrap gap-2">
+                {showEvaluate && (
+                  <Button
+                    size="sm"
+                    disabled={evaluate.isPending}
+                    onClick={() => evaluate.mutate()}
+                  >
+                    <RefreshCw
+                      className={`h-3.5 w-3.5 ${evaluate.isPending ? "animate-spin" : ""}`}
+                    />
+                    평가
+                  </Button>
+                )}
                 {showCancelEval && evalRunId !== null && (
                   <Button
                     size="sm"
@@ -336,8 +357,15 @@ export function WorkDetailIngest({
                 )}
               </div>
             )}
-            {(reprocess.isError || review.isError || reprocessReview.isError) && (
-              <ErrorNotice error={reprocess.error ?? review.error ?? reprocessReview.error} />
+            {(evaluate.isError ||
+              reprocess.isError ||
+              review.isError ||
+              reprocessReview.isError) && (
+              <ErrorNotice
+                error={
+                  evaluate.error ?? reprocess.error ?? review.error ?? reprocessReview.error
+                }
+              />
             )}
           </section>
         </Disclosure>
