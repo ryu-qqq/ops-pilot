@@ -109,10 +109,14 @@ export function WorkListView({
       : groups.cursor.filter(
           (item) => item.kind === "ingest" && matchStageKey(statusFilter, item.ingest.status),
         );
-  const showManual = statusFilter === null && groups.manual.length > 0;
+  // ADR 0006(World 1 격하): 수동 실행(run)은 자산을 시나리오로 직접 돌린 World 1 잔재라
+  // 플래그로 가드해 숨긴다. 데이터(merge)는 그대로 두고 섹션만 안 보인다(코드 보존).
+  const showManual =
+    WORLD1_SCENARIO_SCORING_ENABLED && statusFilter === null && groups.manual.length > 0;
   const empty =
     statusFilter === null
-      ? groups.cursor.length === 0 && groups.manual.length === 0
+      ? groups.cursor.length === 0 &&
+        (!WORLD1_SCENARIO_SCORING_ENABLED || groups.manual.length === 0)
       : filteredCursor.length === 0;
 
   // ★결정1 보조 진입점 — 목록 화면일 때만(드릴다운 중엔 숨김). 컬럼/run 클릭으로 드릴다운 진입.
