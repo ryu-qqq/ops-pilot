@@ -244,11 +244,14 @@ function WorkSection({
   /** true 면 이 섹션의 첫 항목 버튼에만 data-tour="work-card" 를 부여(투어 타겟). */
   tourFirstCard?: boolean;
 }) {
+  // 30개씩 더보기 — 작업이 많아도 목록이 한없이 길어지지 않게(자산 목록과 같은 패턴).
+  const [visible, setVisible] = useState(30);
+  const shown = items.slice(0, visible);
   return (
     <section className="space-y-2">
       <h2 className="text-sm font-semibold text-muted-foreground">{title}</h2>
       <ul className="space-y-1">
-        {items.map((item, index) => (
+        {shown.map((item, index) => (
           <li key={item.id}>
             <button
               type="button"
@@ -304,6 +307,15 @@ function WorkSection({
           </li>
         ))}
       </ul>
+      {items.length > visible && (
+        <button
+          type="button"
+          onClick={() => setVisible((v) => v + 30)}
+          className="w-full rounded-md border border-dashed border-border/70 py-1.5 text-xs text-muted-foreground transition-colors hover:border-border hover:bg-accent/40"
+        >
+          {shown.length} / {items.length} · 남은 {items.length - visible}개 더 보기
+        </button>
+      )}
     </section>
   );
 }
