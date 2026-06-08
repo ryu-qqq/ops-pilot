@@ -86,6 +86,8 @@ export const projectSchema = z.object({
   workspaceMode: projectWorkspaceModeSchema,
   remoteVerified: z.boolean(),
   defaultBranch: z.string().nullable(),
+  // 실시간 git HEAD — 폴더가 지금 체크아웃한 브랜치. 조회 라우트에서 채운다(DB 컬럼 아님, 파생).
+  currentBranch: z.string().nullable().optional(),
   createdAt: ts,
 });
 export type Project = z.infer<typeof projectSchema>;

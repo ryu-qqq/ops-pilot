@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { AssetUsage } from "@opspilot/shared-types";
 import { Badge } from "../../../components/ui/badge";
 import { Card } from "../../../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
 import { EmptyState, Loading } from "../../../lib/ui";
+import { cn } from "../../../lib/utils";
 import { WORLD1_SCENARIO_SCORING_ENABLED } from "../../../lib/flags";
 import { BenchmarkLauncher } from "../../run/components/benchmark-launcher";
 import { RegressionLauncher } from "../../run/components/regression-launcher";
@@ -10,11 +12,22 @@ import { RunLauncher } from "../../run/components/run-launcher";
 import { ScenarioManager } from "../../run/components/scenario-manager";
 import { Markdown } from "../../../lib/markdown";
 import {
+  computeAssetStatus,
+  refKey,
+  type GraphItem,
+  type LintRow,
+  type StatusTone,
+} from "../graph";
+import {
+  useAssetGraph,
   useAssetLint,
   useAssets,
   useAssetVersions,
+  useProjectAssetLint,
+  useProjectAssetUsage,
   useVersionContent,
 } from "../use-registry";
+import { Dot, STATUS_DOT } from "./asset-row-ui";
 import { AssetLint } from "./asset-lint";
 import { AssetPruneSection } from "./asset-prune-section";
 import { TriggerEvalPanel } from "./trigger-eval-panel";
@@ -101,6 +114,34 @@ function AssetBody({
   );
 }
 
+// 상태 판정 한 줄(헤더용) — 목록 StatusCell 과 같은 톤→색 매핑으로 일관.
+// 점 + 라벨 + 사유. tone none('—', 미추적 종류)은 회색으로 절제해 표시.
+function AssetStatusLine({
+  status,
+}: {
+  status: { tone: StatusTone; label: string; reason: string };
+}) {
+  return (
+    <div className="flex items-start gap-1.5 text-xs">
+      <Dot className={cn("mt-1", STATUS_DOT[status.tone])} />
+      <span>
+        <span
+          className={cn(
+            "font-medium",
+            status.tone === "red" && "text-red-600 dark:text-red-400",
+            status.tone === "amber" && "text-amber-600 dark:text-amber-400",
+            status.tone === "green" && "text-emerald-600 dark:text-emerald-400",
+            status.tone === "none" && "text-muted-foreground",
+          )}
+        >
+          {status.label}
+        </span>
+        <span className="text-muted-foreground"> · {status.reason}</span>
+      </span>
+    </div>
+  );
+}
+
 // T5: 선택한 자산의 상세 — master-detail 의 오른쪽 패널.
 // 3탭: 버전(+형식 요약·prune) / 트리거(형식 상세+트리거 정확도) / 시나리오·실행.
 // 파괴적 액션(prune)은 헤더 영역에 분리해 오클릭 방지.
@@ -117,6 +158,38 @@ export function AssetDetailPanel({
   const asset = (assets ?? []).find((a) => a.id === assetId) ?? null;
   // 자산이 "뭘 하는지" — frontmatter description. 형식이 깨지면 null 로 와서 안내로 대체.
   const { data: lint } = useAssetLint(assetId);
+
+  // 상태 판정(🟢🟡🔴)을 헤더에도 — 목록(toolkit)과 같은 computeAssetStatus 재사용.
+  // toolkit 의 metaFor 와 동일한 맵 패턴: 프로젝트 배치 hook(캐시 공유, 중복 fetch 없음).
+  const { data: usage } = useProjectAssetUsage(projectId);
+  const { data: projectLint } = useProjectAssetLint(projectId);
+  const { data: graph } = useAssetGraph(projectId);
+
+  const usageMap = useMemo(() => {
+    const m = new Map<string, AssetUsage>();
+    for (const u of usage?.assets ?? []) m.set(refKey(u.kind, u.name), u);
+    return m;
+  }, [usage]);
+  const lintMap = useMemo(() => {
+    const m = new Map<string, LintRow>();
+    for (const l of projectLint?.items ?? []) m.set(l.assetId, l);
+    return m;
+  }, [projectLint]);
+  const graphMap = useMemo(() => {
+    const m = new Map<string, GraphItem>();
+    for (const g of graph?.items ?? []) m.set(refKey(g.kind, g.name), g);
+    return m;
+  }, [graph]);
+
+  const status =
+    asset != null
+      ? computeAssetStatus(
+          asset,
+          usageMap.get(refKey(asset.kind, asset.name)),
+          lintMap.get(asset.id),
+          graphMap.get(refKey(asset.kind, asset.name)),
+        )
+      : null;
 
   // 실행 버전 게이트 대체: 선택 버전이 없으면 최신 버전으로 fallback.
   // getVersions 는 committed_at DESC 정렬(repository.ts) → versions[0] = 최신.
@@ -156,6 +229,10 @@ export function AssetDetailPanel({
           )}
         </p>
       )}
+
+      {/* 상태 판정(목록과 동일 computeAssetStatus) — 헤더에 항상 노출.
+          톤 none('—', 미추적 command/cursor)은 회색으로 절제. */}
+      {status != null && <AssetStatusLine status={status} />}
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as DetailTab)} className="space-y-3">
         <TabsList className="flex w-full flex-wrap justify-start gap-1">
