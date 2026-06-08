@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CheckCircle2, DownloadCloud, Plus, RotateCw } from "lucide-react";
+import { CheckCircle2, DownloadCloud, GitBranch, Plus, RotateCw } from "lucide-react";
 import type { Project, ProjectWorkspaceMode } from "@opspilot/shared-types";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
@@ -82,7 +82,7 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
                 <SelectItem key={p.id} value={p.id}>
                   <span className="flex items-center gap-2">
                     <span>
-                      {p.name} ({p.defaultBranch ?? "?"})
+                      {p.name} ({p.currentBranch ?? p.defaultBranch ?? "?"})
                     </span>
                     <ProjectModeBadge mode={p.workspaceMode} />
                   </span>
@@ -228,6 +228,26 @@ export function ProjectBar({ selectedProjectId, onSelect }: Props) {
   );
 }
 
+// 폴더의 실시간 git HEAD 브랜치 칩. main/master 가 아니면 amber 로 강조해
+// "지금 다른 브랜치에 체크아웃돼 있다"가 한눈에 보이게 한다. null 이면 안 그린다.
+function CurrentBranchChip({ branch }: { branch: string }) {
+  const isDefault = branch === "main" || branch === "master";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px]",
+        isDefault
+          ? "border-border/60 text-muted-foreground"
+          : "border-amber-500/40 text-amber-600 dark:text-amber-400",
+      )}
+      title={`이 폴더가 현재 체크아웃한 브랜치: ${branch}`}
+    >
+      <GitBranch className="h-3 w-3" />
+      {branch}
+    </span>
+  );
+}
+
 function ProjectPathHint({ project }: { project: Project }) {
   return (
     <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs">
@@ -237,6 +257,9 @@ function ProjectPathHint({ project }: { project: Project }) {
           <Badge variant="outline" className="text-[10px]">
             origin 검증됨
           </Badge>
+        )}
+        {project.currentBranch != null && (
+          <CurrentBranchChip branch={project.currentBranch} />
         )}
       </div>
       <p className="font-mono text-[11px] text-muted-foreground break-all">{project.clonePath}</p>

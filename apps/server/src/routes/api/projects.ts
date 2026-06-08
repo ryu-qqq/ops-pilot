@@ -14,7 +14,7 @@ import {
   registerProject,
 } from "../../domains/project/register.js";
 import { pullProject } from "../../domains/project/service.js";
-import { scanRepo } from "../../domains/registry/scanner.js";
+import { currentGitRef, scanRepo } from "../../domains/registry/scanner.js";
 import {
   latestContent,
   listAssets,
@@ -99,7 +99,12 @@ const projects: FastifyPluginAsyncZod = async (fastify) => {
         response: { 200: z.object({ projects: z.array(projectSchema) }) },
       },
     },
-    async () => ({ projects: listProjects() }),
+    async () => ({
+      projects: listProjects().map((p) => ({
+        ...p,
+        currentBranch: currentGitRef(p.clonePath),
+      })),
+    }),
   );
 
   // pull → .claude 스캔 → 프로젝트 스코프로 적재

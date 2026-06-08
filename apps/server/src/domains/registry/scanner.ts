@@ -40,7 +40,7 @@ function sha256(s: string): string {
   return createHash("sha256").update(s).digest("hex");
 }
 
-function currentGitRef(root: string): string | null {
+export function currentGitRef(root: string): string | null {
   try {
     return git(root, ["rev-parse", "--abbrev-ref", "HEAD"]) || null;
   } catch {
