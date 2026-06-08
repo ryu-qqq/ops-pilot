@@ -27,6 +27,7 @@ export function SettingsDialog() {
   const [email, setEmail] = useState("");
   const [jiraToken, setJiraToken] = useState("");
   const [notionToken, setNotionToken] = useState("");
+  const [autoEval, setAutoEval] = useState(false);
   const [autoReview, setAutoReview] = useState(false);
 
   // Dialog 가 열릴 때 저장된 값으로 초기화 — 토큰은 write-only 라 항상 빈 칸.
@@ -36,6 +37,7 @@ export function SettingsDialog() {
       setEmail(data.jira.email);
       setJiraToken("");
       setNotionToken("");
+      setAutoEval(data.autoEval);
       setAutoReview(data.autoReview);
     }
   }, [open, data]);
@@ -45,6 +47,7 @@ export function SettingsDialog() {
       {
         jira: { siteUrl, email, apiToken: jiraToken || undefined },
         notion: { token: notionToken || undefined },
+        autoEval,
         autoReview,
       },
       { onSuccess: () => setOpen(false) },
@@ -117,6 +120,28 @@ export function SettingsDialog() {
                 onChange={(e) => setNotionToken(e.target.value)}
               />
             </div>
+          </section>
+
+          <section className="space-y-3">
+            <h3 className="text-sm font-medium">자동 평가</h3>
+            <label
+              htmlFor="auto-eval"
+              className="flex cursor-pointer items-start gap-3"
+            >
+              <Checkbox
+                id="auto-eval"
+                checked={autoEval}
+                onCheckedChange={(v) => setAutoEval(v === true)}
+                className="mt-0.5"
+              />
+              <span className="space-y-1">
+                <span className="block text-sm">새로 들어온 커밋을 자동으로 평가</span>
+                <span className="block text-xs leading-relaxed text-muted-foreground">
+                  켜면 새 커밋이 들어오는 대로 work-evaluator 가 바로 평가합니다. 끄면 작업 목록에
+                  대기로 쌓이고, 평가할 작업을 직접 골라 실행합니다.
+                </span>
+              </span>
+            </label>
           </section>
 
           <section className="space-y-3">

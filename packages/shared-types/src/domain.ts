@@ -314,6 +314,8 @@ export const settingsViewSchema = z.object({
   notion: z.object({
     tokenSet: z.boolean(),
   }),
+  // 자동 평가(ingest 후 work-evaluator 자동 실행) on/off. 기본 off=수동.
+  autoEval: z.boolean(),
   // 자동 검토(eval 후 proposal-reviewer 자동 실행) on/off. 기본 off=수동.
   autoReview: z.boolean(),
 });
@@ -329,6 +331,7 @@ export const settingsUpdateSchema = z.object({
   notion: z.object({
     token: z.string().optional(),
   }),
+  autoEval: z.boolean().optional(),
   autoReview: z.boolean().optional(),
 });
 export type SettingsUpdate = z.infer<typeof settingsUpdateSchema>;

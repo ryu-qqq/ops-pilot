@@ -8,11 +8,8 @@ import { cn } from "../../../lib/utils";
 import { WORLD1_SCENARIO_SCORING_ENABLED } from "../../../lib/flags";
 import { ProjectBar } from "../../project/components/project-bar";
 import { useProjects } from "../../project/use-project";
-import {
-  useAutoIngestConfig,
-  useIngests,
-  useProjectProposals,
-} from "../../feedback/use-feedback";
+import { useIngests, useProjectProposals } from "../../feedback/use-feedback";
+import { useSettings } from "../../settings/use-settings";
 import {
   PipelineFlowBand,
   matchStageKey,
@@ -62,7 +59,7 @@ export function WorkListView({
   const { data: runs } = useRuns(projectId);
   // 전역 카운트 — status 없이. 폴링은 목록 hook 들이 각자 처리하므로 false.
   const { data: proposals } = useProjectProposals(projectId, undefined, false);
-  const { data: autoIngestConfig } = useAutoIngestConfig();
+  const { data: settings } = useSettings();
   const project = (projects ?? []).find((p) => p.id === projectId);
 
   // 파이프라인 단계 클릭 필터 — null 이면 전체. PipelineFlowBand stage.key 값(pending/
@@ -181,7 +178,6 @@ export function WorkListView({
       )}
       <PipelineFlowBand
         statuses={ingestStatuses}
-        autoIngestConfig={autoIngestConfig}
         isPending={ingestsPending}
         activeStatus={statusFilter}
         onToggleStatus={(s) => setStatusFilter((prev) => (prev === s ? null : s))}
@@ -201,9 +197,9 @@ export function WorkListView({
         <EmptyState
           title="아직 작업이 없어요"
           hint={
-            autoIngestConfig?.enabled === true
-              ? "코드 작업을 커밋하면 주기 스캔이 자동 평가합니다."
-              : "자동 평가가 꺼져 있습니다 — 서버 OPS_AUTO_INGEST 를 켜면 커밋이 자동 평가됩니다."
+            settings?.autoEval === true
+              ? "코드 작업을 커밋하면 새 커밋이 자동으로 평가됩니다."
+              : "코드 작업을 커밋하면 여기에 대기로 쌓입니다 — 평가할 작업을 골라 실행하세요. 자동 평가는 설정에서 켤 수 있습니다."
           }
         />
       )}

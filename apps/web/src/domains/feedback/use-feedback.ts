@@ -3,8 +3,8 @@ import type { ImprovementProposalStatus } from "@opspilot/shared-types";
 import {
   applyProposal,
   approveProposal,
+  evaluateIngest,
   feedbackKeys,
-  getAutoIngestConfig,
   getIngestDetail,
   getIngests,
   getProjectProposals,
@@ -47,18 +47,6 @@ export function useProjectProposals(
   });
 }
 
-/**
- * 자동 ingest 스캐너의 현재 env 설정(읽기 전용, ADR 0004). 전역 설정이라 projectId 무관 —
- * 서버 재기동 전까지 안 바뀌므로 staleTime 을 넉넉히 두고 폴링하지 않는다.
- */
-export function useAutoIngestConfig() {
-  return useQuery({
-    queryKey: feedbackKeys.autoIngestConfig(),
-    queryFn: getAutoIngestConfig,
-    staleTime: 5 * 60 * 1000,
-  });
-}
-
 export function useIngestDetail(ingestId: string | null) {
   return useQuery({
     queryKey: feedbackKeys.detail(ingestId ?? "none"),
@@ -95,6 +83,18 @@ export function useApplyProposal(ingestId: string, projectId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: applyProposal,
+    onSuccess: () => invalidateFeedback(qc, ingestId, projectId),
+  });
+}
+
+/**
+ * pending(아직 평가 안 한) ingest 를 수동으로 평가 큐에 올린다 — 자동 평가 OFF 일 때 사용.
+ * reprocess 계열은 이미 evalRunId 가 있어야 하므로 pending 엔 못 쓴다(별도 경로).
+ */
+export function useEvaluateIngest(ingestId: string, projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => evaluateIngest(ingestId),
     onSuccess: () => invalidateFeedback(qc, ingestId, projectId),
   });
 }

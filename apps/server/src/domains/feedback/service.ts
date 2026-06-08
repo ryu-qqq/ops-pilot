@@ -13,6 +13,7 @@ import { queueFeedbackEval, reprocessFeedbackEval, type FeedbackEvalSource } fro
 import { queueProposalReview, reprocessProposalReview } from "./review-queue.js";
 import { createIngestBundle, getIngestBundle, listIngestBundlesByProject, listProposalsByIngestId } from "./repository.js";
 import { readTranscriptExcerpt } from "./transcript.js";
+import { getAutoEval } from "../setting/repository.js";
 
 export class FeedbackIngestError extends Error {
   constructor(
@@ -83,7 +84,9 @@ export function ingestFeedback(input: FeedbackIngestRequest): IngestBundleDetail
     trigger: input.trigger,
   });
 
-  queueFeedbackEval(bundle.id, input.evalSource);
+  // 자동 평가 off(기본)면 ingest 는 pending 으로 유입만 하고 멈춘다.
+  // 사람이 작업 상세에서 수동으로 평가(evaluateFeedbackIngest)한다.
+  if (getAutoEval()) queueFeedbackEval(bundle.id, input.evalSource);
 
   const updated = getIngestDetail(bundle.id);
   if (!updated) {
@@ -129,6 +132,31 @@ export async function reprocessFeedbackIngest(id: string): Promise<IngestBundleD
   const detail = getIngestDetail(id);
   if (!detail) {
     throw new FeedbackIngestError("EvalSetupError", "ingest row lost after reprocess");
+  }
+  return detail;
+}
+
+/**
+ * 수동 평가(pending → eval). 자동 평가 off 일 때 사람이 고른 ingest 만 평가 큐에 올린다.
+ * reprocess 계열은 evalRunId 가 있어야 동작해 pending 엔 못 쓰므로 별도 경로.
+ * 이미 평가중/완료/검토 단계면 거부 — pending 만 허용.
+ */
+export function evaluateFeedbackIngest(id: string): IngestBundleDetail {
+  const bundle = getIngestBundle(id);
+  if (!bundle) {
+    throw new FeedbackIngestError("NotFound", "ingest bundle not found");
+  }
+  if (bundle.status !== "pending") {
+    throw new FeedbackIngestError(
+      "EvalSetupError",
+      `이미 평가가 시작된 작업입니다 (status: ${bundle.status})`,
+    );
+  }
+  const evalSource: FeedbackEvalSource = bundle.contextJson.evalSource ?? "local-claude";
+  queueFeedbackEval(id, evalSource);
+  const detail = getIngestDetail(id);
+  if (!detail) {
+    throw new FeedbackIngestError("EvalSetupError", "ingest row lost after eval queue");
   }
   return detail;
 }
