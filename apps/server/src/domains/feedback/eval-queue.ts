@@ -14,6 +14,7 @@ import {
 import { FEEDBACK_EVAL_FIXTURE } from "./fixture.js";
 import { parseProposalsFromRun } from "./parser.js";
 import { queueProposalReview } from "./review-queue.js";
+import { getAutoReview } from "../setting/repository.js";
 import {
   createImprovementProposal,
   getIngestBundle,
@@ -159,7 +160,8 @@ export async function handleFeedbackRunCompleted(runId: string): Promise<void> {
     }
     updateIngestStatus(ingestId, "done");
     const evalSource = ingest.contextJson.evalSource ?? "local-claude";
-    queueProposalReview(ingestId, evalSource);
+    // 자동 검토 off(기본)면 done 에서 멈추고 사용자가 작업 상세에서 수동 review.
+    if (getAutoReview()) queueProposalReview(ingestId, evalSource);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     markEvalFailed(ingestId, `proposal save failed: ${msg}`);
