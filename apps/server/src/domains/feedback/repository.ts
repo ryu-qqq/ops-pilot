@@ -183,6 +183,8 @@ export function listProposalsByIngestId(ingestId: string): ImprovementProposal[]
 
 export interface ProposalWithSourceRow extends ImprovementProposal {
   commitSubject: string | null;
+  commitDate: string | null;
+  commitAuthor: string | null;
   gitRef: string;
   evalRunId: string | null;
   reviewRunId: string | null;
@@ -210,6 +212,8 @@ export function listProposalsByProject(
                       ib.git_ref AS gitRef,
                       ib.ingest_trigger AS trigger,
                       json_extract(ib.context_json, '$.commitSubject') AS commitSubject,
+                      json_extract(ib.context_json, '$.commitDate') AS commitDate,
+                      json_extract(ib.context_json, '$.commitAuthor') AS commitAuthor,
                       json_extract(ib.context_json, '$.evalRunId') AS evalRunId,
                       json_extract(ib.context_json, '$.reviewRunId') AS reviewRunId
                  FROM improvement_proposal p
@@ -223,6 +227,8 @@ export function listProposalsByProject(
     gitRef: row.gitRef as string,
     trigger: row.trigger as IngestTrigger,
     commitSubject: (row.commitSubject as string | null) ?? null,
+    commitDate: (row.commitDate as string | null) ?? null,
+    commitAuthor: (row.commitAuthor as string | null) ?? null,
     evalRunId: (row.evalRunId as string | null) ?? null,
     reviewRunId: (row.reviewRunId as string | null) ?? null,
   }));
@@ -240,6 +246,8 @@ export interface IngestBundleListRow {
   approvedProposalCount: number;
   appliedProposalCount: number;
   commitSubject: string | null;
+  commitDate: string | null;
+  commitAuthor: string | null;
   retroPreview: string | null;
   evalRunId: string | null;
   reviewRunId: string | null;
@@ -258,6 +266,8 @@ export function listIngestBundlesByProject(projectId: string): IngestBundleListR
               json_extract(ib.context_json, '$.evalRunId') AS evalRunId,
               json_extract(ib.context_json, '$.reviewRunId') AS reviewRunId,
               json_extract(ib.context_json, '$.commitSubject') AS commitSubject,
+              json_extract(ib.context_json, '$.commitDate') AS commitDate,
+              json_extract(ib.context_json, '$.commitAuthor') AS commitAuthor,
               json_extract(ib.context_json, '$.retro') AS retroRaw,
               (SELECT COUNT(*) FROM improvement_proposal p
                  WHERE p.ingest_id = ib.id AND p.status = 'draft') AS draftProposalCount,
@@ -284,6 +294,8 @@ export function listIngestBundlesByProject(projectId: string): IngestBundleListR
       approvedProposalCount: Number(row.approvedProposalCount ?? 0),
       appliedProposalCount: Number(row.appliedProposalCount ?? 0),
       commitSubject: (row.commitSubject as string | null) ?? null,
+      commitDate: (row.commitDate as string | null) ?? null,
+      commitAuthor: (row.commitAuthor as string | null) ?? null,
       retroPreview: retroRaw ? retroRaw.slice(0, 120) : null,
       evalRunId: (row.evalRunId as string | null) ?? null,
       reviewRunId: (row.reviewRunId as string | null) ?? null,

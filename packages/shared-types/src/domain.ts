@@ -452,6 +452,9 @@ export type ImprovementTargetKind = z.infer<typeof improvementTargetKindSchema>;
 export const ingestBundleContextSchema = z.object({
   retro: z.string().optional(),
   commitSubject: z.string().optional(),
+  // 작업 목록 표시용 커밋 메타. 옛 ingest 는 없음 → optional.
+  commitDate: z.string().optional(),
+  commitAuthor: z.string().optional(),
   transcriptExcerpt: z.string().optional(),
   taskTitle: z.string().optional(),
   diffTruncated: z.boolean().optional(),
@@ -503,6 +506,9 @@ export type ImprovementProposal = z.infer<typeof improvementProposalSchema>;
  */
 export const proposalWithSourceSchema = improvementProposalSchema.extend({
   commitSubject: z.string().nullable(),
+  // 출처 커밋 메타(날짜·저자). 옛 ingest 는 context 에 없음 → nullable.
+  commitDate: z.string().nullable(),
+  commitAuthor: z.string().nullable(),
   gitRef: z.string(),
   evalRunId: z.string().nullable(),
   reviewRunId: z.string().nullable(),
@@ -573,6 +579,9 @@ export const ingestBundleListItemSchema = z.object({
   approvedProposalCount: z.number().int().nonnegative().optional(),
   appliedProposalCount: z.number().int().nonnegative().optional(),
   commitSubject: z.string().nullable().optional(),
+  // 출처 커밋 메타(날짜·저자). 옛 ingest 는 없음 → nullable·optional.
+  commitDate: z.string().nullable().optional(),
+  commitAuthor: z.string().nullable().optional(),
   retroPreview: z.string().nullable().optional(),
   evalRunId: id.nullable().optional(),
   reviewRunId: id.nullable().optional(),

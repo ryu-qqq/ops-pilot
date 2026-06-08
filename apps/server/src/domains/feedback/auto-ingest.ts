@@ -74,6 +74,36 @@ export interface AutoIngestScanOptions {
   batch?: number;
 }
 
+/** auto-ingest 후보 — 프로젝트 경계를 넘어 한 데 모아 최신순 정렬할 수 있게 projectId 동봉. */
+export interface AutoIngestCandidate {
+  projectId: string;
+  sha: string;
+  subject: string;
+  /** author date ISO 8601(%aI). 최신순 정렬 키. 빈 문자열이면 가장 오래된 것으로 취급. */
+  committedAt: string;
+}
+
+/**
+ * 여러 프로젝트가 섞인 후보를 committedAt 내림차순으로 정렬해 상위 batch 개만 고른다(순수 함수).
+ *
+ * 라운드로빈·공평 분배 없음 — 최신 커밋이 곧 합리적 우선순위라 한 프로젝트가
+ * 앞에 있다는 이유로 독점하지 않는다(앞 프로젝트가 모두 옛 커밋이면 뒤로 밀린다).
+ * committedAt 동률·빈 문자열은 안정적으로 뒤로(빈 문자열 < 정상 ISO). 입력 배열은 변형하지 않는다.
+ */
+export function pickRecentCandidates<T extends { committedAt: string }>(
+  items: T[],
+  batch: number,
+): T[] {
+  return [...items]
+    .sort((a, b) => {
+      // ISO 8601 은 사전식 비교 = 시간 비교. 내림차순(최신 먼저).
+      if (a.committedAt < b.committedAt) return 1;
+      if (a.committedAt > b.committedAt) return -1;
+      return 0;
+    })
+    .slice(0, Math.max(0, batch));
+}
+
 export function runAutoIngestScan(opts: AutoIngestScanOptions = {}): AutoIngestScanResult {
   const window = opts.window ?? envInt("OPS_AUTO_INGEST_WINDOW", DEFAULT_WINDOW);
   const batch = opts.batch ?? envInt("OPS_AUTO_INGEST_BATCH", DEFAULT_BATCH);
@@ -87,6 +117,8 @@ export function runAutoIngestScan(opts: AutoIngestScanOptions = {}): AutoIngestS
     errors: [],
   };
 
+  // 1) 전 프로젝트의 미평가 후보를 projectId 와 함께 한 데 모은다.
+  const allCandidates: AutoIngestCandidate[] = [];
   for (const project of listProjects()) {
     if (!project.clonePath || !existsSync(project.clonePath)) continue;
     result.scannedProjects += 1;
@@ -98,32 +130,38 @@ export function runAutoIngestScan(opts: AutoIngestScanOptions = {}): AutoIngestS
     );
     const ingested = new Set(getIngestedGitRefs(project.id));
 
-    // 차집합: 미ingest + 자가 루프(ops(...)) 제외. 오래된→최신 순으로 시간순 ingest.
-    const candidates = recent
-      .filter((c) => !ingested.has(c.sha) && !isOpsPilotHarnessSubject(c.subject))
-      .reverse();
-    result.candidates += candidates.length;
+    // 차집합: 미ingest + 자가 루프(ops(...)) 제외 (기존 필터 유지).
+    for (const c of recent) {
+      if (ingested.has(c.sha) || isOpsPilotHarnessSubject(c.subject)) continue;
+      allCandidates.push({
+        projectId: project.id,
+        sha: c.sha,
+        subject: c.subject,
+        committedAt: c.committedAt,
+      });
+    }
+  }
+  result.candidates = allCandidates.length;
 
-    for (const commit of candidates) {
-      // BATCH cap(전 프로젝트 합산) 도달 시 즉시 중단.
-      if (result.triggered >= batch) return result;
-      try {
-        ingestFeedback({
-          projectId: project.id,
-          gitRef: commit.sha,
-          evalSource: source,
-          trigger: "auto",
-        });
-        result.triggered += 1;
-      } catch (e) {
-        // 잡 커밋 subject 검증 실패(InvalidCommitSubject) 등은 정상 skip.
-        result.skipped += 1;
-        result.errors.push({
-          projectId: project.id,
-          gitRef: commit.sha,
-          message: (e as Error).message,
-        });
-      }
+  // 2) 전체를 커밋 시각 내림차순 정렬해 상위 batch 개만 ingest (프로젝트 경계 무시).
+  const picked = pickRecentCandidates(allCandidates, batch);
+  for (const commit of picked) {
+    try {
+      ingestFeedback({
+        projectId: commit.projectId,
+        gitRef: commit.sha,
+        evalSource: source,
+        trigger: "auto",
+      });
+      result.triggered += 1;
+    } catch (e) {
+      // 잡 커밋 subject 검증 실패(InvalidCommitSubject) 등은 정상 skip.
+      result.skipped += 1;
+      result.errors.push({
+        projectId: commit.projectId,
+        gitRef: commit.sha,
+        message: (e as Error).message,
+      });
     }
   }
 

@@ -20,6 +20,7 @@ import {
 import { useRuns } from "../../run/use-run";
 import { BenchmarkSummary } from "../../run/components/benchmark-summary";
 import { ComparisonView } from "../../run/components/comparison-view";
+import { formatCommitMeta } from "../lib/commit-meta";
 import { mergeWorkItems } from "../lib/merge-work-items";
 import {
   ingestStatusVariant,
@@ -281,6 +282,14 @@ function WorkSection({
                     >
                       {item.ingest.trigger}
                     </Badge>
+                    {(() => {
+                      // 커밋 메타(날짜·저자) — 옛 ingest 는 null/undefined 라 줄 자체를 생략(graceful).
+                      const meta = formatCommitMeta(
+                        item.ingest.commitDate,
+                        item.ingest.commitAuthor,
+                      );
+                      return meta !== null ? <span>{meta}</span> : null;
+                    })()}
                     {item.proposalCount > 0 && <span>개선안 {item.proposalCount}</span>}
                   </div>
                 </div>
