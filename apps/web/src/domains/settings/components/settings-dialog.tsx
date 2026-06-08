@@ -8,6 +8,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../../../components/ui/dialog";
+import { Checkbox } from "../../../components/ui/checkbox";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { InlineError } from "../../../lib/ui";
@@ -26,6 +27,7 @@ export function SettingsDialog() {
   const [email, setEmail] = useState("");
   const [jiraToken, setJiraToken] = useState("");
   const [notionToken, setNotionToken] = useState("");
+  const [autoReview, setAutoReview] = useState(false);
 
   // Dialog 가 열릴 때 저장된 값으로 초기화 — 토큰은 write-only 라 항상 빈 칸.
   useEffect(() => {
@@ -34,6 +36,7 @@ export function SettingsDialog() {
       setEmail(data.jira.email);
       setJiraToken("");
       setNotionToken("");
+      setAutoReview(data.autoReview);
     }
   }, [open, data]);
 
@@ -42,6 +45,7 @@ export function SettingsDialog() {
       {
         jira: { siteUrl, email, apiToken: jiraToken || undefined },
         notion: { token: notionToken || undefined },
+        autoReview,
       },
       { onSuccess: () => setOpen(false) },
     );
@@ -113,6 +117,28 @@ export function SettingsDialog() {
                 onChange={(e) => setNotionToken(e.target.value)}
               />
             </div>
+          </section>
+
+          <section className="space-y-3">
+            <h3 className="text-sm font-medium">자동 검토</h3>
+            <label
+              htmlFor="auto-review"
+              className="flex cursor-pointer items-start gap-3"
+            >
+              <Checkbox
+                id="auto-review"
+                checked={autoReview}
+                onCheckedChange={(v) => setAutoReview(v === true)}
+                className="mt-0.5"
+              />
+              <span className="space-y-1">
+                <span className="block text-sm">평가 후 개선안 검토를 자동 실행</span>
+                <span className="block text-xs leading-relaxed text-muted-foreground">
+                  켜면 평가가 끝나면 proposal-reviewer 가 바로 돌아 검토까지 마칩니다. 끄면 작업이
+                  완료에서 멈추고, 검토는 작업별로 직접 실행합니다.
+                </span>
+              </span>
+            </label>
           </section>
 
           {update.isError && <InlineError error={update.error} />}
