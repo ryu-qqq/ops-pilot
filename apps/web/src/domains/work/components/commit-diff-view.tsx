@@ -1,38 +1,10 @@
 import { useState } from "react";
 
 import { Badge } from "../../../components/ui/badge";
+import { PatchLines } from "../../../lib/patch-lines";
 import { EmptyState } from "../../../lib/ui";
 import { cn } from "../../../lib/utils";
 import { parseCommitDiff } from "../lib/parse-commit-diff";
-
-/**
- * 선택 파일 patch 한 줄의 종류를 색칠 클래스로 매핑.
- * run 도메인 DiffView 의 patchLineClass 와 톤을 맞춘다 — 하드코딩 hex 금지, CSS 변수 토큰만.
- * 2-pane 에서는 오른쪽이 "선택 한 파일"이라 파일 헤더(diff --git/index/---/+++)도 그대로 보이되,
- * +++/--- 헤더는 추가·삭제 색이 묻지 않도록 먼저 걸러 muted 처리한다.
- */
-function diffLineClass(line: string): string {
-  // 파일·메타 헤더 — 회색 굵게(+++/--- 를 +/− 색칠보다 먼저 처리해야 함).
-  if (
-    line.startsWith("diff --git") ||
-    line.startsWith("index ") ||
-    line.startsWith("--- ") ||
-    line.startsWith("+++ ") ||
-    line.startsWith("new file") ||
-    line.startsWith("deleted file") ||
-    line.startsWith("rename ") ||
-    line.startsWith("similarity ") ||
-    line.startsWith("old mode") ||
-    line.startsWith("new mode") ||
-    line.startsWith("Binary files")
-  ) {
-    return "font-semibold text-muted-foreground";
-  }
-  if (line.startsWith("@@")) return "text-primary";
-  if (line.startsWith("+")) return "bg-success/15 text-success";
-  if (line.startsWith("-")) return "bg-destructive/15 text-destructive";
-  return "text-muted-foreground";
-}
 
 /** 경로에서 파일명만 (run/diff-view 와 동일). rename 표시("a → b")면 마지막 토큰 기준. */
 function baseName(path: string): string {
@@ -164,13 +136,7 @@ export function CommitDiffView({ diffSummary, truncated = false }: Props) {
                 바이너리 파일 — patch 생략.
               </p>
             ) : (
-              <pre className="bg-muted/50 px-3 py-2 font-mono text-xs leading-relaxed">
-                {selected.patch.split("\n").map((line, i) => (
-                  <div key={i} className={cn(diffLineClass(line))}>
-                    {line === "" ? " " : line}
-                  </div>
-                ))}
-              </pre>
+              <PatchLines patch={selected.patch} filePath={selected.filePath} />
             )}
           </div>
         </div>
