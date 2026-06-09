@@ -106,3 +106,87 @@
   animation: opspilot-pulse-glow 2.4s ease-in-out infinite;
   border-radius: var(--radius);
 }
+
+/* diff 문법 강조 (prismjs) — 토큰 색을 OpsPilot CSS 변수에서 파생한다(하드코딩 hex 금지).
+   prism 기본 테마는 hex 라 안 쓰고, .prism-diff 안에서 토큰 클래스만 우리 토큰으로 매핑한다.
+   +/- 배경(bg-success/15·bg-destructive/15) 위에서도 읽히게 명도 차이를 둔다. */
+.prism-diff {
+  /* 코드 토큰 팔레트 — 라이트. 기존 도메인 신호 톤(success 초록·info 보라·warning 주황)에 맞춘다. */
+  --diff-tok-keyword: 262 60% 50%;
+  --diff-tok-string: 142 55% 32%;
+  --diff-tok-comment: 240 4% 55%;
+  --diff-tok-function: 217 75% 50%;
+  --diff-tok-number: 32 80% 42%;
+  --diff-tok-class: 32 80% 42%;
+  --diff-tok-operator: 240 5% 35%;
+  --diff-tok-punctuation: 240 4% 50%;
+  --diff-tok-tag: 0 65% 48%;
+  --diff-tok-attr: 32 80% 42%;
+}
+.dark .prism-diff {
+  --diff-tok-keyword: 262 75% 75%;
+  --diff-tok-string: 142 55% 60%;
+  --diff-tok-comment: 240 5% 55%;
+  --diff-tok-function: 210 90% 72%;
+  --diff-tok-number: 32 90% 65%;
+  --diff-tok-class: 32 90% 70%;
+  --diff-tok-operator: 240 5% 78%;
+  --diff-tok-punctuation: 240 5% 62%;
+  --diff-tok-tag: 0 75% 70%;
+  --diff-tok-attr: 32 90% 70%;
+}
+.prism-diff .token.comment,
+.prism-diff .token.prolog,
+.prism-diff .token.doctype,
+.prism-diff .token.cdata {
+  color: hsl(var(--diff-tok-comment));
+  font-style: italic;
+}
+.prism-diff .token.punctuation {
+  color: hsl(var(--diff-tok-punctuation));
+}
+.prism-diff .token.property,
+.prism-diff .token.boolean,
+.prism-diff .token.number,
+.prism-diff .token.constant,
+.prism-diff .token.symbol {
+  color: hsl(var(--diff-tok-number));
+}
+.prism-diff .token.selector,
+.prism-diff .token.attr-name,
+.prism-diff .token.builtin,
+.prism-diff .token.inserted {
+  color: hsl(var(--diff-tok-attr));
+}
+.prism-diff .token.string,
+.prism-diff .token.char,
+.prism-diff .token.attr-value,
+.prism-diff .token.regex {
+  color: hsl(var(--diff-tok-string));
+}
+.prism-diff .token.operator,
+.prism-diff .token.entity,
+.prism-diff .token.url {
+  color: hsl(var(--diff-tok-operator));
+}
+.prism-diff .token.atrule,
+.prism-diff .token.keyword,
+.prism-diff .token.title {
+  color: hsl(var(--diff-tok-keyword));
+}
+.prism-diff .token.function,
+.prism-diff .token.class-name {
+  color: hsl(var(--diff-tok-function));
+}
+.prism-diff .token.tag,
+.prism-diff .token.deleted,
+.prism-diff .token.namespace {
+  color: hsl(var(--diff-tok-tag));
+}
+.prism-diff .token.important,
+.prism-diff .token.bold {
+  font-weight: 600;
+}
+.prism-diff .token.italic {
+  font-style: italic;
+}

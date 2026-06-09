@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { Badge } from "../../../components/ui/badge";
+import { PatchLines } from "../../../lib/patch-lines";
 import { EmptyState, ErrorNotice, Loading } from "../../../lib/ui";
 import { cn } from "../../../lib/utils";
 import type { RunDiffFileView } from "../api";
@@ -21,13 +22,6 @@ const statusVariant: Record<RunDiffFileView["status"], "success" | "warning" | "
   renamed: "info",
   binary: "secondary",
 };
-
-function patchLineClass(line: string): string {
-  if (line.startsWith("+") && !line.startsWith("+++")) return "bg-success/15";
-  if (line.startsWith("-") && !line.startsWith("---")) return "bg-destructive/15";
-  if (line.startsWith("@@")) return "text-primary";
-  return "";
-}
 
 /** 경로에서 파일명만. */
 function baseName(path: string): string {
@@ -173,13 +167,7 @@ export function DiffView({ runId }: Props) {
                 patch 수집 실패(파일 권한·인코딩 등).
               </p>
             ) : (
-              <pre className="bg-muted/50 px-3 py-2 font-mono text-xs leading-relaxed">
-                {selected.patch.split("\n").map((line, i) => (
-                  <div key={i} className={cn(patchLineClass(line))}>
-                    {line}
-                  </div>
-                ))}
-              </pre>
+              <PatchLines patch={selected.patch} filePath={selected.filePath} />
             )}
           </div>
         </div>
