@@ -55,7 +55,7 @@ PR에 달린 리뷰를 사람이 매번 직접 읽고 판단하는 수고를, **
   ```
 - **인라인 코멘트(파일·라인 단위)** — 실제 지적의 대부분이 여기 있다:
   ```bash
-  gh api --paginate repos/{owner}/{repo}/pulls/<pr>/comments
+  gh api --paginate repos/:owner/:repo/pulls/<pr>/comments
   ```
 - **대화 코멘트** — 스레드 일반 코멘트:
   ```bash
@@ -106,6 +106,17 @@ PR에 달린 리뷰를 사람이 매번 직접 읽고 판단하는 수고를, **
 
 스킬은 자동으로 코드를 고치거나 PR에 글을 달지 않는다. 승인된 항목의 적용은 일반 편집·답글
 워크플로로 이어서 한다.
+
+### Bash 사용 경계 (read-only 강제)
+
+`allowed-tools`에 Bash가 있는 건 `gh`·`git` **조회 전용** 때문이다 (Bash 자체는 쓰기도 가능하므로
+read-only 는 도구가 아닌 이 규칙으로 보장한다). 다음만 허용한다:
+
+- `gh pr view`·`gh pr list`·`gh api`의 **GET(조회)** 엔드포인트
+- `git log`·`git show`·`git diff` 등 **읽기** 명령
+
+금지: PR 답글·리뷰 게시(`gh pr comment`·`gh api -X POST/PATCH/PUT/DELETE`)·스레드 resolve·
+`git commit`·`git push`·파일 수정. 이들은 사람 승인 후 이 스킬 밖에서 한다.
 
 ## 산출물
 
