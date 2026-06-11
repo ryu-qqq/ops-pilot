@@ -1,6 +1,6 @@
 # 0007. 자산·하네스 평가 실행 엔진으로 DeepEval 채택 (CI/offline 축)
 
-- 상태: Proposed
+- 상태: Accepted
 - 날짜: 2026-06-10
 
 ## 맥락 (Context)
@@ -25,7 +25,7 @@ RAGAS·DeepEval을 2026-06 기준으로 대조한 결과, DeepEval의 G-Eval(자
 2. **D2 — agent-evaluator 8차원·OpsPilot 루프는 현행 유지.** DeepEval은 채점 실행에만 적용한다. verdict threshold의 SSOT는 `asset-quality-rubric.md` 단일 — DeepEval은 실행만(이중 정의 금지).
 3. **D3 — RAGAS는 retrieval 끼는 자산(wiki-lookup·context-preprocessor·vault 조회)에만 국소 도입.** context precision/recall/faithfulness로 조회 품질만 라벨링.
 
-> 위 D1~D3은 platform-bootstrap 맥락에서 한 번 확정됐으나, ops-pilot에는 이미 머신 스코어러(ADR-0005)가 있어 **결정 맥락이 달라졌다**. 따라서 status는 `Proposed` — 아래 "관계" 절의 미결을 사람이 정한 뒤 `Accepted`로 승격한다.
+> **확정(2026-06-11)**: "관계" 절의 분담 미결을 **분리 유지**로 결정 — 머신 스코어러(ADR-0005)는 인프로덕트 per-run 채점으로 그대로, DeepEval 축은 CI/offline 자산 회귀 전담. 상호 위임 없음. 이로써 `Accepted`.
 
 ### 기각한 대안
 
@@ -44,13 +44,13 @@ RAGAS·DeepEval을 2026-06 기준으로 대조한 결과, DeepEval의 G-Eval(자
 | 스택 | TypeScript 도메인 코드 | Python/pytest |
 | 산출 | gateStatus 3상태 + DB/UI | test pass/fail + Pass^k |
 
-**미결(사람이 정할 것):** 장기적으로 인프로덕트 머신 스코어러가 DeepEval 백엔드 서비스에 위임할지, 각자 bespoke로 둘지. 현 시점 제안은 **분리 유지**(머신 스코어러는 손대지 않음)이나, 이게 이 ADR을 `Accepted`로 올리기 전 확인할 핵심 결정이다.
+**확정(2026-06-11): 분리 유지.** 인프로덕트 머신 스코어러는 DeepEval에 위임하지 않고 각자 bespoke로 둔다 — surface(시점·대상·스택·산출)가 전부 달라 통합의 이득보다 결합 비용이 크다. 재검토 트리거: 두 축의 judge 기준이 실질적으로 중복되기 시작하면.
 
 ## 결과 (Consequences)
 
 - **PoC 검증됨**(`eval/poc-deepeval/`): work-evaluator "범위" 축 1개를 G-Eval metric으로 이식, 골든 2건. judge는 로컬 Claude Code(`claude -p`)를 `DeepEvalBaseLLM`으로 감싸 **Anthropic API 키 없이** 구독 자격으로 채점(spawn 시 `--strict-mcp-config`로 serena 등 MCP 비활성화). 실측: `Pass Rate 50%` — in-scope golden PASS / scope-creep golden FAIL. → D1의 "`deepeval test run`이 executable verifier가 된다" 가설 end-to-end 입증.
 - **남는 비용·미결**: Python 평가 하네스 의존 추가(TS 모노레포에 이질적). OpsPilot `start_run` 출력 → DeepEval golden 어댑터 위치 미정. 라벨 누적 저장소(vault `raw/` vs DeepEval 데이터셋) 미정. judge spawn(claude -p)은 API 대비 느려 대량 Pass^k엔 API judge가 유리.
-- **승격 조건**: "관계" 절의 머신 스코어러 분담 미결을 사람이 확정 → `Accepted`.
+- **승격 기록**: 분담을 분리 유지로 확정(2026-06-11) → `Accepted`.
 
 ## 내부 선례 (Related)
 
