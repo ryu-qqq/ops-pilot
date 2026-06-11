@@ -1,9 +1,9 @@
 # agent-crew 핀 — OpsPilot sync_agent_crew 로 갱신
-version: v0.15.0
-commit: c6eef6095e5b8ad317037340532e4c2db9de1bf9
+version: v0.16.0
+commit: c473a7e7481fa313ef5cc6634d4a499f2a0d3eae
 source: git@github.com:ryu-qqq/agent-crew.git
-tag: v0.15.0
-syncedAt: "2026-06-10T08:37:39.640Z"
+tag: v0.16.0
+syncedAt: "2026-06-11T02:19:21.437Z"
 includes:
   - agents/
   - skills/
@@ -57,5 +57,6 @@ syncedFiles:
   - .claude/skills/journal/SKILL.md
   - .claude/skills/opspilot-crew/SKILL.md
   - .claude/skills/pr-review-triage/SKILL.md
+  - .claude/skills/review-ledger/SKILL.md
   - .claude/skills/test-plan/SKILL.md
   - .claude/skills/tf-import/SKILL.md
