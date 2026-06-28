@@ -1,0 +1,29 @@
+services:
+  server:
+    build: .
+    image: opspilot-local
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: "3001"
+      OPS_DB_PATH: /data/opspilot.sqlite
+      OPS_AGENT_CREW_PATH: /srv/agent-crew
+    volumes:
+      - opspilot-data:/data
+      - ${CONNECTLY_PATH}:/srv/connectly
+      - ${AGENT_CREW_PATH}:/srv/agent-crew:ro
+    restart: unless-stopped
+
+  web:
+    image: opspilot-local
+    entrypoint: ["corepack", "pnpm", "--filter", "@opspilot/web", "preview", "--host", "0.0.0.0", "--port", "5173"]
+    ports:
+      - "5173:5173"
+    environment:
+      OPS_API_TARGET: http://server:3001
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  opspilot-data:
