@@ -38,11 +38,3 @@ export function runStatusVariant(status: string): BadgeVariant {
   }
 }
 
-/**
- * trigger → 색. auto=차분한 회색 톤(secondary), manual=중립 외곽선(outline).
- * 흰/밝은 default 톤이 거슬린다는 2차 피드백 반영 — TriggerBadge(trigger-badge.tsx)도
- * 같은 secondary 톤으로 통일해 work 카드·상세·proposal 에서 auto 표현이 일관되게 한다.
- */
-export function triggerVariant(trigger: string): BadgeVariant {
-  return trigger === "auto" ? "secondary" : "outline";
-}

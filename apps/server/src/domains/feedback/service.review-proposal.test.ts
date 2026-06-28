@@ -4,6 +4,7 @@ import { closeDb, getDb } from "../../db/index.js";
 import { migrate } from "../../db/migrate.js";
 import { ingestReviewProposal } from "./service.js";
 import { listProposalsByIngestId } from "./repository.js";
+import { applyProposal, FeedbackProposalError } from "./proposal-service.js";
 
 const TMP = "/tmp/opspilot-review-proposal.sqlite";
 
@@ -53,4 +54,24 @@ it("throws NotFound for an unknown project", () => {
       scenarioId: null,
     }),
   ).toThrow(/not found/i);
+});
+
+it("approve 없이 draft proposal을 apply 하면 InvalidState를 던진다 (HITL 경계)", () => {
+  const { proposalId } = ingestReviewProposal({
+    projectId: "p1",
+    targetKind: "skill",
+    targetPath: "skills/foo/SKILL.md",
+    rationale: "HITL 경계 회귀 테스트",
+    content: "수정 초안",
+    review: { prNumber: 99, repo: "o/r", commentUrl: "https://x", reviewer: "rv", mistakeType: "naming" },
+    scenarioId: null,
+  });
+  expect(() => applyProposal(proposalId)).toThrow(FeedbackProposalError);
+  let err: FeedbackProposalError | undefined;
+  try {
+    applyProposal(proposalId);
+  } catch (e) {
+    err = e as FeedbackProposalError;
+  }
+  expect(err?.code).toBe("InvalidState");
 });
