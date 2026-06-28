@@ -7,6 +7,7 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 COPY packages/shared-types/package.json packages/shared-types/
+COPY packages/config/package.json packages/config/
 RUN corepack pnpm install --frozen-lockfile
 # 소스 복사 후 전체 빌드(better-sqlite3 는 install 시 네이티브 컴파일됨)
 COPY . .
