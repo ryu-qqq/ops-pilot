@@ -1,4 +1,3 @@
-// @ts-nocheck — vitest 는 이 패키지 devDependency에 없음(서버 패키지 소유). tsc 는 건너뛰고 vitest 런타임이 직접 실행.
 import { expect, it } from "vitest";
 import { reviewProposalRequestSchema, ingestTriggerSchema } from "./domain.js";
 
