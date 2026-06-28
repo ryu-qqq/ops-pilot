@@ -31,6 +31,8 @@ export function TriggerBadge({
       title={
         trigger === "auto"
           ? "사람 개입 없이 30분 주기 스캔이 자동으로 만든 작업"
+          : trigger === "pr_review"
+          ? "PR 코드리뷰 코멘트에서 자동 생성된 작업 — eval run 없음"
           : "사람이 직접 만든 작업"
       }
     >

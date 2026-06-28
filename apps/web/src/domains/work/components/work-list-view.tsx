@@ -22,9 +22,9 @@ import { mergeWorkItems } from "../lib/merge-work-items";
 import {
   ingestStatusVariant,
   runStatusVariant,
-  triggerVariant,
 } from "../lib/badge-variant";
 import type { WorkItem, WorkSelection } from "../types";
+import { TriggerBadge } from "../../feedback/components/trigger-badge";
 import { WorkDetailIngest, WorkDetailRun } from "./work-detail-view";
 
 interface Props {
@@ -272,12 +272,7 @@ function WorkSection({
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Badge
-                      variant={triggerVariant(item.ingest.trigger)}
-                      className="px-1.5 py-0 text-[10px]"
-                    >
-                      {item.ingest.trigger}
-                    </Badge>
+                    <TriggerBadge trigger={item.ingest.trigger} />
                     {(() => {
                       // 커밋 메타(날짜·저자) — 옛 ingest 는 null/undefined 라 줄 자체를 생략(graceful).
                       const meta = formatCommitMeta(
