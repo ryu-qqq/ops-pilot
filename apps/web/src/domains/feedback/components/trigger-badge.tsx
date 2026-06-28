@@ -1,4 +1,4 @@
-import { Bot, Hand } from "lucide-react";
+import { Bot, GitPullRequest, Hand } from "lucide-react";
 import type { IngestTrigger } from "@opspilot/shared-types";
 import { Badge } from "../../../components/ui/badge";
 import { cn } from "../../../lib/utils";
@@ -9,6 +9,7 @@ import { cn } from "../../../lib/utils";
 const triggerConfig: Record<IngestTrigger, { variant: "secondary" | "outline"; label: string; Icon: typeof Bot }> = {
   auto: { variant: "secondary", label: "자동", Icon: Bot },
   manual: { variant: "outline", label: "수동", Icon: Hand },
+  pr_review: { variant: "outline", label: "PR리뷰", Icon: GitPullRequest },
 };
 
 export function TriggerBadge({
