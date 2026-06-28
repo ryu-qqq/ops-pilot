@@ -144,7 +144,7 @@ export function mergeIngestContext(id: string, patch: Partial<IngestBundleContex
 
 export interface NewImprovementProposal {
   ingestId: string;
-  runId: string;
+  runId: string | null;
   targetKind: ImprovementProposal["targetKind"];
   targetPath: string;
   rationale: string;
