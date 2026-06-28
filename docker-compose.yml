@@ -2,16 +2,18 @@ services:
   server:
     build: .
     image: opspilot-local
+    # macOS 기준 root 실행(named volume /data 쓰기 + Docker Desktop bind 매핑).
+    # Linux 에선 호스트 bind 마운트에 root-owned 파일이 생기므로 아래를 켜고
+    # named volume 권한을 정합시키세요(.env 에 HOST_UID/HOST_GID 추가):
+    #   user: "${HOST_UID}:${HOST_GID}"
     ports:
       - "3001:3001"
     environment:
       PORT: "3001"
       OPS_DB_PATH: /data/opspilot.sqlite
-      OPS_AGENT_CREW_PATH: /srv/agent-crew
     volumes:
       - opspilot-data:/data
       - ${CONNECTLY_PATH}:/srv/connectly
-      - ${AGENT_CREW_PATH}:/srv/agent-crew:ro
     restart: unless-stopped
 
   web:
