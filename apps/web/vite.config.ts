@@ -11,4 +11,9 @@ export default defineConfig({
     // 백엔드(Fastify) 프록시 — 프론트는 /api 로만 호출.
     proxy: { "/api": apiTarget },
   },
+  preview: {
+    host: true,
+    port: 5173,
+    proxy: { "/api": apiTarget },
+  },
 });

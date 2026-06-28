@@ -28,7 +28,7 @@ export async function buildApp() {
   });
 
   await app.register(autoload, { dir: join(import.meta.dirname, "plugins") });
-  await app.register(autoload, { dir: join(import.meta.dirname, "routes") });
+  await app.register(autoload, { dir: join(import.meta.dirname, "routes"), ignorePattern: /\.test\.[tj]s$/ });
 
   return app;
 }
