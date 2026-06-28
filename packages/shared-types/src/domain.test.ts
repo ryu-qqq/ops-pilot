@@ -17,3 +17,15 @@ it("reviewProposalRequestSchema parses a valid review proposal", () => {
   expect(ok.review.prNumber).toBe(12);
   expect(ok.scenarioId ?? null).toBeNull();
 });
+
+it("reviewProposalRequestSchema allows missing commentUrl", () => {
+  const ok = reviewProposalRequestSchema.parse({
+    projectId: "11111111-1111-1111-1111-111111111111",
+    targetKind: "skill",
+    targetPath: "skills/foo/SKILL.md",
+    rationale: "r",
+    content: "c",
+    review: { prNumber: 1, repo: "o/r", reviewer: "rv", mistakeType: "naming" },
+  });
+  expect(ok.review.commentUrl).toBe("");
+});

@@ -456,7 +456,7 @@ export type ImprovementTargetKind = z.infer<typeof improvementTargetKindSchema>;
 export const reviewProvenanceSchema = z.object({
   prNumber: z.number().int(),
   repo: z.string().min(1),
-  commentUrl: z.string().min(1),
+  commentUrl: z.string().optional().default(""),
   reviewer: z.string().min(1),
   mistakeType: z.string().min(1),
 });
