@@ -70,8 +70,11 @@ function reconcileIngestTriggerPrReview(db: ReturnType<typeof getDb>): void {
       CREATE INDEX IF NOT EXISTS idx_ingest_bundle_status ON ingest_bundle (status);
     `);
   });
-  tx();
-  db.exec("PRAGMA foreign_keys=ON;");
+  try {
+    tx();
+  } finally {
+    db.exec("PRAGMA foreign_keys=ON;");
+  }
 }
 
 // ADR 0003 (D1): scenario.source · run.source 컬럼 추가(평가 설계 산출 경로 asset|baked).
