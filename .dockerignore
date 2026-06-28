@@ -1,0 +1,11 @@
+node_modules
+**/node_modules
+**/dist
+*.sqlite
+*.sqlite-*
+*.sqlite.bak*
+.git
+.playwright-mcp
+.superpowers
+.bootstrap-logs
+docs
