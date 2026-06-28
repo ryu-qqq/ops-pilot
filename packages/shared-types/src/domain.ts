@@ -371,7 +371,7 @@ export type NotionPageDetail = z.infer<typeof notionPageDetailSchema>;
 // ADR 0004 (3D): 자동/수동 ingest provenance. ADR 0003 D1 의 run.source(asset|baked)
 // 와는 별 차원 — 평가 설계 경로가 아니라 "ingest 진입이 자동(주기 스캔)인가 수동인가".
 // 별 컬럼(ingest_bundle.ingest_trigger)으로 분리해 ADR 0003 A/B 측정축 오염을 회피한다.
-export const ingestTriggerSchema = z.enum(["auto", "manual"]);
+export const ingestTriggerSchema = z.enum(["auto", "manual", "pr_review"]);
 export type IngestTrigger = z.infer<typeof ingestTriggerSchema>;
 
 // TASK-5 MVP: Cursor 작업 ingest + evaluator 개선안.
@@ -452,6 +452,16 @@ export const improvementTargetKindSchema = z.enum([
 ]);
 export type ImprovementTargetKind = z.infer<typeof improvementTargetKindSchema>;
 
+// PR 리뷰 출처 정보. reviewProposalRequestSchema 와 IngestBundleContext 양쪽에서 재사용.
+export const reviewProvenanceSchema = z.object({
+  prNumber: z.number().int(),
+  repo: z.string().min(1),
+  commentUrl: z.string(),
+  reviewer: z.string().min(1),
+  mistakeType: z.string().min(1),
+});
+export type ReviewProvenance = z.infer<typeof reviewProvenanceSchema>;
+
 export const ingestBundleContextSchema = z.object({
   retro: z.string().optional(),
   commitSubject: z.string().optional(),
@@ -469,6 +479,10 @@ export const ingestBundleContextSchema = z.object({
   reviewSummary: z.string().optional(),
   skipReviewReason: z.string().optional(),
   proposalReviews: z.record(z.string(), proposalReviewMetaSchema).optional(),
+  // PR 리뷰 출처(pr_review trigger 시 채워짐). 후속 Task 3 서비스가 context 를 채운다.
+  review: reviewProvenanceSchema.optional(),
+  // 출처 시나리오 ID(PR 리뷰 → proposal 연결 추적용).
+  scenarioId: z.string().uuid().nullable().optional(),
 });
 export type IngestBundleContext = z.infer<typeof ingestBundleContextSchema>;
 
@@ -502,6 +516,25 @@ export const improvementProposalSchema = z.object({
   crewBound: z.boolean().optional(),
 });
 export type ImprovementProposal = z.infer<typeof improvementProposalSchema>;
+
+// PR 리뷰 출처 기반 improvement proposal 요청/응답 스키마.
+// ingest_trigger='pr_review' 경로의 단일 진입 표면(서버 POST /feedback/review-proposal 예정).
+export const reviewProposalRequestSchema = z.object({
+  projectId: z.string().uuid(),
+  targetKind: improvementProposalSchema.shape.targetKind,
+  targetPath: z.string().min(1),
+  rationale: z.string().min(1),
+  content: z.string().min(1),
+  review: reviewProvenanceSchema,
+  scenarioId: z.string().uuid().nullable().default(null),
+});
+export type ReviewProposalRequest = z.infer<typeof reviewProposalRequestSchema>;
+
+export const reviewProposalResponseSchema = z.object({
+  ingestId: z.string(),
+  proposalId: z.string(),
+});
+export type ReviewProposalResponse = z.infer<typeof reviewProposalResponseSchema>;
 
 /**
  * 프로젝트 전역 proposal 큐 항목. 기존 proposal 필드 + 출처 ingest 메타.

@@ -5,6 +5,7 @@ import {
   Ban,
   ChevronDown,
   ChevronRight,
+  ExternalLink,
   ListTree,
   RefreshCw,
   Share2,
@@ -32,8 +33,9 @@ import { HumanScore } from "../../run/components/human-score";
 import { RunRetro } from "../../run/components/run-retro";
 import { TraceView } from "../../run/components/trace-view";
 import { VerdictStrip } from "../../run/components/verdict-strip";
-import { ingestStatusVariant, runStatusVariant, triggerVariant } from "../lib/badge-variant";
+import { ingestStatusVariant, runStatusVariant } from "../lib/badge-variant";
 import { formatCommitMeta } from "../lib/commit-meta";
+import { TriggerBadge } from "../../feedback/components/trigger-badge";
 import { CommitDiffView } from "./commit-diff-view";
 
 /**
@@ -182,7 +184,7 @@ export function WorkDetailIngest({
         <h2 className="text-lg font-semibold">{title}</h2>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={ingestStatusVariant(data.status)}>{data.status}</Badge>
-          <Badge variant={triggerVariant(data.trigger)}>{data.trigger}</Badge>
+          <TriggerBadge trigger={data.trigger} />
           <span className="font-mono text-xs text-muted-foreground">
             {data.gitRef.slice(0, 12)}
           </span>
@@ -190,6 +192,40 @@ export function WorkDetailIngest({
             <span className="text-xs text-muted-foreground">{commitMeta}</span>
           )}
         </div>
+        {/* PR 리뷰 출처 — pr_review trigger 시 commentUrl·reviewer·mistakeType 표시. */}
+        {data.trigger === "pr_review" && data.contextJson.review != null && (() => {
+          const reviewUrl = data.contextJson.review.commentUrl;
+          const safeUrl = /^https?:\/\//i.test(reviewUrl) ? reviewUrl : null;
+
+          return (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span>
+                리뷰어:{" "}
+                <span className="text-foreground">{data.contextJson.review.reviewer}</span>
+              </span>
+              <span>
+                실수유형:{" "}
+                <span className="text-foreground">{data.contextJson.review.mistakeType}</span>
+              </span>
+              {safeUrl != null ? (
+                <a
+                  href={safeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-primary underline-offset-2 hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3 shrink-0" aria-hidden />
+                  PR 코멘트 보기
+                </a>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                  <ExternalLink className="h-3 w-3 shrink-0" aria-hidden />
+                  PR 코멘트 보기
+                </span>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* 핵심(항상 펼침): 판정 한 줄 — VerdictStrip 은 외부 컴포넌트라 wrapper div 가 투어 타겟. */}

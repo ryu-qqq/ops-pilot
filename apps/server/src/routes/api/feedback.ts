@@ -10,6 +10,8 @@ import {
   ingestBundleDetailSchema,
   ingestBundleListResponseSchema,
   proposalWithSourceSchema,
+  reviewProposalRequestSchema,
+  reviewProposalResponseSchema,
 } from "@opspilot/shared-types";
 import { getAutoIngestConfig } from "../../domains/feedback/auto-ingest.js";
 import {
@@ -17,6 +19,7 @@ import {
   evaluateFeedbackIngest,
   getIngestDetail,
   ingestFeedback,
+  ingestReviewProposal,
   listIngestsByProject,
   reprocessFeedbackIngest,
   reprocessReviewFeedbackIngest,
@@ -62,6 +65,27 @@ const feedback: FastifyPluginAsyncZod = async (fastify) => {
             return reply.status(404).send({ error: "NotFound", detail: e.message });
           }
           return reply.status(400).send({ error: e.code, detail: e.message });
+        }
+        throw e;
+      }
+    },
+  );
+
+  fastify.post(
+    "/feedback/review-proposal",
+    {
+      schema: {
+        body: reviewProposalRequestSchema,
+        response: { 200: reviewProposalResponseSchema, 400: errorSchema, 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      try {
+        return ingestReviewProposal(req.body);
+      } catch (e) {
+        if (e instanceof FeedbackIngestError) {
+          const code = e.code === "NotFound" ? 404 : 400;
+          return reply.status(code).send({ error: e.code, detail: e.message });
         }
         throw e;
       }

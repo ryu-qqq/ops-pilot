@@ -1,4 +1,4 @@
-import type { FeedbackIngestRequest, IngestBundleDetail } from "@opspilot/shared-types";
+import type { FeedbackIngestRequest, IngestBundleDetail, ReviewProposalRequest } from "@opspilot/shared-types";
 import { readAgentCrewLock } from "../agent-crew/sync.js";
 import { getProject } from "../project/repository.js";
 import {
@@ -11,9 +11,10 @@ import { assertCommitSubjectForIngest } from "./commit-format.js";
 import { classifyProposalTarget } from "./classify-target.js";
 import { queueFeedbackEval, reprocessFeedbackEval, type FeedbackEvalSource } from "./eval-queue.js";
 import { queueProposalReview, reprocessProposalReview } from "./review-queue.js";
-import { createIngestBundle, getIngestBundle, listIngestBundlesByProject, listProposalsByIngestId } from "./repository.js";
+import { createIngestBundle, createImprovementProposal, getIngestBundle, listIngestBundlesByProject, listProposalsByIngestId } from "./repository.js";
 import { readTranscriptExcerpt } from "./transcript.js";
 import { getAutoEval } from "../setting/repository.js";
+import { getDb } from "../../db/index.js";
 
 export class FeedbackIngestError extends Error {
   constructor(
@@ -195,4 +196,36 @@ export async function reprocessReviewFeedbackIngest(id: string): Promise<IngestB
     throw new FeedbackIngestError("EvalSetupError", "ingest row lost after review reprocess");
   }
   return detail;
+}
+
+/**
+ * PR 리뷰 출처 기반 ingest — eval 스킵(사람이 이미 판단).
+ * ingest_trigger='pr_review', status='done' 번들 + 'draft' proposal을 단일 트랜잭션으로 생성.
+ */
+export function ingestReviewProposal(
+  input: ReviewProposalRequest,
+): { ingestId: string; proposalId: string } {
+  if (!getProject(input.projectId)) {
+    throw new FeedbackIngestError("NotFound", `project not found: ${input.projectId}`);
+  }
+  return getDb().transaction(() => {
+    const bundle = createIngestBundle({
+      projectId: input.projectId,
+      notionTaskUrl: null,
+      gitRef: `pr-${input.review.prNumber}`,
+      diffSummary: `PR #${input.review.prNumber}: ${input.review.mistakeType}`,
+      contextJson: { review: input.review, scenarioId: input.scenarioId ?? null },
+      trigger: "pr_review",
+      status: "done",
+    });
+    const proposal = createImprovementProposal({
+      ingestId: bundle.id,
+      runId: null,
+      targetKind: input.targetKind,
+      targetPath: input.targetPath,
+      rationale: input.rationale,
+      content: input.content,
+    });
+    return { ingestId: bundle.id, proposalId: proposal.id };
+  })();
 }

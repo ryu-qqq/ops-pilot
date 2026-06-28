@@ -15,6 +15,7 @@ export function migrate(dbPath?: string): void {
   reconcileImprovementProposalTargetKind(db);
   reconcileIngestBundleStatus(db);
   reconcileIngestTrigger(db);
+  reconcileIngestTriggerPrReview(db);
   reconcileProjectWorkspaceMode(db);
   reconcileScenarioSource(db);
   reconcileRunSource(db);
@@ -33,6 +34,46 @@ function reconcileIngestTrigger(db: ReturnType<typeof getDb>): void {
       `ALTER TABLE ingest_bundle ADD COLUMN ingest_trigger TEXT NOT NULL DEFAULT 'manual'
          CHECK (ingest_trigger IN ('auto', 'manual'))`,
     );
+  }
+}
+
+// ingest_trigger CHECK 에 'pr_review' 추가(리뷰 출처). 기존 DB 는 CHECK 변경 불가라 재구성.
+// 멱등: sql 에 'pr_review' 가 이미 있으면 skip. reconcileIngestTrigger(컬럼 보장) 뒤에 호출.
+function reconcileIngestTriggerPrReview(db: ReturnType<typeof getDb>): void {
+  const row = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='ingest_bundle'")
+    .get() as { sql: string } | undefined;
+  if (!row || row.sql.includes("'pr_review'")) return;
+
+  db.exec("PRAGMA foreign_keys=OFF;");
+  const tx = db.transaction(() => {
+    db.exec(`
+      CREATE TABLE ingest_bundle__new (
+        id              TEXT PRIMARY KEY,
+        project_id      TEXT NOT NULL REFERENCES project (id) ON DELETE CASCADE,
+        notion_task_url TEXT,
+        git_ref         TEXT NOT NULL,
+        diff_summary    TEXT NOT NULL,
+        context_json    TEXT NOT NULL,
+        status          TEXT NOT NULL DEFAULT 'pending'
+                        CHECK (status IN ('pending', 'evaluating', 'done', 'reviewing', 'reviewed', 'failed')),
+        ingest_trigger  TEXT NOT NULL DEFAULT 'manual'
+                        CHECK (ingest_trigger IN ('auto', 'manual', 'pr_review')),
+        created_at      TEXT NOT NULL
+      );
+      INSERT INTO ingest_bundle__new
+        SELECT id, project_id, notion_task_url, git_ref, diff_summary, context_json, status, ingest_trigger, created_at
+        FROM ingest_bundle;
+      DROP TABLE ingest_bundle;
+      ALTER TABLE ingest_bundle__new RENAME TO ingest_bundle;
+      CREATE INDEX IF NOT EXISTS idx_ingest_bundle_project ON ingest_bundle (project_id);
+      CREATE INDEX IF NOT EXISTS idx_ingest_bundle_status ON ingest_bundle (status);
+    `);
+  });
+  try {
+    tx();
+  } finally {
+    db.exec("PRAGMA foreign_keys=ON;");
   }
 }
 

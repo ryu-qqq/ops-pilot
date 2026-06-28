@@ -1,4 +1,4 @@
-import { Bot, Hand } from "lucide-react";
+import { Bot, GitPullRequest, Hand } from "lucide-react";
 import type { IngestTrigger } from "@opspilot/shared-types";
 import { Badge } from "../../../components/ui/badge";
 import { cn } from "../../../lib/utils";
@@ -9,6 +9,7 @@ import { cn } from "../../../lib/utils";
 const triggerConfig: Record<IngestTrigger, { variant: "secondary" | "outline"; label: string; Icon: typeof Bot }> = {
   auto: { variant: "secondary", label: "자동", Icon: Bot },
   manual: { variant: "outline", label: "수동", Icon: Hand },
+  pr_review: { variant: "outline", label: "PR리뷰", Icon: GitPullRequest },
 };
 
 export function TriggerBadge({
@@ -30,6 +31,8 @@ export function TriggerBadge({
       title={
         trigger === "auto"
           ? "사람 개입 없이 30분 주기 스캔이 자동으로 만든 작업"
+          : trigger === "pr_review"
+          ? "PR 코드리뷰 코멘트에서 자동 생성된 작업 — eval run 없음"
           : "사람이 직접 만든 작업"
       }
     >
