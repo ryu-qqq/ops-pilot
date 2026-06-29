@@ -20,7 +20,8 @@ services:
     image: opspilot-local
     entrypoint: ["corepack", "pnpm", "--filter", "@opspilot/web", "preview", "--host", "0.0.0.0", "--port", "5173"]
     ports:
-      - "5173:5173"
+      # 호스트 포트는 OPS_WEB_PORT 로 조정(기본 5174 — Vite 기본 5173 과 충돌 회피, 백오피스 등). 컨테이너 내부는 5173 고정.
+      - "${OPS_WEB_PORT:-5174}:5173"
     environment:
       OPS_API_TARGET: http://server:3001
     depends_on:
