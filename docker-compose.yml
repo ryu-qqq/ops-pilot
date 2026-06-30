@@ -11,9 +11,16 @@ services:
     environment:
       PORT: "3001"
       OPS_DB_PATH: /data/opspilot.sqlite
+      # 세션 스캐너(usage/work-metric)가 읽을 Claude transcript 경로. 컨테이너 내 마운트 지점.
+      OPS_CLAUDE_PROJECTS_DIR: /host-claude-projects
+      # 자동 ingest: 등록 프로젝트 clone 의 신규 커밋을 "작업" 대기열에 적재(git diff 만, 토큰 0).
+      # 평가(LLM)까지 자동화는 별도 autoEval setting 이 가드 — 기본 off 라 여기선 대기까지만 쌓인다.
+      OPS_AUTO_INGEST: "1"
     volumes:
       - opspilot-data:/data
       - ${CONNECTLY_PATH}:/srv/connectly
+      # 호스트 ~/.claude/projects 를 읽기전용 마운트 — 작업/활동/Toolkit 세션 집계 소스.
+      - ${CLAUDE_PROJECTS_PATH}:/host-claude-projects:ro
     restart: unless-stopped
 
   web:
