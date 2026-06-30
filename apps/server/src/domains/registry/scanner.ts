@@ -49,8 +49,9 @@ export function currentGitRef(root: string): string | null {
 }
 
 // 한 파일의 git 이력 → 커밋별 스냅샷. --follow 로 rename 추적.
+// git 이력이 비면(untracked / .gitignore 된 개인 하네스) working-tree 파일로 폴백한다.
 function versionsOf(repoPath: string, relPath: string, currentRef: string | null): ScannedVersion[] {
-  let log: string;
+  let log = "";
   try {
     log = git(repoPath, [
       "log",
@@ -61,30 +62,64 @@ function versionsOf(repoPath: string, relPath: string, currentRef: string | null
       relPath,
     ]);
   } catch {
-    return [];
+    // git log 실패(레포 아님 등) — 아래 working-tree 폴백으로.
   }
-  if (!log) return [];
 
   const versions: ScannedVersion[] = [];
-  for (const line of log.split("\n")) {
-    const [commit, committedAt, message] = line.split("\x1f");
-    if (!commit || !committedAt) continue;
-    let content: string;
-    try {
-      content = git(repoPath, ["show", `${commit}:${relPath}`]);
-    } catch {
-      continue;
+  if (log) {
+    for (const line of log.split("\n")) {
+      const [commit, committedAt, message] = line.split("\x1f");
+      if (!commit || !committedAt) continue;
+      let content: string;
+      try {
+        content = git(repoPath, ["show", `${commit}:${relPath}`]);
+      } catch {
+        continue;
+      }
+      versions.push({
+        gitCommit: commit,
+        gitRef: currentRef,
+        committedAt: new Date(committedAt).toISOString(),
+        commitMessage: message ?? null,
+        content,
+        contentHash: sha256(content),
+      });
     }
-    versions.push({
-      gitCommit: commit,
-      gitRef: currentRef,
-      committedAt: new Date(committedAt).toISOString(),
-      commitMessage: message ?? null,
-      content,
-      contentHash: sha256(content),
-    });
   }
+
+  if (versions.length === 0) return workingTreeFallback(repoPath, relPath, currentRef);
   return versions;
+}
+
+// git 이력이 없는 자산(.gitignore / untracked)의 디스크 본문을 단일 "uncommitted" 버전으로.
+// gitCommit 은 content 해시 기반 sentinel(working-tree:<hash>) — 동일 본문 재스캔은
+// ON CONFLICT(asset_id, git_commit) 로 멱등, 본문이 바뀌면 mtime 이 최신인 새 행이 잡힌다.
+// 이 버전은 표시·lint·평가입력 용도이며, 격리 worktree 실행은 붙일 커밋이 없어 불가하다.
+function workingTreeFallback(
+  repoPath: string,
+  relPath: string,
+  currentRef: string | null,
+): ScannedVersion[] {
+  const filePath = join(repoPath, relPath);
+  let content: string;
+  let committedAt: string;
+  try {
+    content = readFileSync(filePath, "utf8");
+    committedAt = statSync(filePath).mtime.toISOString();
+  } catch {
+    return [];
+  }
+  const contentHash = sha256(content);
+  return [
+    {
+      gitCommit: `working-tree:${contentHash.slice(0, 12)}`,
+      gitRef: currentRef,
+      committedAt,
+      commitMessage: "(uncommitted — working tree)",
+      content,
+      contentHash,
+    },
+  ];
 }
 
 function parseMeta(filePath: string, fallbackName: string): { name: string; description: string | null } {
